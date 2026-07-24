@@ -1,5 +1,7 @@
 # ローカル3Dアセットマネージャー 要件定義書
 
+用語は [CONTEXT.md](./CONTEXT.md) の定義に従う。主要な設計決定の経緯は [docs/adr/](./docs/adr/) を参照。
+
 ## 1. 概要
 
 ### 目的
@@ -10,11 +12,12 @@ Blenderで制作した3DアセットをローカルPC上で一元管理するた
 
 - アセットの一覧表示
 - 検索・フィルタリング
+- タグ編集
 - Three.jsによるプレビュー
+- アセット内ファイルの閲覧(テクスチャ・リファレンス・レンダー・ノート)
 - Blenderとの連携
-- GLB生成
-- サムネイル生成
-- メタデータ管理
+- GLB・サムネイル・抽出メタデータの生成
+- スキャンによるインデックス更新
 
 本システムはローカル環境で動作し、インターネット接続を必要としない。
 
@@ -49,35 +52,32 @@ Go Backend
 |3D変換|Blender CLI|
 |画像生成|Blender Python Script|
 
+### 配布・起動形態
+
+- ビルド済みフロントエンドを `go:embed` で埋め込んだ**単一 Go バイナリ**として配布する
+- 起動すると `127.0.0.1` の固定ポートで待ち受け、デフォルトブラウザを自動で開く
+- `0.0.0.0` にはバインドしない(認証を持たないローカル専用アプリのため、LAN への露出は禁止)
+- フロントとバックの分離は開発時のみ(Vite dev server + Go)
+
 ---
 
 # 4. ディレクトリ構成
 
 ```
-3DLibrary/
+3DLibrary/                 ← ライブラリディレクトリ(設定で指定)
 
 ├── source/
-│   ├── Characters/
+│   ├── Characters/        ← カテゴリ(例示。固定ではない)
 │   ├── Props/
-│   ├── Environment/
-│   └── Vehicles/
+│   └── .../
 │
 ├── cache/
 │   ├── glb/
 │   ├── thumbnails/
 │   └── metadata/
 │
-├── exports/
-│   ├── glb/
-│   ├── fbx/
-│   ├── obj/
-│   └── usd/
-│
 ├── templates/
-│   ├── empty.blend
-│   ├── character.blend
-│   ├── environment.blend
-│   └── vehicle.blend
+│   └── empty.blend        ← 初期化時にアプリが配置
 │
 └── database.db
 ```
@@ -86,11 +86,18 @@ Go Backend
 
 |ディレクトリ|用途|
 |------------|------|
-|source|編集対象となる.blendファイル|
-|cache|GLB・サムネイルなど再生成可能なデータ|
-|exports|ユーザーが書き出した成果物|
-|templates|新規作成用テンプレート|
-|database.db|SQLiteデータベース|
+|source|唯一の正。.blendファイルとアセットメタ(meta.json)|
+|cache|GLB・サムネイル・抽出メタデータなど再生成可能なデータ|
+|templates|新規作成用テンプレート(.blendを置くだけで追加できる)|
+|database.db|検索用インデックス(SQLite)。いつでも再構築可能|
+
+### ライブラリ初期化
+
+設定でライブラリディレクトリを指定した際、中身が空であれば骨格(`source/` `cache/` `templates/`)を自動作成し、アプリに同梱した最小限の `empty.blend` を `templates/` に書き込む。
+
+### カテゴリ
+
+カテゴリは **source 直下のディレクトリ**であり、固定の集合ではない。ユーザーが新規作成ダイアログまたは Finder/Explorer で自由に増やす。スキャンが発見したものがすべてである。
 
 ---
 
@@ -98,69 +105,63 @@ Go Backend
 
 ```
 Props/
-
 └── Wooden Chair/
-    ├── model.blend
+    ├── model.blend        ← 必須。これが無いと不完全アセット
+    ├── meta.json          ← アセットメタ(タグ)。初回タグ付け時に作成
     ├── textures/
     ├── references/
     ├── renders/
     └── notes.md
 ```
 
-アセットごとにディレクトリを作成する。
+- **カテゴリディレクトリ直下のディレクトリ = 1アセット**。それより深い階層はアセットの私有物であり、スキャンは関知しない
+- **タイトル = アセットディレクトリ名**、**カテゴリ = 親ディレクトリ名**。meta.json には持たない(ディレクトリ構造が正)
+- `model.blend` を持たないディレクトリは**不完全アセット**として一覧に警告付きで表示し、プレビュー・生成・Blender起動を無効にする
+
+### meta.json(アセットメタ)
+
+ユーザー編集データの保存先。ソースの一部であり、バックアップ・復元の対象。
+
+```json
+{
+  "tags": ["furniture", "wood"]
+}
+```
+
+- 現状はタグのみ。将来のレーティング・コメント等もここに追加する([ADR-0001](./docs/adr/0001-user-data-in-meta-json.md))
+- ファイルが無い場合はタグ空として扱い、最初にタグを付けた時に作成する
 
 ---
 
 # 6. データベース設計
 
+DB は**純粋なインデックス**であり、ソースから全内容を再構築できる。ユーザーデータは一切持たない([ADR-0001](./docs/adr/0001-user-data-in-meta-json.md))。
+
 ## assets
 
 |項目|説明|
 |------|------|
-|id|ID|
-|title|タイトル|
-|category|カテゴリ|
+|id|ID(スキャンごとに変わりうる。永続参照に使わない)|
+|title|タイトル(= ディレクトリ名)|
+|category|カテゴリ(= 親ディレクトリ名)|
 |path|Blendファイル|
-|thumbnail_path|サムネイル|
-|glb_path|GLBファイル|
+|thumbnail_path|サムネイル(未生成ならNULL)|
+|glb_path|GLBファイル(未生成ならNULL)|
+|polygon_count|ポリゴン数(表示用。cache/metadata から取り込み。未生成ならNULL)|
 |size|サイズ|
-|updated_at|更新日時|
+|is_incomplete|不完全アセットか|
+|is_stale|キャッシュが陳腐化しているか|
+|updated_at|model.blendの更新日時|
 |created_at|作成日時|
 
----
+## tags / asset_tags
 
-## tags
+meta.json の内容をスキャン時に写し取った射影。
 
-|項目|
-|------|
-|id|
-|name|
-
----
-
-## asset_tags
-
-|項目|
-|------|
-|asset_id|
-|tag_id|
-
----
-
-## favorites
-
-|項目|
-|------|
-|asset_id|
-
----
-
-## history
-
-|項目|
-|------|
-|asset_id|
-|opened_at|
+|tags|asset_tags|
+|------|------|
+|id|asset_id|
+|name|tag_id|
 
 ---
 
@@ -168,11 +169,12 @@ Props/
 
 ## アセット一覧
 
-- カード表示
-- リスト表示
-- サムネイル表示
-
----
+- カード表示 / リスト表示
+- サムネイル表示(未生成はプレースホルダー + 生成ボタン)
+- カードにポリゴン数を表示(抽出メタデータ生成済みの場合のみ。未生成は「—」)
+- 不完全アセットの警告バッジ
+- 陳腐化バッジ(model.blend がキャッシュより新しい)
+- サムネイルは遅延読み込み
 
 ## 検索
 
@@ -181,69 +183,63 @@ Props/
 - カテゴリ検索
 - 更新日検索
 
----
+抽出メタデータ(Polygon数等)による絞り込みは将来機能。
+
+## タグ編集
+
+詳細画面でタグの追加・削除ができる。書き込み先はアセットの meta.json(インデックスも同時に更新)。
 
 ## プレビュー
 
-Three.jsによるGLB表示
+Three.jsによるGLB表示(回転・パン・ズーム)。
 
-対応操作
+- キャッシュ済みGLBを表示する。陳腐化している場合はバッジで示す
+- GLB未生成の場合は生成ボタンを表示
 
-- 回転
-- パン
-- ズーム
+## ファイルビューア
 
----
+詳細画面のタブで、アセットディレクトリ内のファイルを読み取り専用で閲覧できる。
+
+- textures / references / renders: 画像のグリッド表示
+- notes.md: Markdown表示
+- 「Finderで表示」ボタンで OS のファイルマネージャを開く
 
 ## Blender起動
 
-「Blenderで開く」ボタンからmodel.blendを起動する。
+「Blenderで開く」ボタンから、設定の Blender実行ファイルで model.blend を起動する。
 
----
+## スキャン
 
-## GLB生成
+インデックスをファイルシステムと一致させる軽量処理。
 
-Blender CLIを利用して
+- **トリガー**: アプリ起動時 + UI の手動「再スキャン」ボタン
+- source を歩き、アセットの追加・削除・変更(mtime)・meta.json のタグをインデックスに反映する
+- cache/metadata/ の JSON からポリゴン数等をインデックスに表示用として取り込む(検索対象にはしない)
+- 消えたアセットの行はインデックスから削除する(孤児キャッシュは放置してよい)
+- **Blender は起動しない**。source に対して**完全に読み取り専用**
+- 陳腐化判定: `model.blend` の mtime > キャッシュファイルの mtime
 
-```
-model.blend
-↓
+## 生成
 
-model.glb
-```
+1回の Blender 起動で、対象アセットの以下3点を**必ずまとめて**作る。
 
-を生成する。
+|成果物|保存先|
+|------|------|
+|GLB|cache/glb/|
+|サムネイル|cache/thumbnails/|
+|抽出メタデータ|cache/metadata/(JSON)|
 
-保存先
+- **トリガーは手動のみ**(MVPでは自動生成しない。将来は cron による定期実行)
+  - アセット単位の「生成」ボタン
+  - ライブラリ全体の「不足分を一括生成」(キャッシュがない or 陳腐化したアセットのみ対象)
+- ジョブは**直列キュー**(同時実行1)で処理する(Blender多重起動の防止)
+- 生成キューの状態(実行中のアセット・待機件数)を UI に表示する
 
-```
-cache/glb/
-```
+## 抽出メタデータ
 
----
+生成時に Blender Python Script で取得し、詳細画面に表示する(MVPでは表示専用)。
 
-## サムネイル生成
-
-Blender CLIによりサムネイル画像を生成する。
-
-保存先
-
-```
-cache/thumbnails/
-```
-
----
-
-## メタデータ取得
-
-Blender Python Scriptにより以下を取得する。
-
-- Object数
-- Collection数
-- Material数
-- Polygon数
-- Texture数
-- Animation有無
+- Object数 / Collection数 / Material数 / Polygon数 / Texture数 / Animation有無
 
 ---
 
@@ -252,49 +248,38 @@ Blender Python Scriptにより以下を取得する。
 ユーザーは以下を入力する。
 
 - タイトル
-- カテゴリ
-- テンプレート
+- カテゴリ(既存から選択 or 新規入力)
+- テンプレート(templates/ にある .blend から選択)
 
-作成時に
+作成時に以下を自動生成する。
 
 ```
 source/
-
-└── Props/
-    └── Wooden Chair/
-        ├── model.blend
+└── {カテゴリ}/
+    └── {タイトル}/
+        ├── model.blend    ← テンプレートのコピー
+        ├── meta.json      ← タグ空で作成
         ├── textures/
         ├── references/
         ├── renders/
         └── notes.md
 ```
 
-を自動生成する。
+### source への書き込み経路
 
-テンプレート.blendをコピーしてmodel.blendを生成する。
+アプリが source に書き込むのは**「新規アセット作成」と「タグ編集(meta.json)」の2つのみ**。リネーム・カテゴリ移動・削除は Finder/Explorer で行い、再スキャンで反映する(MVPではアプリから行えない)。既存 .blend の取り込みも同様に、Finder でアセットディレクトリを作って再スキャンする。
 
 ---
 
 # 9. テンプレート
 
-テンプレート一覧
-
-```
-templates/
-
-empty.blend
-character.blend
-environment.blend
-vehicle.blend
-```
+**`templates/` 直下の .blend ファイル = テンプレート**。固定リストではなく、ユーザーが .blend を置くだけで新規作成ダイアログに現れる。
 
 テンプレートには以下を保持できる。
 
-- Collection
-- Camera
-- Lighting
-- Render設定
-- World設定
+- Collection / Camera / Lighting / Render設定 / World設定
+
+ライブラリ初期化時にアプリ同梱の `empty.blend`(Blender 4.5 LTS で作成)が配置されるため、初回起動直後から新規作成が可能。
 
 ---
 
@@ -302,50 +287,40 @@ vehicle.blend
 
 ```
 cache/
-
-glb/
-
-thumbnails/
-
-metadata/
+├── glb/
+├── thumbnails/
+└── metadata/
 ```
 
-キャッシュは削除しても問題ない。
-
-必要に応じて再生成する。
+キャッシュは削除しても問題ない。削除・陳腐化したものは「不足分を一括生成」で再生成する。
 
 ---
 
-# 11. エクスポート
-
-対応予定フォーマット
-
-- GLB
-- FBX
-- OBJ
-- USD
-
-エクスポート先
-
-```
-exports/
-```
-
----
-
-# 12. 設定
+# 11. 設定
 
 設定画面で変更可能とする。
 
-- Blender実行ファイル
-- ライブラリディレクトリ
-- サムネイルサイズ
-- GLB出力先
-- テーマ
+|項目|備考|
+|------|------|
+|Blender実行ファイル|生成・Blender起動に使用|
+|ライブラリディレクトリ|変更時は再スキャン|
+|サムネイルサイズ|変更すると既存サムネイルは全て陳腐化する|
+|キャッシュの削除|cache/ を丸ごと削除する。再生成は「不足分を一括生成」で行う|
+|テーマ||
+
+### 保存場所
+
+設定はライブラリの**外**、OS標準の設定ディレクトリに保存する(`os.UserConfigDir()` 準拠)。
+
+|OS|パス|
+|------|------|
+|macOS|`~/Library/Application Support/3DLibrary/config.json`|
+|Windows|`%APPDATA%\3DLibrary\config.json`|
+|Linux(将来)|`~/.config/3DLibrary/config.json`|
 
 ---
 
-# 13. 将来機能
+# 12. 将来機能
 
 ## ライブラリ管理
 
@@ -353,24 +328,17 @@ exports/
 - NAS対応
 - 外付けSSD対応
 
----
+## 自動生成・同期
 
-## 自動同期
-
-- ファイル監視
-- 自動インデックス更新
-- 自動GLB生成
-- 自動サムネイル生成
-
----
+- cron等による「不足分を一括生成」の定期実行
+- ファイル監視による自動インデックス更新
 
 ## 検索強化
 
+- 抽出メタデータによる絞り込み(Polygon数、Animation有無等)
 - AIタグ付け
 - 類似アセット検索
 - 全文検索
-
----
 
 ## Blender連携
 
@@ -378,38 +346,44 @@ exports/
 - Blenderアドオン
 - ワンクリックインポート
 
----
-
 ## エクスポート
 
-- Unity向け
-- Unreal向け
+- GLB / FBX / OBJ / USD 書き出し(`exports/` ディレクトリ)
+- Unity向け / Unreal向けプリセット
 - 一括変換
 
----
+## アセット操作
+
+- アプリからのリネーム・カテゴリ移動・削除
 
 ## その他
 
 - お気に入り
 - 最近開いたアセット
-- レーティング
-- コメント
+- レーティング(meta.jsonに保存)
+- コメント(meta.jsonに保存)
 - プラグイン機構
 
 ---
 
-# 14. 非機能要件
+# 13. 非機能要件
 
 |項目|内容|
 |------|------|
-|対応OS|Windows / macOS（Linuxは将来対応）|
+|対応OS|Windows / macOS(Linuxは将来対応)|
+|Blender|4.5 LTS 以上(4.5 LTS と 5.1 でテストする)|
 |インターネット接続|不要|
 |オフライン動作|必須|
+|ネットワーク|127.0.0.1 のみバインド。LANに露出しない|
 |DB|SQLite|
 |キャッシュ|再生成可能|
-|レスポンス|一覧・検索は1秒以内を目標|
-|バックアップ|sourceディレクトリのみで復元可能|
-|データ保全|sourceを唯一の正しいデータ（ソース・オブ・トゥルース）とし、cacheとDBは再構築可能とする|
+|レスポンス|**5,000アセット規模**で一覧・検索1秒以内|
+|バックアップ|sourceディレクトリのみで復元可能(タグを含む)|
+|データ保全|sourceを唯一の正しいデータとし、cacheとDBは再構築可能とする|
+
+### Blender バージョンの注意
+
+.blend に後方互換はない(新しいBlenderで保存したファイルは古いBlenderで開けない場合がある)。設定の Blender実行ファイルには、**普段の編集に使っている最新側のバージョン**を指定すること。
 
 ---
 
@@ -417,9 +391,10 @@ exports/
 
 本システムでは以下の考え方を採用する。
 
-- **source** が唯一の正しいデータ（Source of Truth）
+- **source** が唯一の正しいデータ(Source of Truth)。タグを含むユーザーデータもここ(meta.json)に置く
+- アプリが source に書き込む経路は**新規作成とタグ編集の2つだけ**。スキャンは読み取り専用
 - **cache** はいつでも削除・再生成可能
-- **SQLite** は検索・高速表示のためのインデックスとして利用
+- **SQLite** は検索・高速表示のためのインデックス。ユーザーデータは持たず、いつでも再構築可能
 - **GLB** はThree.js表示用のキャッシュデータ
 - **Blender** は編集専用
 - **Three.js** は閲覧専用

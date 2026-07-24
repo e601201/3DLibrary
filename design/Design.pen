@@ -286,42 +286,6 @@
                       "fill": "$accent"
                     }
                   }
-                },
-                {
-                  "id": "UWnAE",
-                  "type": "ref",
-                  "ref": "qzLnR",
-                  "name": "Nav お気に入り",
-                  "width": "fill_container",
-                  "descendants": {
-                    "cmTss": {
-                      "icon": "star"
-                    },
-                    "X6ngCp": {
-                      "content": "お気に入り"
-                    },
-                    "zWQel": {
-                      "content": "12"
-                    }
-                  }
-                },
-                {
-                  "id": "QkvAh",
-                  "type": "ref",
-                  "ref": "qzLnR",
-                  "name": "Nav 最近",
-                  "width": "fill_container",
-                  "descendants": {
-                    "cmTss": {
-                      "icon": "clock"
-                    },
-                    "X6ngCp": {
-                      "content": "最近開いた"
-                    },
-                    "zWQel": {
-                      "content": "8"
-                    }
-                  }
                 }
               ]
             },
@@ -582,25 +546,34 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "HpWvJ",
-                  "name": "Cache Bar",
+                  "id": "uw8O7",
+                  "type": "ref",
+                  "ref": "naWHk",
+                  "name": "Rescan Btn",
                   "width": "fill_container",
-                  "height": 4,
-                  "fill": "$border",
-                  "layout": "none",
-                  "children": [
-                    {
-                      "type": "rectangle",
-                      "id": "M6uWj1",
-                      "x": 0,
-                      "y": 0,
-                      "name": "Cache Bar Fill",
-                      "fill": "$accent",
-                      "width": 120,
-                      "height": 4
+                  "descendants": {
+                    "rXUiQ": {
+                      "icon": "refresh-cw"
+                    },
+                    "UCxOH": {
+                      "content": "再スキャン"
                     }
-                  ]
+                  }
+                },
+                {
+                  "id": "l66SlM",
+                  "type": "ref",
+                  "ref": "naWHk",
+                  "name": "Bulk Gen Btn",
+                  "width": "fill_container",
+                  "descendants": {
+                    "rXUiQ": {
+                      "icon": "zap"
+                    },
+                    "UCxOH": {
+                      "content": "不足分を一括生成 (3)"
+                    }
+                  }
                 }
               ]
             },
@@ -764,6 +737,42 @@
                 },
                 {
                   "type": "frame",
+                  "id": "J9d5sL",
+                  "name": "Queue Status",
+                  "fill": "$surface-2",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "gap": 6,
+                  "padding": [
+                    8,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "qBEH5",
+                      "name": "Queue Spinner",
+                      "width": 13,
+                      "height": 13,
+                      "icon": "loader",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Z4XwMc",
+                      "name": "Queue Label",
+                      "fill": "$text-secondary",
+                      "content": "生成中 1/3",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "yctLa",
                   "name": "View Toggle",
                   "stroke": "$border",
@@ -910,23 +919,11 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871628284.png",
+                                "url": "images/generated-1784871628284.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
-                              "justifyContent": "end",
-                              "children": [
-                                {
-                                  "type": "icon",
-                                  "id": "cfJgy",
-                                  "name": "Fav Wooden Chair",
-                                  "width": 14,
-                                  "height": 14,
-                                  "icon": "star",
-                                  "library": "lucide",
-                                  "fill": "$accent"
-                                }
-                              ]
+                              "justifyContent": "end"
                             },
                             {
                               "type": "frame",
@@ -1033,7 +1030,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871629020.png",
+                                "url": "images/generated-1784871629020.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
@@ -1144,23 +1141,11 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871630383.png",
+                                "url": "images/generated-1784871630383.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
-                              "justifyContent": "end",
-                              "children": [
-                                {
-                                  "type": "icon",
-                                  "id": "c9a0a2",
-                                  "name": "Fav Android Soldier",
-                                  "width": 14,
-                                  "height": 14,
-                                  "icon": "star",
-                                  "library": "lucide",
-                                  "fill": "$accent"
-                                }
-                              ]
+                              "justifyContent": "end"
                             },
                             {
                               "type": "frame",
@@ -1267,11 +1252,49 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871630318.png",
+                                "url": "images/generated-1784871630318.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
-                              "justifyContent": "end"
+                              "justifyContent": "end",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "a3uRCk",
+                                  "name": "Stale Badge Vintage Truck",
+                                  "fill": "#0A0A0ACC",
+                                  "stroke": "#F59E0B",
+                                  "strokeWidth": 1,
+                                  "gap": 4,
+                                  "padding": [
+                                    4,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "rIBG4",
+                                      "name": "Stale Icon",
+                                      "width": 10,
+                                      "height": 10,
+                                      "icon": "refresh-cw",
+                                      "library": "lucide",
+                                      "fill": "#F59E0B"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "FAIXg",
+                                      "name": "Stale Label",
+                                      "fill": "#F59E0B",
+                                      "content": "要更新",
+                                      "fontFamily": "$font-mono",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
                             },
                             {
                               "type": "frame",
@@ -1387,7 +1410,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871630836.png",
+                                "url": "images/generated-1784871630836.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
@@ -1498,7 +1521,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871631538.png",
+                                "url": "images/generated-1784871631538.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
@@ -1609,23 +1632,11 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871632292.png",
+                                "url": "images/generated-1784871632292.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
-                              "justifyContent": "end",
-                              "children": [
-                                {
-                                  "type": "icon",
-                                  "id": "XmGiv",
-                                  "name": "Fav Fantasy Knight",
-                                  "width": 14,
-                                  "height": 14,
-                                  "icon": "star",
-                                  "library": "lucide",
-                                  "fill": "$accent"
-                                }
-                              ]
+                              "justifyContent": "end"
                             },
                             {
                               "type": "frame",
@@ -1732,7 +1743,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871632583.png",
+                                "url": "images/generated-1784871632583.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
@@ -1852,7 +1863,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871654506.png",
+                                "url": "images/generated-1784871654506.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
@@ -1963,23 +1974,11 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784871654716.png",
+                                "url": "images/generated-1784871654716.png",
                                 "mode": "fill"
                               },
                               "padding": 8,
-                              "justifyContent": "end",
-                              "children": [
-                                {
-                                  "type": "icon",
-                                  "id": "q65hQi",
-                                  "name": "Fav Race Kart",
-                                  "width": 14,
-                                  "height": 14,
-                                  "icon": "star",
-                                  "library": "lucide",
-                                  "fill": "$accent"
-                                }
-                              ]
+                              "justifyContent": "end"
                             },
                             {
                               "type": "frame",
@@ -2083,14 +2082,70 @@
                               "clip": true,
                               "width": "fill_container",
                               "height": 172,
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "./images/generated-1784871655376.png",
-                                "mode": "fill"
-                              },
+                              "fill": "$surface-2",
+                              "layout": "vertical",
+                              "gap": 8,
                               "padding": 8,
-                              "justifyContent": "end"
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "YlDNc",
+                                  "name": "NoThumb Icon",
+                                  "width": 22,
+                                  "height": 22,
+                                  "icon": "image-off",
+                                  "library": "lucide",
+                                  "fill": "$text-muted"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Zx7fA",
+                                  "name": "NoThumb Label",
+                                  "fill": "$text-muted",
+                                  "content": "サムネイル未生成",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "m6D4jZ",
+                                  "name": "NoThumb Gen Btn",
+                                  "fill": "$surface",
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "gap": 5,
+                                  "padding": [
+                                    5,
+                                    10
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "wq0O1",
+                                      "name": "Gen Icon",
+                                      "width": 11,
+                                      "height": 11,
+                                      "icon": "zap",
+                                      "library": "lucide",
+                                      "fill": "$accent"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "CQjlv",
+                                      "name": "Gen Label",
+                                      "fill": "$text-secondary",
+                                      "content": "生成",
+                                      "fontFamily": "$font-body",
+                                      "fontSize": 11,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
                             },
                             {
                               "type": "frame",
@@ -2137,7 +2192,7 @@
                                       "id": "sAgVb",
                                       "name": "Poly Market Stall",
                                       "fill": "$text-muted",
-                                      "content": "15.2K POLYS",
+                                      "content": "—",
                                       "fontFamily": "$font-mono",
                                       "fontSize": 10,
                                       "fontWeight": "normal"
@@ -2194,14 +2249,34 @@
                               "clip": true,
                               "width": "fill_container",
                               "height": 172,
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "./images/generated-1784871655502.png",
-                                "mode": "fill"
-                              },
+                              "fill": "$surface-2",
+                              "layout": "vertical",
+                              "gap": 8,
                               "padding": 8,
-                              "justifyContent": "end"
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "rjPdf",
+                                  "name": "Incomplete Icon",
+                                  "width": 22,
+                                  "height": 22,
+                                  "icon": "triangle-alert",
+                                  "library": "lucide",
+                                  "fill": "#F59E0B"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "r2tPnI",
+                                  "name": "Incomplete Label",
+                                  "fill": "#F59E0B",
+                                  "content": "model.blend がありません",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
                             },
                             {
                               "type": "frame",
@@ -2248,7 +2323,7 @@
                                       "id": "HhFEC",
                                       "name": "Poly Cyber Drone",
                                       "fill": "$text-muted",
-                                      "content": "9.8K POLYS",
+                                      "content": "—",
                                       "fontFamily": "$font-mono",
                                       "fontSize": 10,
                                       "fontWeight": "normal"
@@ -2406,27 +2481,13 @@
               "id": "Y0k5Z",
               "type": "ref",
               "ref": "naWHk",
-              "name": "Regen Btn",
+              "name": "Gen Btn",
               "descendants": {
                 "rXUiQ": {
                   "icon": "refresh-cw"
                 },
                 "UCxOH": {
-                  "content": "GLB再生成"
-                }
-              }
-            },
-            {
-              "id": "FeJew",
-              "type": "ref",
-              "ref": "naWHk",
-              "name": "Thumb Btn",
-              "descendants": {
-                "rXUiQ": {
-                  "icon": "image"
-                },
-                "UCxOH": {
-                  "content": "サムネイル生成"
+                  "content": "再生成"
                 }
               }
             },
@@ -2463,7 +2524,7 @@
               "fill": {
                 "type": "image",
                 "enabled": true,
-                "url": "./images/generated-1784871706485.png",
+                "url": "images/generated-1784871706485.png",
                 "mode": "fill"
               },
               "layout": "vertical",
@@ -3419,175 +3480,6 @@
                   "name": "Panel Spacer",
                   "width": "fill_container",
                   "height": "fill_container"
-                },
-                {
-                  "type": "frame",
-                  "id": "AvJod",
-                  "name": "Export Section",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 10,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "WRZBO",
-                      "name": "Exp Label",
-                      "fill": "$text-muted",
-                      "content": "エクスポート",
-                      "fontFamily": "$font-mono",
-                      "fontSize": 10,
-                      "fontWeight": "normal",
-                      "letterSpacing": 1
-                    },
-                    {
-                      "type": "frame",
-                      "id": "W5lntc",
-                      "name": "Format Row",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "lL8JR",
-                          "name": "Fmt GLB",
-                          "width": "fill_container",
-                          "fill": "$accent-soft",
-                          "stroke": "$accent",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "cuy3S",
-                              "name": "Fmt Label GLB",
-                              "fill": "$accent",
-                              "content": "GLB",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "yCQ4L",
-                          "name": "Fmt FBX",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "gKuYH",
-                              "name": "Fmt Label FBX",
-                              "fill": "$text-secondary",
-                              "content": "FBX",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "noGsA",
-                          "name": "Fmt OBJ",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "rrlMm",
-                              "name": "Fmt Label OBJ",
-                              "fill": "$text-secondary",
-                              "content": "OBJ",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "uj5CD",
-                          "name": "Fmt USD",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "L1Gf7",
-                              "name": "Fmt Label USD",
-                              "fill": "$text-secondary",
-                              "content": "USD",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "LLuTj",
-                      "name": "Export Btn",
-                      "width": "fill_container",
-                      "fill": "$surface-2",
-                      "stroke": "$border",
-                      "strokeWidth": 1,
-                      "gap": 8,
-                      "padding": [
-                        10,
-                        16
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "gttbx",
-                          "name": "Export Btn Icon",
-                          "width": 15,
-                          "height": 15,
-                          "icon": "download",
-                          "library": "lucide",
-                          "fill": "$text-primary"
-                        },
-                        {
-                          "type": "text",
-                          "id": "u9asI",
-                          "name": "Export Btn Label",
-                          "fill": "$text-primary",
-                          "content": "exports/ に書き出す",
-                          "fontFamily": "$font-body",
-                          "fontSize": 13,
-                          "fontWeight": "500"
-                        }
-                      ]
-                    }
-                  ]
                 }
               ]
             }
@@ -3797,7 +3689,8 @@
                               "fill": "$text-secondary",
                               "content": "Characters",
                               "fontFamily": "$font-body",
-                              "fontSize": 12
+                              "fontSize": 12,
+                              "fontWeight": "normal"
                             }
                           ]
                         },
@@ -3848,7 +3741,8 @@
                               "fill": "$text-secondary",
                               "content": "Environment",
                               "fontFamily": "$font-body",
-                              "fontSize": 12
+                              "fontSize": 12,
+                              "fontWeight": "normal"
                             }
                           ]
                         },
@@ -3873,7 +3767,46 @@
                               "fill": "$text-secondary",
                               "content": "Vehicles",
                               "fontFamily": "$font-body",
-                              "fontSize": 12
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fYepK",
+                          "name": "FC New Category",
+                          "width": "fill_container",
+                          "fill": "$surface-2",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "gap": 4,
+                          "padding": [
+                            9,
+                            0
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "sFrf7",
+                              "name": "FC New Icon",
+                              "width": 11,
+                              "height": 11,
+                              "icon": "plus",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Y5V2Ls",
+                              "name": "FC New Label",
+                              "fill": "$text-muted",
+                              "content": "新規カテゴリ",
+                              "fontFamily": "$font-body",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
                             }
                           ]
                         }
@@ -3899,6 +3832,16 @@
                       "fontSize": 10,
                       "fontWeight": "normal",
                       "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "URj5k",
+                      "name": "FTpl Hint",
+                      "fill": "$text-muted",
+                      "content": "templates/ 直下の .blend ファイルが一覧に表示されます",
+                      "fontFamily": "$font-body",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
                     },
                     {
                       "type": "frame",
@@ -3996,7 +3939,8 @@
                                   "fill": "$text-secondary",
                                   "content": "character.blend",
                                   "fontFamily": "$font-mono",
-                                  "fontSize": 11
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
                                 },
                                 {
                                   "type": "text",
@@ -4057,7 +4001,8 @@
                                   "fill": "$text-secondary",
                                   "content": "environment.blend",
                                   "fontFamily": "$font-mono",
-                                  "fontSize": 11
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
                                 },
                                 {
                                   "type": "text",
@@ -4109,7 +4054,8 @@
                                   "fill": "$text-secondary",
                                   "content": "vehicle.blend",
                                   "fontFamily": "$font-mono",
-                                  "fontSize": 11
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
                                 },
                                 {
                                   "type": "text",
@@ -4160,6 +4106,16 @@
                       "name": "Prev ├── model.blend  ← empty.blend をコピー",
                       "fill": "$text-muted",
                       "content": "├── model.blend  ← empty.blend をコピー",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "MA6v0",
+                      "name": "Prev meta.json",
+                      "fill": "$text-muted",
+                      "content": "├── meta.json",
                       "fontFamily": "$font-mono",
                       "fontSize": 10,
                       "fontWeight": "normal"
@@ -4379,42 +4335,6 @@
                     },
                     "zWQel": {
                       "fill": "$text-muted"
-                    }
-                  }
-                },
-                {
-                  "id": "s7SD5G",
-                  "type": "ref",
-                  "ref": "qzLnR",
-                  "name": "Nav お気に入り",
-                  "width": "fill_container",
-                  "descendants": {
-                    "cmTss": {
-                      "icon": "star"
-                    },
-                    "X6ngCp": {
-                      "content": "お気に入り"
-                    },
-                    "zWQel": {
-                      "content": "12"
-                    }
-                  }
-                },
-                {
-                  "id": "ydwIU",
-                  "type": "ref",
-                  "ref": "qzLnR",
-                  "name": "Nav 最近",
-                  "width": "fill_container",
-                  "descendants": {
-                    "cmTss": {
-                      "icon": "clock"
-                    },
-                    "X6ngCp": {
-                      "content": "最近開いた"
-                    },
-                    "zWQel": {
-                      "content": "8"
                     }
                   }
                 }
@@ -4677,25 +4597,34 @@
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "PFF0A",
-                  "name": "Cache Bar",
+                  "id": "zpJbP",
+                  "type": "ref",
+                  "ref": "naWHk",
+                  "name": "Rescan Btn Settings",
                   "width": "fill_container",
-                  "height": 4,
-                  "fill": "$border",
-                  "layout": "none",
-                  "children": [
-                    {
-                      "type": "rectangle",
-                      "id": "E01sF",
-                      "x": 0,
-                      "y": 0,
-                      "name": "Cache Bar Fill",
-                      "fill": "$accent",
-                      "width": 120,
-                      "height": 4
+                  "descendants": {
+                    "rXUiQ": {
+                      "icon": "refresh-cw"
+                    },
+                    "UCxOH": {
+                      "content": "再スキャン"
                     }
-                  ]
+                  }
+                },
+                {
+                  "id": "jMlWS",
+                  "type": "ref",
+                  "ref": "naWHk",
+                  "name": "Bulk Gen Btn Settings",
+                  "width": "fill_container",
+                  "descendants": {
+                    "rXUiQ": {
+                      "icon": "zap"
+                    },
+                    "UCxOH": {
+                      "content": "不足分を一括生成 (3)"
+                    }
+                  }
                 }
               ]
             },
@@ -5036,7 +4965,8 @@
                                       "fill": "$text-secondary",
                                       "content": "256px",
                                       "fontFamily": "$font-mono",
-                                      "fontSize": 11
+                                      "fontSize": 11,
+                                      "fontWeight": "normal"
                                     }
                                   ]
                                 },
@@ -5079,54 +5009,10 @@
                                       "fill": "$text-secondary",
                                       "content": "1024px",
                                       "fontFamily": "$font-mono",
-                                      "fontSize": 11
+                                      "fontSize": 11,
+                                      "fontWeight": "normal"
                                     }
                                   ]
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "XGsDi",
-                          "name": "F GLBOut",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 8,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "WOc0K",
-                              "name": "F4 Label",
-                              "fill": "$text-primary",
-                              "content": "GLB出力先",
-                              "fontFamily": "$font-body",
-                              "fontSize": 13,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "S5Exo",
-                              "name": "F4 Input",
-                              "width": "fill_container",
-                              "fill": "$surface-2",
-                              "stroke": "$border",
-                              "strokeWidth": 1,
-                              "padding": [
-                                9,
-                                12
-                              ],
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "t14seQ",
-                                  "name": "F4 Value",
-                                  "fill": "$text-secondary",
-                                  "content": "cache/glb/",
-                                  "fontFamily": "$font-mono",
-                                  "fontSize": 11,
-                                  "fontWeight": "normal"
                                 }
                               ]
                             }
@@ -5162,7 +5048,7 @@
                                   "id": "Yqu1A",
                                   "name": "F5 Desc",
                                   "fill": "$text-muted",
-                                  "content": "GLB・サムネイルは必要時に再生成されます (2.4 GB)",
+                                  "content": "削除したキャッシュは「不足分を一括生成」で再生成できます (2.4 GB)",
                                   "fontFamily": "$font-body",
                                   "fontSize": 11,
                                   "fontWeight": "normal"
@@ -5347,7 +5233,8 @@
                                       "fill": "$text-secondary",
                                       "content": "ライト",
                                       "fontFamily": "$font-body",
-                                      "fontSize": 12
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
                                     }
                                   ]
                                 },
@@ -5380,7 +5267,8 @@
                                       "fill": "$text-secondary",
                                       "content": "システム",
                                       "fontFamily": "$font-body",
-                                      "fontSize": 12
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
                                     }
                                   ]
                                 }
@@ -5544,27 +5432,13 @@
               "id": "xIr1z",
               "type": "ref",
               "ref": "naWHk",
-              "name": "Regen Btn",
+              "name": "Gen Btn",
               "descendants": {
                 "rXUiQ": {
                   "icon": "refresh-cw"
                 },
                 "UCxOH": {
-                  "content": "GLB再生成"
-                }
-              }
-            },
-            {
-              "id": "FsCEX",
-              "type": "ref",
-              "ref": "naWHk",
-              "name": "Thumb Btn",
-              "descendants": {
-                "rXUiQ": {
-                  "icon": "image"
-                },
-                "UCxOH": {
-                  "content": "サムネイル生成"
+                  "content": "再生成"
                 }
               }
             },
@@ -5694,7 +5568,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784872698419.png",
+                                "url": "images/generated-1784872698419.png",
                                 "mode": "fill"
                               }
                             },
@@ -5788,7 +5662,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784872698689.png",
+                                "url": "images/generated-1784872698689.png",
                                 "mode": "fill"
                               }
                             },
@@ -5882,7 +5756,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784872699639.png",
+                                "url": "images/generated-1784872699639.png",
                                 "mode": "fill"
                               }
                             },
@@ -5976,7 +5850,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784872699605.png",
+                                "url": "images/generated-1784872699605.png",
                                 "mode": "fill"
                               }
                             },
@@ -6080,7 +5954,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784872700439.png",
+                                "url": "images/generated-1784872700439.png",
                                 "mode": "fill"
                               }
                             },
@@ -6174,7 +6048,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784872700554.png",
+                                "url": "images/generated-1784872700554.png",
                                 "mode": "fill"
                               }
                             },
@@ -6268,7 +6142,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784872701205.png",
+                                "url": "images/generated-1784872701205.png",
                                 "mode": "fill"
                               }
                             },
@@ -6362,7 +6236,7 @@
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
-                                "url": "./images/generated-1784872706411.png",
+                                "url": "images/generated-1784872706411.png",
                                 "mode": "fill"
                               }
                             },
@@ -7156,175 +7030,6 @@
                   "name": "Panel Spacer",
                   "width": "fill_container",
                   "height": "fill_container"
-                },
-                {
-                  "type": "frame",
-                  "id": "PWFCv",
-                  "name": "Export Section",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 10,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "Oi9rG",
-                      "name": "Exp Label",
-                      "fill": "$text-muted",
-                      "content": "エクスポート",
-                      "fontFamily": "$font-mono",
-                      "fontSize": 10,
-                      "fontWeight": "normal",
-                      "letterSpacing": 1
-                    },
-                    {
-                      "type": "frame",
-                      "id": "vC2GE",
-                      "name": "Format Row",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "Hot63",
-                          "name": "Fmt GLB",
-                          "width": "fill_container",
-                          "fill": "$accent-soft",
-                          "stroke": "$accent",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "Wm9Il",
-                              "name": "Fmt Label GLB",
-                              "fill": "$accent",
-                              "content": "GLB",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "X9MxJ",
-                          "name": "Fmt FBX",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "rwhMJ",
-                              "name": "Fmt Label FBX",
-                              "fill": "$text-secondary",
-                              "content": "FBX",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "Qug83",
-                          "name": "Fmt OBJ",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "p7T7D",
-                              "name": "Fmt Label OBJ",
-                              "fill": "$text-secondary",
-                              "content": "OBJ",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "x62YS",
-                          "name": "Fmt USD",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "RHlh6",
-                              "name": "Fmt Label USD",
-                              "fill": "$text-secondary",
-                              "content": "USD",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "okaGj",
-                      "name": "Export Btn",
-                      "width": "fill_container",
-                      "fill": "$surface-2",
-                      "stroke": "$border",
-                      "strokeWidth": 1,
-                      "gap": 8,
-                      "padding": [
-                        10,
-                        16
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "niSWs",
-                          "name": "Export Btn Icon",
-                          "width": 15,
-                          "height": 15,
-                          "icon": "download",
-                          "library": "lucide",
-                          "fill": "$text-primary"
-                        },
-                        {
-                          "type": "text",
-                          "id": "XEd5k",
-                          "name": "Export Btn Label",
-                          "fill": "$text-primary",
-                          "content": "exports/ に書き出す",
-                          "fontFamily": "$font-body",
-                          "fontSize": 13,
-                          "fontWeight": "500"
-                        }
-                      ]
-                    }
-                  ]
                 }
               ]
             }
@@ -7440,27 +7145,13 @@
               "id": "tr6Oj",
               "type": "ref",
               "ref": "naWHk",
-              "name": "Regen Btn",
+              "name": "Gen Btn",
               "descendants": {
                 "rXUiQ": {
                   "icon": "refresh-cw"
                 },
                 "UCxOH": {
-                  "content": "GLB再生成"
-                }
-              }
-            },
-            {
-              "id": "r2HKK",
-              "type": "ref",
-              "ref": "naWHk",
-              "name": "Thumb Btn",
-              "descendants": {
-                "rXUiQ": {
-                  "icon": "image"
-                },
-                "UCxOH": {
-                  "content": "サムネイル生成"
+                  "content": "再生成"
                 }
               }
             },
@@ -8727,175 +8418,6 @@
                   "name": "Panel Spacer",
                   "width": "fill_container",
                   "height": "fill_container"
-                },
-                {
-                  "type": "frame",
-                  "id": "lFjjy",
-                  "name": "Export Section",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 10,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "bwpmI",
-                      "name": "Exp Label",
-                      "fill": "$text-muted",
-                      "content": "エクスポート",
-                      "fontFamily": "$font-mono",
-                      "fontSize": 10,
-                      "fontWeight": "normal",
-                      "letterSpacing": 1
-                    },
-                    {
-                      "type": "frame",
-                      "id": "LF1no",
-                      "name": "Format Row",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "wRPbA",
-                          "name": "Fmt GLB",
-                          "width": "fill_container",
-                          "fill": "$accent-soft",
-                          "stroke": "$accent",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "I3GZD",
-                              "name": "Fmt Label GLB",
-                              "fill": "$accent",
-                              "content": "GLB",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "YAbPr",
-                          "name": "Fmt FBX",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "SjUfu",
-                              "name": "Fmt Label FBX",
-                              "fill": "$text-secondary",
-                              "content": "FBX",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "m9DNI",
-                          "name": "Fmt OBJ",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "fobGY",
-                              "name": "Fmt Label OBJ",
-                              "fill": "$text-secondary",
-                              "content": "OBJ",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "teARi",
-                          "name": "Fmt USD",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "V01Qm",
-                              "name": "Fmt Label USD",
-                              "fill": "$text-secondary",
-                              "content": "USD",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "I5VGy",
-                      "name": "Export Btn",
-                      "width": "fill_container",
-                      "fill": "$surface-2",
-                      "stroke": "$border",
-                      "strokeWidth": 1,
-                      "gap": 8,
-                      "padding": [
-                        10,
-                        16
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "DdQiu",
-                          "name": "Export Btn Icon",
-                          "width": 15,
-                          "height": 15,
-                          "icon": "download",
-                          "library": "lucide",
-                          "fill": "$text-primary"
-                        },
-                        {
-                          "type": "text",
-                          "id": "QG6M7",
-                          "name": "Export Btn Label",
-                          "fill": "$text-primary",
-                          "content": "exports/ に書き出す",
-                          "fontFamily": "$font-body",
-                          "fontSize": 13,
-                          "fontWeight": "500"
-                        }
-                      ]
-                    }
-                  ]
                 }
               ]
             }
@@ -9011,27 +8533,13 @@
               "id": "PMMM1",
               "type": "ref",
               "ref": "naWHk",
-              "name": "Regen Btn",
+              "name": "Gen Btn",
               "descendants": {
                 "rXUiQ": {
                   "icon": "refresh-cw"
                 },
                 "UCxOH": {
-                  "content": "GLB再生成"
-                }
-              }
-            },
-            {
-              "id": "A2Fzp",
-              "type": "ref",
-              "ref": "naWHk",
-              "name": "Thumb Btn",
-              "descendants": {
-                "rXUiQ": {
-                  "icon": "image"
-                },
-                "UCxOH": {
-                  "content": "サムネイル生成"
+                  "content": "再生成"
                 }
               }
             },
@@ -9155,7 +8663,7 @@
                   "fill": {
                     "type": "image",
                     "enabled": true,
-                    "url": "./images/generated-1784872736585.png",
+                    "url": "images/generated-1784872736585.png",
                     "mode": "fill"
                   },
                   "stroke": "$border",
@@ -9217,7 +8725,7 @@
                           "fill": {
                             "type": "image",
                             "enabled": true,
-                            "url": "./images/generated-1784872737169.png",
+                            "url": "images/generated-1784872737169.png",
                             "mode": "fill"
                           },
                           "stroke": "$accent",
@@ -9252,7 +8760,7 @@
                           "fill": {
                             "type": "image",
                             "enabled": true,
-                            "url": "./images/generated-1784872737551.png",
+                            "url": "images/generated-1784872737551.png",
                             "mode": "fill"
                           },
                           "stroke": "$border",
@@ -9287,7 +8795,7 @@
                           "fill": {
                             "type": "image",
                             "enabled": true,
-                            "url": "./images/generated-1784872738172.png",
+                            "url": "images/generated-1784872738172.png",
                             "mode": "fill"
                           },
                           "stroke": "$border",
@@ -9322,7 +8830,7 @@
                           "fill": {
                             "type": "image",
                             "enabled": true,
-                            "url": "./images/generated-1784872738442.png",
+                            "url": "images/generated-1784872738442.png",
                             "mode": "fill"
                           },
                           "stroke": "$border",
@@ -10059,175 +9567,6 @@
                   "name": "Panel Spacer",
                   "width": "fill_container",
                   "height": "fill_container"
-                },
-                {
-                  "type": "frame",
-                  "id": "KKXWS",
-                  "name": "Export Section",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 10,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "Kftw9",
-                      "name": "Exp Label",
-                      "fill": "$text-muted",
-                      "content": "エクスポート",
-                      "fontFamily": "$font-mono",
-                      "fontSize": 10,
-                      "fontWeight": "normal",
-                      "letterSpacing": 1
-                    },
-                    {
-                      "type": "frame",
-                      "id": "zd4kJ",
-                      "name": "Format Row",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "XOC4I",
-                          "name": "Fmt GLB",
-                          "width": "fill_container",
-                          "fill": "$accent-soft",
-                          "stroke": "$accent",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "yL4Pt",
-                              "name": "Fmt Label GLB",
-                              "fill": "$accent",
-                              "content": "GLB",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "IkWxn",
-                          "name": "Fmt FBX",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "TacPE",
-                              "name": "Fmt Label FBX",
-                              "fill": "$text-secondary",
-                              "content": "FBX",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "n5bUKr",
-                          "name": "Fmt OBJ",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "mM36R",
-                              "name": "Fmt Label OBJ",
-                              "fill": "$text-secondary",
-                              "content": "OBJ",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "s4YG5",
-                          "name": "Fmt USD",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "oRuHY",
-                              "name": "Fmt Label USD",
-                              "fill": "$text-secondary",
-                              "content": "USD",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "wpnTP",
-                      "name": "Export Btn",
-                      "width": "fill_container",
-                      "fill": "$surface-2",
-                      "stroke": "$border",
-                      "strokeWidth": 1,
-                      "gap": 8,
-                      "padding": [
-                        10,
-                        16
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "w63EaU",
-                          "name": "Export Btn Icon",
-                          "width": 15,
-                          "height": 15,
-                          "icon": "download",
-                          "library": "lucide",
-                          "fill": "$text-primary"
-                        },
-                        {
-                          "type": "text",
-                          "id": "tecNd",
-                          "name": "Export Btn Label",
-                          "fill": "$text-primary",
-                          "content": "exports/ に書き出す",
-                          "fontFamily": "$font-body",
-                          "fontSize": 13,
-                          "fontWeight": "500"
-                        }
-                      ]
-                    }
-                  ]
                 }
               ]
             }
@@ -10343,27 +9682,13 @@
               "id": "RCurJ",
               "type": "ref",
               "ref": "naWHk",
-              "name": "Regen Btn",
+              "name": "Gen Btn",
               "descendants": {
                 "rXUiQ": {
                   "icon": "refresh-cw"
                 },
                 "UCxOH": {
-                  "content": "GLB再生成"
-                }
-              }
-            },
-            {
-              "id": "wAcI3",
-              "type": "ref",
-              "ref": "naWHk",
-              "name": "Thumb Btn",
-              "descendants": {
-                "rXUiQ": {
-                  "icon": "image"
-                },
-                "UCxOH": {
-                  "content": "サムネイル生成"
+                  "content": "再生成"
                 }
               }
             },
@@ -10516,7 +9841,8 @@
                                   "fill": "$text-secondary",
                                   "content": "編集",
                                   "fontFamily": "$font-body",
-                                  "fontSize": 12
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             }
@@ -11591,175 +10917,6 @@
                   "name": "Panel Spacer",
                   "width": "fill_container",
                   "height": "fill_container"
-                },
-                {
-                  "type": "frame",
-                  "id": "KDQg2",
-                  "name": "Export Section",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 10,
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "KEcwS",
-                      "name": "Exp Label",
-                      "fill": "$text-muted",
-                      "content": "エクスポート",
-                      "fontFamily": "$font-mono",
-                      "fontSize": 10,
-                      "fontWeight": "normal",
-                      "letterSpacing": 1
-                    },
-                    {
-                      "type": "frame",
-                      "id": "TgYTS",
-                      "name": "Format Row",
-                      "width": "fill_container",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "E739Kl",
-                          "name": "Fmt GLB",
-                          "width": "fill_container",
-                          "fill": "$accent-soft",
-                          "stroke": "$accent",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "pZoMC",
-                              "name": "Fmt Label GLB",
-                              "fill": "$accent",
-                              "content": "GLB",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11,
-                              "fontWeight": "600"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "KDoko",
-                          "name": "Fmt FBX",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "s31hRg",
-                              "name": "Fmt Label FBX",
-                              "fill": "$text-secondary",
-                              "content": "FBX",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "wlAeX",
-                          "name": "Fmt OBJ",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "f63hz",
-                              "name": "Fmt Label OBJ",
-                              "fill": "$text-secondary",
-                              "content": "OBJ",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "CvMoO",
-                          "name": "Fmt USD",
-                          "width": "fill_container",
-                          "fill": "$surface-2",
-                          "stroke": "$border",
-                          "strokeWidth": 1,
-                          "padding": [
-                            8,
-                            0
-                          ],
-                          "justifyContent": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "jE27N",
-                              "name": "Fmt Label USD",
-                              "fill": "$text-secondary",
-                              "content": "USD",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 11
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "P21Y2",
-                      "name": "Export Btn",
-                      "width": "fill_container",
-                      "fill": "$surface-2",
-                      "stroke": "$border",
-                      "strokeWidth": 1,
-                      "gap": 8,
-                      "padding": [
-                        10,
-                        16
-                      ],
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "tAMCB",
-                          "name": "Export Btn Icon",
-                          "width": 15,
-                          "height": 15,
-                          "icon": "download",
-                          "library": "lucide",
-                          "fill": "$text-primary"
-                        },
-                        {
-                          "type": "text",
-                          "id": "PBZqe",
-                          "name": "Export Btn Label",
-                          "fill": "$text-primary",
-                          "content": "exports/ に書き出す",
-                          "fontFamily": "$font-body",
-                          "fontSize": 13,
-                          "fontWeight": "500"
-                        }
-                      ]
-                    }
-                  ]
                 }
               ]
             }
@@ -11768,13 +10925,932 @@
       ]
     },
     {
-      "type": "ellipse",
-      "id": "phEp3",
-      "x": 3386,
-      "y": 2062,
-      "fill": "#CCCCCC",
-      "width": 1,
-      "height": 2
+      "type": "frame",
+      "id": "iAOnk",
+      "x": 3080,
+      "y": 139,
+      "name": "09 詳細 - GLB未生成",
+      "clip": true,
+      "width": 1440,
+      "height": 1024,
+      "fill": "$bg",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "UYzA8",
+          "name": "Detail Header",
+          "width": "fill_container",
+          "fill": "$surface",
+          "stroke": "$border",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "gap": 12,
+          "padding": [
+            12,
+            20
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "BP7XG",
+              "name": "Back Btn",
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "padding": 8,
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "OhPja",
+                  "name": "Back Icon",
+                  "width": 15,
+                  "height": 15,
+                  "icon": "arrow-left",
+                  "library": "lucide",
+                  "fill": "$text-secondary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HAptc",
+              "name": "Title Wrap",
+              "layout": "vertical",
+              "gap": 3,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "l1xqD",
+                  "name": "Breadcrumb",
+                  "fill": "$text-muted",
+                  "content": "SOURCE / PROPS / WOODEN CHAIR",
+                  "fontFamily": "$font-mono",
+                  "fontSize": 10,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "UTiyq",
+                  "name": "Title Row",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Q3s1MI",
+                      "name": "Detail Title",
+                      "fill": "$text-primary",
+                      "content": "Wooden Chair",
+                      "fontFamily": "$font-heading",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "FecJM",
+                      "name": "Detail Fav",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "star",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "lpozq",
+              "name": "DHead Spacer",
+              "width": "fill_container",
+              "height": 1
+            },
+            {
+              "id": "L5jWVH",
+              "type": "ref",
+              "ref": "naWHk",
+              "name": "Gen Btn",
+              "descendants": {
+                "rXUiQ": {
+                  "icon": "refresh-cw"
+                },
+                "UCxOH": {
+                  "content": "生成"
+                }
+              }
+            },
+            {
+              "id": "QtGTm",
+              "type": "ref",
+              "ref": "dGxGo",
+              "name": "Open Blender Btn",
+              "descendants": {
+                "QQ0CZ": {
+                  "icon": "external-link"
+                },
+                "b1afM": {
+                  "content": "Blenderで開く"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mQaju",
+          "name": "Detail Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "JE21M",
+              "name": "Viewport Empty",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#0A0A0A",
+              "layout": "vertical",
+              "gap": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "s2QgH",
+                  "name": "Empty Icon",
+                  "width": 32,
+                  "height": 32,
+                  "icon": "box",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "e7gHCl",
+                  "name": "Empty Title",
+                  "fill": "$text-primary",
+                  "content": "GLBが未生成です",
+                  "fontFamily": "$font-body",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "cx1En",
+                  "name": "Empty Sub",
+                  "fill": "$text-muted",
+                  "content": "生成するとThree.jsプレビューが表示されます",
+                  "fontFamily": "$font-body",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "l0hcm",
+                  "name": "Empty Gap",
+                  "width": 1,
+                  "height": 6
+                },
+                {
+                  "id": "X53CVK",
+                  "type": "ref",
+                  "ref": "dGxGo",
+                  "name": "Empty Gen Btn",
+                  "descendants": {
+                    "QQ0CZ": {
+                      "icon": "zap"
+                    },
+                    "b1afM": {
+                      "content": "生成"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "SztyU",
+              "name": "Side Panel",
+              "width": 320,
+              "height": "fill_container",
+              "fill": "$surface",
+              "stroke": "$border",
+              "strokeWidth": {
+                "left": 1
+              },
+              "layout": "vertical",
+              "gap": 20,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "inq8w",
+                  "name": "Meta Section",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "A8DkuE",
+                      "name": "Meta Sec Label",
+                      "fill": "$text-muted",
+                      "content": "メタデータ",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "c6mEc",
+                      "name": "Meta Table",
+                      "width": "fill_container",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "VbmP9",
+                          "name": "Meta Row OBJECTS",
+                          "width": "fill_container",
+                          "fill": "$surface-2",
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jrFFJ",
+                              "name": "MR Key OBJECTS",
+                              "fill": "$text-muted",
+                              "content": "OBJECTS",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal",
+                              "letterSpacing": 0.5
+                            },
+                            {
+                              "type": "text",
+                              "id": "YDPPY",
+                              "name": "MR Val OBJECTS",
+                              "fill": "$text-primary",
+                              "content": "—",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fuHyQ",
+                          "name": "Meta Row COLLECTIONS",
+                          "width": "fill_container",
+                          "fill": "$surface",
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "q5rW9k",
+                              "name": "MR Key COLLECTIONS",
+                              "fill": "$text-muted",
+                              "content": "COLLECTIONS",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal",
+                              "letterSpacing": 0.5
+                            },
+                            {
+                              "type": "text",
+                              "id": "OoA8g",
+                              "name": "MR Val COLLECTIONS",
+                              "fill": "$text-primary",
+                              "content": "—",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fYSL4",
+                          "name": "Meta Row MATERIALS",
+                          "width": "fill_container",
+                          "fill": "$surface-2",
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "QUiUS",
+                              "name": "MR Key MATERIALS",
+                              "fill": "$text-muted",
+                              "content": "MATERIALS",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal",
+                              "letterSpacing": 0.5
+                            },
+                            {
+                              "type": "text",
+                              "id": "w16Q2y",
+                              "name": "MR Val MATERIALS",
+                              "fill": "$text-primary",
+                              "content": "—",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "hnRYS",
+                          "name": "Meta Row POLYGONS",
+                          "width": "fill_container",
+                          "fill": "$surface",
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MyzVP",
+                              "name": "MR Key POLYGONS",
+                              "fill": "$text-muted",
+                              "content": "POLYGONS",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal",
+                              "letterSpacing": 0.5
+                            },
+                            {
+                              "type": "text",
+                              "id": "X6Fp7S",
+                              "name": "MR Val POLYGONS",
+                              "fill": "$text-primary",
+                              "content": "—",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "j00wC",
+                          "name": "Meta Row TEXTURES",
+                          "width": "fill_container",
+                          "fill": "$surface-2",
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "b5Dq3k",
+                              "name": "MR Key TEXTURES",
+                              "fill": "$text-muted",
+                              "content": "TEXTURES",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal",
+                              "letterSpacing": 0.5
+                            },
+                            {
+                              "type": "text",
+                              "id": "P8YalH",
+                              "name": "MR Val TEXTURES",
+                              "fill": "$text-primary",
+                              "content": "—",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "d0ohOl",
+                          "name": "Meta Row ANIMATION",
+                          "width": "fill_container",
+                          "fill": "$surface",
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MYqrp",
+                              "name": "MR Key ANIMATION",
+                              "fill": "$text-muted",
+                              "content": "ANIMATION",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal",
+                              "letterSpacing": 0.5
+                            },
+                            {
+                              "type": "text",
+                              "id": "ayMr4",
+                              "name": "MR Val ANIMATION",
+                              "fill": "$text-primary",
+                              "content": "—",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "D5jt1I",
+                  "name": "Detail Tags",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "yRn2M",
+                      "name": "DTag Label",
+                      "fill": "$text-muted",
+                      "content": "タグ",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "w5dMdV",
+                      "name": "DTag Row",
+                      "gap": 6,
+                      "children": [
+                        {
+                          "id": "Z1VKqY",
+                          "type": "ref",
+                          "ref": "xKoer",
+                          "name": "DTag lowpoly",
+                          "descendants": {
+                            "iLHNQ": {
+                              "content": "lowpoly"
+                            }
+                          }
+                        },
+                        {
+                          "id": "ugi5x",
+                          "type": "ref",
+                          "ref": "xKoer",
+                          "name": "DTag pbr",
+                          "descendants": {
+                            "iLHNQ": {
+                              "content": "pbr"
+                            }
+                          }
+                        },
+                        {
+                          "id": "td0eo",
+                          "type": "ref",
+                          "ref": "xKoer",
+                          "name": "DTag furniture",
+                          "descendants": {
+                            "iLHNQ": {
+                              "content": "furniture"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "JyLxQ",
+                          "name": "DTag Add",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "gap": 4,
+                          "padding": [
+                            4,
+                            8
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "LbB2r",
+                              "name": "DTag Add Icon",
+                              "width": 11,
+                              "height": 11,
+                              "icon": "plus",
+                              "library": "lucide",
+                              "fill": "$text-muted"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "S67jM3",
+                  "name": "File Section",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "o5ItZL",
+                      "name": "File Sec Label",
+                      "fill": "$text-muted",
+                      "content": "ファイル",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "WwjqH",
+                      "name": "File List",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "IAP1I",
+                          "name": "File model.blend",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "TaFwN",
+                              "name": "File L model.blend",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "l5HXXK",
+                                  "name": "File Icon model.blend",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "box",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "IpqRm",
+                                  "name": "File Name model.blend",
+                                  "fill": "$text-secondary",
+                                  "content": "model.blend",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "Q4JFQ",
+                              "name": "File Size model.blend",
+                              "fill": "$text-muted",
+                              "content": "24.8 MB",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "WG2Hq",
+                          "name": "File cache/glb/chair.glb",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "GlU3O",
+                              "name": "File L cache/glb/chair.glb",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "xaXpR",
+                                  "name": "File Icon cache/glb/chair.glb",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "file-box",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "EDsnA",
+                                  "name": "File Name cache/glb/chair.glb",
+                                  "fill": "$text-secondary",
+                                  "content": "cache/glb/ (未生成)",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "V6yNa",
+                              "name": "File Size cache/glb/chair.glb",
+                              "fill": "$text-muted",
+                              "content": "—",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "FiWbz",
+                          "name": "File textures/ (8)",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "dguPD",
+                              "name": "File L textures/ (8)",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "iHcIF",
+                                  "name": "File Icon textures/ (8)",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "image",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "AuP63",
+                                  "name": "File Name textures/ (8)",
+                                  "fill": "$text-secondary",
+                                  "content": "textures/ (8)",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "RyQGn",
+                              "name": "File Size textures/ (8)",
+                              "fill": "$text-muted",
+                              "content": "31.5 MB",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "shMo4",
+                          "name": "File references",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "e5fCPx",
+                              "name": "File L references",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "xKxjs",
+                                  "name": "File Icon references",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "images",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "x1d3q",
+                                  "name": "File Name references",
+                                  "fill": "$text-secondary",
+                                  "content": "references/ (6)",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "yxHMR",
+                              "name": "File Size references",
+                              "fill": "$text-muted",
+                              "content": "18.2 MB",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "UAGiD",
+                          "name": "File renders",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "t2OYXi",
+                              "name": "File L renders",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "U571F",
+                                  "name": "File Icon renders",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "aperture",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "KXvhz",
+                                  "name": "File Name renders",
+                                  "fill": "$text-secondary",
+                                  "content": "renders/ (4)",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "xIHUM",
+                              "name": "File Size renders",
+                              "fill": "$text-muted",
+                              "content": "22.3 MB",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vUYbX",
+                          "name": "File notes.md",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "B2Q8qE",
+                              "name": "File L notes.md",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "gBtdo",
+                                  "name": "File Icon notes.md",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "file-text",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "XXJPb",
+                                  "name": "File Name notes.md",
+                                  "fill": "$text-secondary",
+                                  "content": "notes.md",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "nCjPD",
+                              "name": "File Size notes.md",
+                              "fill": "$text-muted",
+                              "content": "2 KB",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XdOoi",
+                      "name": "Date Box",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "padding": [
+                        8,
+                        0
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BdnxX",
+                          "name": "Updated At",
+                          "fill": "$text-muted",
+                          "content": "更新: 2026-07-21 14:32",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "MX3Tp",
+                          "name": "Created At",
+                          "fill": "$text-muted",
+                          "content": "作成: 2026-05-02 09:15",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "h80Xm",
+                  "name": "Panel Spacer",
+                  "width": "fill_container",
+                  "height": "fill_container"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": {
