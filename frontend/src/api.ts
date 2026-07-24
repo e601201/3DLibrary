@@ -42,6 +42,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(code, message);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -107,6 +108,62 @@ export function postJob(ref: JobRef): Promise<JobStatus> {
 export function thumbnailUrl(asset: Asset): string | null {
   if (!asset.thumbnailPath) return null;
   return `/api/thumbnails/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.png?v=${asset.id}`;
+}
+
+// GLB キャッシュの配信 URL(未生成なら null)
+export function glbUrl(asset: Asset): string | null {
+  if (!asset.glbPath) return null;
+  return `/api/glb/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.glb?v=${asset.id}`;
+}
+
+// 抽出メタデータ(生成時に Blender が .blend から読み取る統計情報)
+export interface ExtractedMetadata {
+  objectCount: number;
+  collectionCount: number;
+  materialCount: number;
+  polygonCount: number;
+  textureCount: number;
+  hasAnimation: boolean;
+}
+
+// 未生成(404)は null を返す
+export async function getExtractedMetadata(
+  category: string,
+  title: string,
+): Promise<ExtractedMetadata | null> {
+  try {
+    return await request(
+      `/api/extracted-metadata/${encodeURIComponent(category)}/${encodeURIComponent(title)}.json`,
+    );
+  } catch (err) {
+    if (err instanceof ApiError && err.code === 'not_found') return null;
+    throw err;
+  }
+}
+
+export interface FileEntry {
+  name: string;
+  size: number;
+  isDir: boolean;
+  fileCount: number;
+}
+
+export interface AssetFiles {
+  entries: FileEntry[];
+  glbSize: number | null;
+}
+
+export function getAssetFiles(category: string, title: string): Promise<AssetFiles> {
+  return request(
+    `/api/assets/${encodeURIComponent(category)}/${encodeURIComponent(title)}/files`,
+  );
+}
+
+export function postOpenBlender(category: string, title: string): Promise<void> {
+  return request(
+    `/api/assets/${encodeURIComponent(category)}/${encodeURIComponent(title)}/open`,
+    { method: 'POST' },
+  );
 }
 
 export interface CategoryCount {

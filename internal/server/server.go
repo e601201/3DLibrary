@@ -41,7 +41,11 @@ func New(static fs.FS, store *config.Store) *Server {
 	mux.HandleFunc("/api/templates", handleTemplates(lib))
 	mux.HandleFunc("/api/categories", handleCategories(lib))
 	mux.HandleFunc("/api/jobs", handleJobs(lib, queue))
-	mux.HandleFunc("/api/thumbnails/", handleThumbnails(lib))
+	mux.HandleFunc("/api/assets/{category}/{title}/files", handleAssetFiles(lib))
+	mux.HandleFunc("/api/assets/{category}/{title}/open", handleOpenInBlender(lib))
+	mux.HandleFunc("/api/thumbnails/", cacheFileHandler(lib, "/api/thumbnails/", "thumbnails"))
+	mux.HandleFunc("/api/glb/", cacheFileHandler(lib, "/api/glb/", "glb"))
+	mux.HandleFunc("/api/extracted-metadata/", cacheFileHandler(lib, "/api/extracted-metadata/", "metadata"))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "no such API endpoint")
 	})

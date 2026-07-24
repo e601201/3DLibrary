@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/e601201/3DLibrary/internal/generate"
 	"github.com/e601201/3DLibrary/internal/index"
@@ -66,33 +63,4 @@ func enqueueJob(w http.ResponseWriter, r *http.Request, lib *libraryState, queue
 		LibDir:    dir,
 	})
 	writeJSON(w, http.StatusAccepted, queue.Status())
-}
-
-// handleThumbnails は GET /api/thumbnails/{category}/{title}.png を
-// cache/thumbnails から配信する。
-func handleThumbnails(lib *libraryState) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
-			return
-		}
-		_, dir, err := lib.resolve()
-		if err != nil {
-			writeLibraryError(w, err, "index_open_failed")
-			return
-		}
-		root := filepath.Join(dir, "cache", "thumbnails")
-		rel := strings.TrimPrefix(r.URL.Path, "/api/thumbnails/")
-		path := filepath.Join(root, filepath.FromSlash(rel))
-		// cache/thumbnails 配下以外へは出さない(パストラバーサル対策)
-		if rel == "" || !strings.HasPrefix(path, root+string(filepath.Separator)) {
-			writeError(w, http.StatusNotFound, "not_found", "no such thumbnail")
-			return
-		}
-		if info, err := os.Stat(path); err != nil || info.IsDir() {
-			writeError(w, http.StatusNotFound, "not_found", "no such thumbnail")
-			return
-		}
-		http.ServeFile(w, r, path)
-	}
 }

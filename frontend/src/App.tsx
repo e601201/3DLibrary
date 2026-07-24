@@ -14,6 +14,7 @@ import {
   type JobStatus,
 } from './api';
 import { applyTheme } from './theme';
+import AssetDetail from './AssetDetail';
 import AssetGrid, { type ViewMode } from './AssetGrid';
 import NewAssetModal from './NewAssetModal';
 import Settings from './Settings';
@@ -46,6 +47,7 @@ export default function App() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobStatus | null>(null);
   const [jobPostError, setJobPostError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<{ category: string; title: string } | null>(null);
 
   // 検索・フィルタ・表示
   const [queryInput, setQueryInput] = useState('');
@@ -163,6 +165,27 @@ export default function App() {
   const filtered = query !== '' || category !== '';
   const totalCount = categories.reduce((sum, c) => sum + c.count, 0);
   const ready = assetsState.kind === 'ready';
+  const runningKey = jobs?.running ? `${jobs.running.category}/${jobs.running.title}` : null;
+
+  // 選択中のアセットが一覧から消えたら(削除・フィルタ除外)選択を解除する
+  useEffect(() => {
+    if (
+      selected &&
+      assetsState.kind === 'ready' &&
+      !assetsState.assets.some(
+        (a) => a.category === selected.category && a.title === selected.title,
+      )
+    ) {
+      setSelected(null);
+    }
+  }, [selected, assetsState]);
+  // 再スキャンで id が変わるため、選択は category/title で追いかける
+  const selectedAsset =
+    selected && ready
+      ? assetsState.assets.find(
+          (a) => a.category === selected.category && a.title === selected.title,
+        )
+      : undefined;
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
@@ -232,6 +255,13 @@ export default function App() {
               設定を開く
             </button>
           </div>
+        ) : selected && selectedAsset ? (
+          <AssetDetail
+            asset={selectedAsset}
+            generating={runningKey === `${selectedAsset.category}/${selectedAsset.title}`}
+            onBack={() => setSelected(null)}
+            onGenerate={(a) => void handleGenerate(a)}
+          />
         ) : (
           <div className="flex gap-6">
             {/* サイドバー: 動的カテゴリ一覧(件数付き) */}
@@ -308,7 +338,8 @@ export default function App() {
                   view={view}
                   filtered={filtered}
                   onGenerate={(a) => void handleGenerate(a)}
-                  runningKey={jobs?.running ? `${jobs.running.category}/${jobs.running.title}` : null}
+                  onSelect={(a) => setSelected({ category: a.category, title: a.title })}
+                  runningKey={runningKey}
                 />
               )}
             </section>

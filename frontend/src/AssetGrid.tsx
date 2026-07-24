@@ -1,4 +1,5 @@
 import { thumbnailUrl, type Asset } from './api';
+import { formatDate, formatSize } from './format';
 
 export type ViewMode = 'card' | 'list';
 
@@ -7,10 +8,11 @@ type Props = {
   view: ViewMode;
   filtered: boolean; // 検索・フィルタが効いているか(空表示の文言用)
   onGenerate: (asset: Asset) => void;
+  onSelect: (asset: Asset) => void;
   runningKey: string | null; // 生成実行中のアセット(category/title)
 };
 
-export default function AssetGrid({ assets, view, filtered, onGenerate, runningKey }: Props) {
+export default function AssetGrid({ assets, view, filtered, onGenerate, onSelect, runningKey }: Props) {
   if (assets.length === 0) {
     return (
       <p className="py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">
@@ -24,7 +26,7 @@ export default function AssetGrid({ assets, view, filtered, onGenerate, runningK
     return (
       <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-300 bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
         {assets.map((asset) => (
-          <AssetRow key={asset.id} asset={asset} />
+          <AssetRow key={asset.id} asset={asset} onSelect={onSelect} />
         ))}
       </ul>
     );
@@ -36,6 +38,7 @@ export default function AssetGrid({ assets, view, filtered, onGenerate, runningK
           key={asset.id}
           asset={asset}
           onGenerate={onGenerate}
+          onSelect={onSelect}
           generating={runningKey === `${asset.category}/${asset.title}`}
         />
       ))}
@@ -68,15 +71,20 @@ function Placeholder({ className = '' }: { className?: string }) {
 function AssetCard({
   asset,
   onGenerate,
+  onSelect,
   generating,
 }: {
   asset: Asset;
   onGenerate: (asset: Asset) => void;
+  onSelect: (asset: Asset) => void;
   generating: boolean;
 }) {
   const thumb = thumbnailUrl(asset);
   return (
-    <li className="overflow-hidden rounded-lg border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-800">
+    <li
+      className="cursor-pointer overflow-hidden rounded-lg border border-neutral-300 bg-white transition-shadow hover:shadow-md dark:border-neutral-700 dark:bg-neutral-800"
+      onClick={() => onSelect(asset)}
+    >
       <div className="relative flex aspect-square items-center justify-center bg-neutral-100 dark:bg-neutral-900">
         {thumb ? (
           <img src={thumb} alt={asset.title} className="h-full w-full object-contain" loading="lazy" />
@@ -99,7 +107,10 @@ function AssetCard({
             className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-600 dark:hover:bg-neutral-700"
             disabled={asset.isIncomplete || generating}
             title={asset.isIncomplete ? 'model.blend が無いため生成できません' : 'GLB・サムネイル・抽出メタデータを生成'}
-            onClick={() => onGenerate(asset)}
+            onClick={(e) => {
+              e.stopPropagation(); // カードクリック(詳細遷移)と干渉させない
+              onGenerate(asset);
+            }}
           >
             {generating ? '生成中…' : '生成'}
           </button>
@@ -109,9 +120,12 @@ function AssetCard({
   );
 }
 
-function AssetRow({ asset }: { asset: Asset }) {
+function AssetRow({ asset, onSelect }: { asset: Asset; onSelect: (asset: Asset) => void }) {
   return (
-    <li className="flex items-center gap-3 px-4 py-2">
+    <li
+      className="flex cursor-pointer items-center gap-3 px-4 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700/50"
+      onClick={() => onSelect(asset)}
+    >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-neutral-100 dark:bg-neutral-900">
         {thumbnailUrl(asset) ? (
           <img src={thumbnailUrl(asset)!} alt="" className="h-full w-full object-contain" loading="lazy" />
@@ -127,7 +141,7 @@ function AssetRow({ asset }: { asset: Asset }) {
       </div>
       {asset.isIncomplete && <IncompleteBadge />}
       <span className="hidden w-24 text-right text-xs text-neutral-500 sm:block dark:text-neutral-400">
-        {formatSize(asset.size)}
+        {formatSize(asset.size, true)}
       </span>
       <span className="hidden w-36 text-right text-xs text-neutral-500 sm:block dark:text-neutral-400">
         {formatDate(asset.updatedAt)}
@@ -136,17 +150,3 @@ function AssetRow({ asset }: { asset: Asset }) {
   );
 }
 
-function formatSize(bytes: number): string {
-  if (bytes <= 0) return '—';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(iso: string): string {
-  // 不完全アセットの updatedAt は Go のゼロ値(0001-01-01…)で来る
-  if (iso.startsWith('0001-')) return '—';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
