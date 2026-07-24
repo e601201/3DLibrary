@@ -1,0 +1,19 @@
+# OS
+.DS_Store
+
+# アプリが管理するライブラリデータ（source が唯一の正、cache/DB は再生成可能）
+cache/
+exports/
+database.db
+
+# Frontend (React + Vite)
+node_modules/
+dist/
+
+# Backend (Go)
+*.exe
+bin/
+
+# ローカル環境設定
+.env
+.claude/settings.local.json
