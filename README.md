@@ -31,6 +31,21 @@ go build -o bin/3dlibrary ./cmd/3dlibrary
 - `--no-browser` でブラウザの自動起動を抑止できる(開発用)
 - 設定は OS 標準の設定ディレクトリ(例: Linux は `~/.config/3DLibrary/config.json`)に保存される
 
+## Windows ネイティブ実行(WSL でビルド → Windows で実行)
+
+Blender を Windows 側で使う環境では、WSL 上の Linux バイナリではなく **Windows ネイティブの `.exe`** として動かすと、WSL↔Windows のパス変換が不要になる。SQLite ドライバは pure-Go(CGO 不要)のため、WSL からそのままクロスコンパイルできる。
+
+```sh
+scripts/build-windows.sh                  # 既定: C:\Users\<user>\3DLibrary\3dlibrary.exe へ出力
+scripts/build-windows.sh path/to/out.exe  # 出力先を指定
+```
+
+スクリプトは「フロントの `npm run build` → `GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build`」を実行する。生成した `.exe` を Windows 側で起動すると `http://127.0.0.1:8765` が開く。
+
+- 設定ファイルは Windows の `%AppData%\3DLibrary\config.json`(`os.UserConfigDir()`)に保存される
+- `blenderPath` は変換不要で Windows パスを直接指定する(例: `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`)
+- `libraryDir` も Windows パスを指定する(例: `C:\Users\<user>\3DLibrary-data`)
+
 ## 開発モード(Vite + Go の分離構成)
 
 ターミナル 1: Go バックエンド
