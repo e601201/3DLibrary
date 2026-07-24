@@ -32,6 +32,13 @@ func main() {
 	}
 	store := config.NewStore(filepath.Join(configDir, "3DLibrary", "config.json"))
 
+	srv := server.New(web.Static(), store)
+	if n, err := srv.StartupScan(); err != nil {
+		log.Printf("起動時スキャンに失敗しました: %v", err)
+	} else {
+		log.Printf("起動時スキャン完了: %d 件のアセット", n)
+	}
+
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		log.Fatalf("listen %s: %v", listenAddr, err)
@@ -48,7 +55,7 @@ func main() {
 		}()
 	}
 
-	if err := http.Serve(ln, server.New(web.Static(), store)); err != nil {
+	if err := http.Serve(ln, srv); err != nil {
 		log.Fatal(err)
 	}
 }

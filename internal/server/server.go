@@ -4,22 +4,47 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"net/http"
 
 	"github.com/e601201/3DLibrary/internal/config"
 )
 
-// New は API と埋め込みフロントエンド(static)を配信するハンドラを返す。
-func New(static fs.FS, store *config.Store) http.Handler {
+// Server は API と埋め込みフロントエンドを配信する。
+type Server struct {
+	http.Handler
+	lib *libraryState
+}
+
+// New は API と埋め込みフロントエンド(static)を配信するサーバーを返す。
+func New(static fs.FS, store *config.Store) *Server {
+	lib := newLibraryState(store)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/config", handleConfig(store))
+	mux.HandleFunc("/api/assets", handleAssets(lib))
+	mux.HandleFunc("/api/scan", handleScan(lib))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "no such API endpoint")
 	})
 	mux.Handle("/", spaHandler(static))
-	return mux
+	return &Server{Handler: mux, lib: lib}
+}
+
+// StartupScan は起動時の自動スキャンを実行する(requirements.md §7)。
+// ライブラリ未設定の場合は何もしない。
+func (s *Server) StartupScan() (int, error) {
+	n, err := s.lib.runScan()
+	if errors.Is(err, errLibraryNotConfigured) {
+		return 0, nil
+	}
+	return n, err
+}
+
+// CloseLibrary は開いているインデックス DB を閉じる(終了時・テスト用)。
+func (s *Server) CloseLibrary() {
+	s.lib.close()
 }
 
 type healthResponse struct {

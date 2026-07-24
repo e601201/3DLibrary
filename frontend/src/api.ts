@@ -45,8 +45,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function getHealth(): Promise<{ status: string }> {
-  return request('/api/health');
+export interface Asset {
+  id: number;
+  title: string;
+  category: string;
+  path: string;
+  thumbnailPath: string | null;
+  glbPath: string | null;
+  polygonCount: number | null;
+  size: number;
+  isIncomplete: boolean;
+  isStale: boolean;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export function getAssets(): Promise<Asset[]> {
+  return request('/api/assets');
+}
+
+export function postScan(): Promise<{ assetCount: number }> {
+  return request('/api/scan', { method: 'POST' });
 }
 
 export function getConfig(): Promise<Config> {

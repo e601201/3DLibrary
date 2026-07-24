@@ -1,0 +1,26 @@
+// Package index は検索・高速表示のための SQLite インデックスを提供する。
+// DB は純粋なインデックスであり、ソースから全内容を再構築できる。
+// ユーザーデータは一切持たない(requirements.md §6、ADR-0001)。
+package index
+
+import "time"
+
+// Asset は assets テーブルの 1 行。JSON フィールド名は API 規約に従い camelCase。
+// ID はスキャンごとに変わりうるため、永続参照には使わない。
+type Asset struct {
+	ID       uint   `gorm:"primaryKey" json:"id"`
+	Title    string `json:"title"`
+	Category string `json:"category"`
+	// Path は model.blend の絶対パス。不完全アセットでは空。
+	Path          string  `json:"path"`
+	ThumbnailPath *string `json:"thumbnailPath"`
+	GlbPath       *string `json:"glbPath"`
+	PolygonCount  *int    `json:"polygonCount"`
+	// Size は model.blend のバイト数。不完全アセットでは 0。
+	Size         int64 `json:"size"`
+	IsIncomplete bool  `json:"isIncomplete"`
+	IsStale      bool  `json:"isStale"`
+	// UpdatedAt は model.blend の更新日時(GORM の自動更新は使わない)。
+	UpdatedAt time.Time `gorm:"autoUpdateTime:false" json:"updatedAt"`
+	CreatedAt time.Time `json:"createdAt"`
+}
