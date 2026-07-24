@@ -42,7 +42,7 @@ func buildSource(t *testing.T) string {
 
 func TestScanFindsAssets(t *testing.T) {
 	lib := buildSource(t)
-	assets, err := Scan(lib)
+	assets, err := Scan(lib, 0)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestScanFindsAssets(t *testing.T) {
 
 func TestScanCompleteAsset(t *testing.T) {
 	lib := buildSource(t)
-	assets, err := Scan(lib)
+	assets, err := Scan(lib, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestScanCompleteAsset(t *testing.T) {
 
 func TestScanIncompleteAsset(t *testing.T) {
 	lib := buildSource(t)
-	assets, err := Scan(lib)
+	assets, err := Scan(lib, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestScanDoesNotWriteToSource(t *testing.T) {
 	lib := buildSource(t)
 	src := filepath.Join(lib, "source")
 	before := snapshot(t, src)
-	if _, err := Scan(lib); err != nil {
+	if _, err := Scan(lib, 0); err != nil {
 		t.Fatal(err)
 	}
 	after := snapshot(t, src)
@@ -152,7 +152,7 @@ func TestScanPicksUpCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assets, err := Scan(lib)
+	assets, err := Scan(lib, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestScanProjectsMetaJSONTags(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assets, err := Scan(lib)
+	assets, err := Scan(lib, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,8 +201,100 @@ func TestScanProjectsMetaJSONTags(t *testing.T) {
 	}
 }
 
+// writeCache は Wooden Chair のキャッシュ 3 点を mtime 指定で作る。
+func writeCache(t *testing.T, lib string, mtime time.Time) library.CacheSet {
+	t.Helper()
+	paths := library.CachePaths(lib, "Props", "Wooden Chair")
+	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("cache"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(p, mtime, mtime); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return paths
+}
+
+func TestScanDetectsStaleCache(t *testing.T) {
+	lib := buildSource(t)
+	blend := filepath.Join(lib, "source", "Props", "Wooden Chair", "model.blend")
+	blendInfo, _ := os.Stat(blend)
+
+	// キャッシュが blend より古い → 要更新
+	writeCache(t, lib, blendInfo.ModTime().Add(-time.Hour))
+	assets, err := Scan(lib, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range assets {
+		if a.Title == "Wooden Chair" && !a.IsStale {
+			t.Error("older cache should be stale")
+		}
+		if a.Title == "Hero" && a.IsStale {
+			t.Error("Hero has no cache and must not be stale")
+		}
+	}
+
+	// キャッシュが blend より新しい → 最新
+	writeCache(t, lib, blendInfo.ModTime().Add(time.Hour))
+	assets, err = Scan(lib, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range assets {
+		if a.Title == "Wooden Chair" && a.IsStale {
+			t.Error("newer cache should not be stale")
+		}
+	}
+}
+
+// pngBytes は width×height の最小 PNG ヘッダ(IHDR まで)を作る。
+func pngBytes(width, height int) []byte {
+	b := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 'I', 'H', 'D', 'R'}
+	for _, v := range []int{width, height} {
+		b = append(b, byte(v>>24), byte(v>>16), byte(v>>8), byte(v))
+	}
+	return b
+}
+
+func TestScanDetectsThumbnailSizeChange(t *testing.T) {
+	lib := buildSource(t)
+	blend := filepath.Join(lib, "source", "Props", "Wooden Chair", "model.blend")
+	blendInfo, _ := os.Stat(blend)
+	paths := writeCache(t, lib, blendInfo.ModTime().Add(time.Hour)) // mtime は最新
+
+	// 512px で生成済みのサムネイル
+	if err := os.WriteFile(paths.Thumbnail, pngBytes(512, 512), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	future := blendInfo.ModTime().Add(time.Hour)
+	if err := os.Chtimes(paths.Thumbnail, future, future); err != nil {
+		t.Fatal(err)
+	}
+
+	check := func(size int, wantStale bool) {
+		t.Helper()
+		assets, err := Scan(lib, size)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, a := range assets {
+			if a.Title == "Wooden Chair" && a.IsStale != wantStale {
+				t.Errorf("thumbnailSize=%d: IsStale = %v, want %v", size, a.IsStale, wantStale)
+			}
+		}
+	}
+	check(512, false) // 設定と一致 → 最新
+	check(256, true)  // 設定変更 → 全サムネイル要更新
+	check(0, false)   // サイズ照合なし
+}
+
 func TestScanMissingSourceDirReturnsError(t *testing.T) {
-	if _, err := Scan(t.TempDir()); err == nil {
+	if _, err := Scan(t.TempDir(), 0); err == nil {
 		t.Fatal("missing source dir should error")
 	}
 }

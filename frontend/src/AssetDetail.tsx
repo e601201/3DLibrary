@@ -10,6 +10,7 @@ import {
   type ExtractedMetadata,
 } from './api';
 import { formatSize } from './format';
+import { StaleBadge } from './AssetGrid';
 import GlbViewer from './GlbViewer';
 
 type Props = {
@@ -72,7 +73,10 @@ export default function AssetDetail({ asset, generating, onBack, onGenerate, onT
           ← 一覧へ
         </button>
         <div className="min-w-0">
-          <h2 className="truncate text-xl font-bold">{asset.title}</h2>
+          <h2 className="flex items-center gap-2 text-xl font-bold">
+            <span className="truncate">{asset.title}</span>
+            {asset.isStale && <StaleBadge />}
+          </h2>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">{asset.category}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">

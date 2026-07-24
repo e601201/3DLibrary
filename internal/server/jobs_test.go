@@ -140,6 +140,84 @@ func TestGenerateJobWithoutBlenderRecordsError(t *testing.T) {
 	}
 }
 
+func TestBulkGenerateTargetsMissingAndStaleOnly(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	installFakeBlender(t, srv, libDir)
+	addAsset(t, libDir, "Props", "Fresh", true)   // キャッシュ最新
+	addAsset(t, libDir, "Props", "Missing", true) // 未生成
+	addAsset(t, libDir, "Props", "Stale", true)   // 陳腐化
+	addAsset(t, libDir, "Props", "NoBlend", false)
+
+	// Fresh: blend より新しいキャッシュ / Stale: blend より古いキャッシュ
+	now := time.Now()
+	for title, mtime := range map[string]time.Time{
+		"Fresh": now.Add(time.Hour),
+		"Stale": now.Add(-time.Hour),
+	} {
+		paths := library.CachePaths(libDir, "Props", title)
+		for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+			writeFileIn(t, libDir, p[len(libDir)+1:], `{"polygonCount":1}`)
+			if err := os.Chtimes(p, mtime, mtime); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	rescan(t, srv)
+
+	freshThumb := library.CachePaths(libDir, "Props", "Fresh").Thumbnail
+	freshBefore, _ := os.Stat(freshThumb)
+
+	rec := doRequest(t, srv, http.MethodPost, "/api/jobs/bulk", "")
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Enqueued int             `json:"enqueued"`
+		Status   generate.Status `json:"status"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Enqueued != 2 {
+		t.Fatalf("enqueued = %d, want 2(Missing と Stale のみ)", resp.Enqueued)
+	}
+	waitQueueIdle(t, srv)
+
+	// Fresh はスキップされた(キャッシュが触られていない)
+	freshAfter, _ := os.Stat(freshThumb)
+	if !freshAfter.ModTime().Equal(freshBefore.ModTime()) {
+		t.Error("fresh asset must be skipped")
+	}
+	// Stale は再生成されて要更新が消える
+	for _, a := range listAssets(t, srv) {
+		if a.Title == "Stale" && a.IsStale {
+			t.Error("Stale should be regenerated and no longer stale")
+		}
+		if a.Title == "Missing" && a.ThumbnailPath == nil {
+			t.Error("Missing should be generated")
+		}
+	}
+}
+
+func TestBulkGenerateWithNothingToDo(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	installFakeBlender(t, srv, libDir)
+	rescan(t, srv)
+	rec := doRequest(t, srv, http.MethodPost, "/api/jobs/bulk", "")
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var resp struct {
+		Enqueued int `json:"enqueued"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Enqueued != 0 {
+		t.Fatalf("enqueued = %d, want 0", resp.Enqueued)
+	}
+}
+
 func TestThumbnailServing(t *testing.T) {
 	srv, libDir := newLibraryServer(t)
 	paths := library.CachePaths(libDir, "Props", "Chair")

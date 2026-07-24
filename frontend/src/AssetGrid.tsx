@@ -57,6 +57,17 @@ function IncompleteBadge({ className = '' }: { className?: string }) {
   );
 }
 
+export function StaleBadge({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`rounded bg-red-500/90 px-1.5 py-0.5 text-xs font-medium text-white ${className}`}
+      title="model.blend がキャッシュより新しいか、サムネイルサイズが変更されています。生成で最新化できます"
+    >
+      要更新
+    </span>
+  );
+}
+
 function Placeholder({ className = '' }: { className?: string }) {
   return (
     <span
@@ -92,6 +103,7 @@ function AssetCard({
           <Placeholder className="text-4xl" />
         )}
         {asset.isIncomplete && <IncompleteBadge className="absolute left-2 top-2" />}
+        {asset.isStale && <StaleBadge className="absolute right-2 top-2" />}
       </div>
       <div className="p-3">
         <p className="truncate text-sm font-medium" title={asset.title}>
@@ -140,6 +152,7 @@ function AssetRow({ asset, onSelect }: { asset: Asset; onSelect: (asset: Asset) 
         <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{asset.category}</p>
       </div>
       {asset.isIncomplete && <IncompleteBadge />}
+      {asset.isStale && <StaleBadge />}
       <span className="hidden w-24 text-right text-xs text-neutral-500 sm:block dark:text-neutral-400">
         {formatSize(asset.size, true)}
       </span>

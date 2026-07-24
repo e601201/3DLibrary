@@ -6,6 +6,7 @@ import {
   getConfig,
   getJobs,
   getTags,
+  postBulkJobs,
   postJob,
   postScan,
   type Asset,
@@ -50,6 +51,7 @@ export default function App() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobStatus | null>(null);
   const [jobPostError, setJobPostError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ category: string; title: string } | null>(null);
 
   // 検索・フィルタ・表示
@@ -95,6 +97,7 @@ export default function App() {
   const rescan = useCallback(async () => {
     setScanning(true);
     setScanError(null);
+    setNotice(null);
     try {
       await postScan();
       await loadAssets();
@@ -131,8 +134,23 @@ export default function App() {
 
   const handleGenerate = useCallback(async (asset: Asset) => {
     setJobPostError(null);
+    setNotice(null);
     try {
       setJobs(await postJob({ category: asset.category, title: asset.title }));
+    } catch (err) {
+      setJobPostError(errorMessage(err));
+    }
+  }, []);
+
+  const handleBulkGenerate = useCallback(async () => {
+    setJobPostError(null);
+    setNotice(null);
+    try {
+      const res = await postBulkJobs();
+      setJobs(res.status);
+      if (res.enqueued === 0) {
+        setNotice('生成が必要なアセットはありません(すべて最新です)');
+      }
     } catch (err) {
       setJobPostError(errorMessage(err));
     }
@@ -215,6 +233,15 @@ export default function App() {
             <button
               type="button"
               className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
+              disabled={assetsState.kind === 'notConfigured' || jobsActive}
+              title="キャッシュ未生成または要更新のアセットだけを順番に生成します"
+              onClick={() => void handleBulkGenerate()}
+            >
+              ⚙ 不足分を一括生成
+            </button>
+            <button
+              type="button"
+              className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
               disabled={scanning || assetsState.kind === 'notConfigured'}
               onClick={() => void rescan()}
             >
@@ -246,6 +273,11 @@ export default function App() {
           </ErrorBanner>
         )}
         {jobPostError && <ErrorBanner>生成を開始できません: {jobPostError}</ErrorBanner>}
+        {notice && (
+          <p className="rounded border border-neutral-300 bg-neutral-100 px-4 py-2 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            {notice}
+          </p>
+        )}
         {scanError && <ErrorBanner>スキャンに失敗しました: {scanError}</ErrorBanner>}
 
         {assetsState.kind === 'notConfigured' ? (

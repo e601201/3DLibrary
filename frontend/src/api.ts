@@ -98,6 +98,11 @@ export function getJobs(): Promise<JobStatus> {
   return request('/api/jobs');
 }
 
+// 不足分(未生成+陳腐化)を一括でキューに積む
+export function postBulkJobs(): Promise<{ enqueued: number; status: JobStatus }> {
+  return request('/api/jobs/bulk', { method: 'POST' });
+}
+
 export function postJob(ref: JobRef): Promise<JobStatus> {
   return request('/api/jobs', {
     method: 'POST',

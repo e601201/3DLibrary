@@ -4,7 +4,10 @@
 package scan
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,10 +24,11 @@ import (
 //   - キャッシュ(GLB・サムネイル・抽出メタデータのポリゴン数)が
 //     あれば表示用として取り込む(requirements.md §7 スキャン)
 //   - meta.json のタグをインデックスへ射影する
+//   - 陳腐化判定: model.blend の mtime > キャッシュの mtime、または
+//     サムネイルの実サイズが thumbnailSize と不一致なら IsStale
 //
-// requirements.md §7 のうち未実装の取り込みは後続チケットで行う:
-// 陳腐化判定(#9)。この関数に足すこと(index.ReplaceAll 参照)。
-func Scan(libDir string) ([]index.Asset, error) {
+// thumbnailSize は設定値(0 ならサイズ照合をしない)。
+func Scan(libDir string, thumbnailSize int) ([]index.Asset, error) {
 	sourceDir := filepath.Join(libDir, "source")
 	categories, err := os.ReadDir(sourceDir)
 	if err != nil {
@@ -44,13 +48,13 @@ func Scan(libDir string) ([]index.Asset, error) {
 			if !ent.IsDir() || strings.HasPrefix(ent.Name(), ".") {
 				continue
 			}
-			assets = append(assets, readAsset(libDir, sourceDir, cat.Name(), ent.Name()))
+			assets = append(assets, readAsset(libDir, sourceDir, cat.Name(), ent.Name(), thumbnailSize))
 		}
 	}
 	return assets, nil
 }
 
-func readAsset(libDir, sourceDir, category, title string) index.Asset {
+func readAsset(libDir, sourceDir, category, title string, thumbnailSize int) index.Asset {
 	asset := index.Asset{Title: title, Category: category, IsIncomplete: true}
 
 	blendPath := filepath.Join(sourceDir, category, title, "model.blend")
@@ -60,7 +64,7 @@ func readAsset(libDir, sourceDir, category, title string) index.Asset {
 		asset.Path = blendPath
 		asset.Size = info.Size()
 		asset.UpdatedAt = info.ModTime()
-		attachCache(&asset, libDir)
+		attachCache(&asset, libDir, thumbnailSize)
 	}
 	// タグは不完全アセットにも付きうる(meta.json はソースの一部)。
 	// 壊れた meta.json はタグ空として扱い、スキャン全体は止めない
@@ -75,27 +79,60 @@ func readAsset(libDir, sourceDir, category, title string) index.Asset {
 	return asset
 }
 
-// attachCache は存在するキャッシュをインデックス行へ表示用に取り込む。
-// キャッシュは読むだけで、無ければ NULL のまま(未生成は「—」表示)。
-func attachCache(asset *index.Asset, libDir string) {
+// attachCache は存在するキャッシュをインデックス行へ表示用に取り込み、
+// 陳腐化を判定する。キャッシュは読むだけで、無ければ NULL のまま
+// (未生成は「—」表示。未生成は陳腐化とは区別する)。
+func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 	paths := library.CachePaths(libDir, asset.Category, asset.Title)
-	if fileExists(paths.Thumbnail) {
-		asset.ThumbnailPath = &paths.Thumbnail
-	}
-	if fileExists(paths.GLB) {
-		asset.GlbPath = &paths.GLB
-	}
-	if b, err := os.ReadFile(paths.Metadata); err == nil {
-		var meta struct {
-			PolygonCount int `json:"polygonCount"`
+
+	// 陳腐化判定(requirements.md §7): 既存キャッシュのどれかが
+	// model.blend より古ければ要更新(存在確認と同じ stat を使う)
+	staleIfOld := func(info os.FileInfo) {
+		if info.ModTime().Before(asset.UpdatedAt) {
+			asset.IsStale = true
 		}
-		if json.Unmarshal(b, &meta) == nil {
-			asset.PolygonCount = &meta.PolygonCount
+	}
+	if info, err := os.Stat(paths.Thumbnail); err == nil && !info.IsDir() {
+		asset.ThumbnailPath = &paths.Thumbnail
+		staleIfOld(info)
+		// サムネイルサイズ変更の検知: PNG の実サイズが設定と違えば要更新
+		if thumbnailSize > 0 {
+			if w, ok := pngWidth(paths.Thumbnail); ok && w != thumbnailSize {
+				asset.IsStale = true
+			}
+		}
+	}
+	if info, err := os.Stat(paths.GLB); err == nil && !info.IsDir() {
+		asset.GlbPath = &paths.GLB
+		staleIfOld(info)
+	}
+	if info, err := os.Stat(paths.Metadata); err == nil && !info.IsDir() {
+		staleIfOld(info)
+		if b, err := os.ReadFile(paths.Metadata); err == nil {
+			var meta struct {
+				PolygonCount int `json:"polygonCount"`
+			}
+			if json.Unmarshal(b, &meta) == nil {
+				asset.PolygonCount = &meta.PolygonCount
+			}
 		}
 	}
 }
 
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
+// pngWidth は PNG ヘッダ(IHDR)から幅を読む。PNG でなければ ok=false。
+func pngWidth(path string) (int, bool) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, false
+	}
+	defer f.Close()
+	header := make([]byte, 24)
+	if _, err := io.ReadFull(f, header); err != nil {
+		return 0, false
+	}
+	signature := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}
+	if !bytes.Equal(header[:8], signature) || string(header[12:16]) != "IHDR" {
+		return 0, false
+	}
+	return int(binary.BigEndian.Uint32(header[16:20])), true
 }

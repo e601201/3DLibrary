@@ -64,3 +64,55 @@ func enqueueJob(w http.ResponseWriter, r *http.Request, lib *libraryState, queue
 	})
 	writeJSON(w, http.StatusAccepted, queue.Status())
 }
+
+type bulkResponse struct {
+	// Enqueued は今回新たにキューへ積んだ件数。
+	Enqueued int             `json:"enqueued"`
+	Status   generate.Status `json:"status"`
+}
+
+// handleBulkJobs は POST /api/jobs/bulk(不足分を一括生成)を処理する。
+// キャッシュ未生成または陳腐化したアセットだけを対象にし、最新の
+// アセットはスキップする(requirements.md §7 生成)。
+func handleBulkJobs(lib *libraryState, queue *generate.Queue) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use POST")
+			return
+		}
+		idx, dir, err := lib.resolve()
+		if err != nil {
+			writeLibraryError(w, err, "index_open_failed")
+			return
+		}
+		assets, err := idx.List(index.ListOptions{})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "index_query_failed", err.Error())
+			return
+		}
+		enqueued := 0
+		for _, asset := range assets {
+			if !needsGeneration(asset) {
+				continue
+			}
+			if queue.Enqueue(generate.Job{
+				Category:  asset.Category,
+				Title:     asset.Title,
+				BlendPath: asset.Path,
+				LibDir:    dir,
+			}) {
+				enqueued++
+			}
+		}
+		writeJSON(w, http.StatusAccepted, bulkResponse{Enqueued: enqueued, Status: queue.Status()})
+	}
+}
+
+// needsGeneration はキャッシュ未生成または陳腐化かを判定する。
+func needsGeneration(asset index.Asset) bool {
+	if asset.IsIncomplete {
+		return false // model.blend が無いものは生成できない
+	}
+	missing := asset.ThumbnailPath == nil || asset.GlbPath == nil || asset.PolygonCount == nil
+	return missing || asset.IsStale
+}
