@@ -26,6 +26,7 @@ func New(static fs.FS, store *config.Store) *Server {
 	mux.HandleFunc("/api/assets", handleAssets(lib))
 	mux.HandleFunc("/api/scan", handleScan(lib))
 	mux.HandleFunc("/api/templates", handleTemplates(lib))
+	mux.HandleFunc("/api/categories", handleCategories(lib))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "no such API endpoint")
 	})

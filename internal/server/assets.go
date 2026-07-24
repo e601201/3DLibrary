@@ -3,6 +3,8 @@ package server
 import (
 	"errors"
 	"net/http"
+
+	"github.com/e601201/3DLibrary/internal/index"
 )
 
 // handleAssets は GET /api/assets(一覧)と POST /api/assets(新規作成)を
@@ -19,17 +21,64 @@ func handleAssets(lib *libraryState) http.HandlerFunc {
 			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET or POST")
 			return
 		}
+		opts, ok := parseListOptions(w, r)
+		if !ok {
+			return
+		}
 		idx, _, err := lib.resolve()
 		if err != nil {
 			writeLibraryError(w, err, "index_open_failed")
 			return
 		}
-		assets, err := idx.List()
+		assets, err := idx.List(opts)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "index_query_failed", err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, assets)
+	}
+}
+
+// parseListOptions は ?q= / ?category= / ?sort= を読み取る。
+// 不正な sort は 400 を書き込み ok=false を返す。
+func parseListOptions(w http.ResponseWriter, r *http.Request) (index.ListOptions, bool) {
+	opts := index.ListOptions{
+		Query:    r.URL.Query().Get("q"),
+		Category: r.URL.Query().Get("category"),
+	}
+	switch sort := r.URL.Query().Get("sort"); sort {
+	case "", "title":
+		opts.Sort = index.SortTitle
+	case string(index.SortUpdatedDesc):
+		opts.Sort = index.SortUpdatedDesc
+	case string(index.SortUpdatedAsc):
+		opts.Sort = index.SortUpdatedAsc
+	default:
+		writeError(w, http.StatusBadRequest, "validation_failed",
+			"sort must be one of: title, updated_desc, updated_asc")
+		return opts, false
+	}
+	return opts, true
+}
+
+// handleCategories は GET /api/categories(件数付きカテゴリ一覧)を処理する。
+func handleCategories(lib *libraryState) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
+			return
+		}
+		idx, _, err := lib.resolve()
+		if err != nil {
+			writeLibraryError(w, err, "index_open_failed")
+			return
+		}
+		categories, err := idx.Categories()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "index_query_failed", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, categories)
 	}
 }
 

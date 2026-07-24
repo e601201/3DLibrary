@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ApiError, getAssets, getConfig, postScan, type Asset, type Config } from './api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ApiError,
+  getAssets,
+  getCategories,
+  getConfig,
+  postScan,
+  type Asset,
+  type AssetSort,
+  type CategoryCount,
+  type Config,
+} from './api';
 import { applyTheme } from './theme';
-import AssetGrid from './AssetGrid';
+import AssetGrid, { type ViewMode } from './AssetGrid';
 import NewAssetModal from './NewAssetModal';
 import Settings from './Settings';
 
@@ -19,25 +29,55 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+const controlClass =
+  'rounded border border-neutral-300 bg-white px-3 py-2 text-sm ' +
+  'dark:border-neutral-600 dark:bg-neutral-800';
+
 export default function App() {
   const [assetsState, setAssetsState] = useState<AssetsState>({ kind: 'loading' });
+  const [categories, setCategories] = useState<CategoryCount[]>([]);
   const [config, setConfig] = useState<Config | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
 
+  // 検索・フィルタ・表示
+  const [queryInput, setQueryInput] = useState('');
+  const [query, setQuery] = useState(''); // デバウンス済み
+  const [category, setCategory] = useState(''); // '' = すべて
+  const [sort, setSort] = useState<AssetSort>('title');
+  const [view, setView] = useState<ViewMode>('card');
+
+  // 入力から 200ms 落ち着いたら検索する
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(queryInput.trim()), 200);
+    return () => clearTimeout(timer);
+  }, [queryInput]);
+
+  // フィルタ変更が連続したとき、遅れて返ってきた古い結果で
+  // 新しい結果を上書きしないための連番
+  const loadSeq = useRef(0);
+
   const loadAssets = useCallback(async () => {
+    const seq = ++loadSeq.current;
     try {
-      setAssetsState({ kind: 'ready', assets: await getAssets() });
+      const [assets, cats] = await Promise.all([
+        getAssets({ q: query, category, sort }),
+        getCategories(),
+      ]);
+      if (seq !== loadSeq.current) return; // 古いレスポンスは捨てる
+      setAssetsState({ kind: 'ready', assets });
+      setCategories(cats);
     } catch (err) {
+      if (seq !== loadSeq.current) return;
       if (isNotConfigured(err)) {
         setAssetsState({ kind: 'notConfigured' });
       } else {
         setAssetsState({ kind: 'error', message: errorMessage(err) });
       }
     }
-  }, []);
+  }, [query, category, sort]);
 
   const rescan = useCallback(async () => {
     setScanning(true);
@@ -65,7 +105,10 @@ export default function App() {
       .catch(() => {
         // 設定が読めなくてもアプリ自体は動かす(テーマはデフォルトのまま)
       });
-    // 起動時スキャンはバックエンドが済ませているので一覧を取るだけでよい
+  }, []);
+
+  // 起動時スキャンはバックエンドが済ませている。フィルタ変更時も再取得
+  useEffect(() => {
     void loadAssets();
   }, [loadAssets]);
 
@@ -79,9 +122,13 @@ export default function App() {
     }
   };
 
+  const filtered = query !== '' || category !== '';
+  const totalCount = categories.reduce((sum, c) => sum + c.count, 0);
+  const ready = assetsState.kind === 'ready';
+
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 p-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-8">
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">3DLibrary</h1>
@@ -124,10 +171,7 @@ export default function App() {
           </p>
         )}
 
-        {assetsState.kind === 'loading' && (
-          <p className="py-12 text-center text-sm text-neutral-500">読み込み中…</p>
-        )}
-        {assetsState.kind === 'notConfigured' && (
+        {assetsState.kind === 'notConfigured' ? (
           <div className="flex flex-col items-center gap-3 py-12">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
               ライブラリディレクトリが設定されていません。
@@ -140,26 +184,142 @@ export default function App() {
               設定を開く
             </button>
           </div>
+        ) : (
+          <div className="flex gap-6">
+            {/* サイドバー: 動的カテゴリ一覧(件数付き) */}
+            <aside className="hidden w-56 shrink-0 lg:block">
+              <nav className="flex flex-col gap-1">
+                <CategoryButton
+                  label="すべて"
+                  count={totalCount}
+                  active={category === ''}
+                  onClick={() => setCategory('')}
+                />
+                {categories.map((c) => (
+                  <CategoryButton
+                    key={c.name}
+                    label={c.name}
+                    count={c.count}
+                    active={category === c.name}
+                    onClick={() => setCategory(c.name)}
+                  />
+                ))}
+              </nav>
+            </aside>
+
+            <section className="flex min-w-0 flex-1 flex-col gap-4">
+              {/* ツールバー: 検索・カテゴリ(小画面)・ソート・表示切替 */}
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="search"
+                  className={`${controlClass} min-w-0 flex-1`}
+                  placeholder="タイトルで検索…"
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                />
+                <select
+                  className={`${controlClass} lg:hidden`}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  aria-label="カテゴリ"
+                >
+                  <option value="">すべてのカテゴリ</option>
+                  {categories.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} ({c.count})
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className={controlClass}
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as AssetSort)}
+                  aria-label="並び順"
+                >
+                  <option value="title">カテゴリ・タイトル順</option>
+                  <option value="updated_desc">更新日(新しい順)</option>
+                  <option value="updated_asc">更新日(古い順)</option>
+                </select>
+                <div className="flex overflow-hidden rounded border border-neutral-300 dark:border-neutral-600">
+                  <ViewButton label="カード" active={view === 'card'} onClick={() => setView('card')} />
+                  <ViewButton label="リスト" active={view === 'list'} onClick={() => setView('list')} />
+                </div>
+              </div>
+
+              {assetsState.kind === 'loading' && (
+                <p className="py-12 text-center text-sm text-neutral-500">読み込み中…</p>
+              )}
+              {assetsState.kind === 'error' && (
+                <p className="py-12 text-center text-sm text-red-600 dark:text-red-400">
+                  一覧を取得できません: {assetsState.message}
+                </p>
+              )}
+              {ready && <AssetGrid assets={assetsState.assets} view={view} filtered={filtered} />}
+            </section>
+          </div>
         )}
-        {assetsState.kind === 'error' && (
-          <p className="py-12 text-center text-sm text-red-600 dark:text-red-400">
-            一覧を取得できません: {assetsState.message}
-          </p>
-        )}
-        {assetsState.kind === 'ready' && <AssetGrid assets={assetsState.assets} />}
       </div>
 
       {showCreate && (
         <NewAssetModal
-          categories={
-            assetsState.kind === 'ready'
-              ? [...new Set(assetsState.assets.map((a) => a.category))]
-              : []
-          }
+          categories={categories.map((c) => c.name)}
           onClose={() => setShowCreate(false)}
           onCreated={() => void loadAssets()}
         />
       )}
     </main>
+  );
+}
+
+function CategoryButton({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`flex items-center justify-between rounded px-3 py-2 text-left text-sm ${
+        active
+          ? 'bg-blue-600 text-white'
+          : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+      }`}
+      onClick={onClick}
+    >
+      <span className="truncate">{label}</span>
+      <span className={active ? 'text-blue-100' : 'text-neutral-500 dark:text-neutral-400'}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function ViewButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`px-3 py-2 text-sm ${
+        active
+          ? 'bg-blue-600 text-white'
+          : 'bg-white hover:bg-neutral-100 dark:bg-neutral-800 dark:hover:bg-neutral-700'
+      }`}
+      onClick={onClick}
+    >
+      {label}
+    </button>
   );
 }

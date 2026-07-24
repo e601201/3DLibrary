@@ -60,8 +60,30 @@ export interface Asset {
   createdAt: string;
 }
 
-export function getAssets(): Promise<Asset[]> {
-  return request('/api/assets');
+export type AssetSort = 'title' | 'updated_desc' | 'updated_asc';
+
+export interface AssetFilter {
+  q?: string;
+  category?: string;
+  sort?: AssetSort;
+}
+
+export function getAssets(filter: AssetFilter = {}): Promise<Asset[]> {
+  const params = new URLSearchParams();
+  if (filter.q) params.set('q', filter.q);
+  if (filter.category) params.set('category', filter.category);
+  if (filter.sort) params.set('sort', filter.sort);
+  const qs = params.toString();
+  return request(qs ? `/api/assets?${qs}` : '/api/assets');
+}
+
+export interface CategoryCount {
+  name: string;
+  count: number;
+}
+
+export function getCategories(): Promise<CategoryCount[]> {
+  return request('/api/categories');
 }
 
 export interface CreateAssetInput {

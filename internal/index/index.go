@@ -1,6 +1,8 @@
 package index
 
 import (
+	"strings"
+
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -52,13 +54,75 @@ func (i *Index) ReplaceAll(assets []Asset) error {
 		if len(assets) == 0 {
 			return nil
 		}
-		return tx.Create(&assets).Error
+		// SQLite のバインド変数上限(999)を超えないようバッチ挿入する
+		// (5,000 アセット規模の全置換で上限に当たる)
+		return tx.CreateInBatches(assets, 50).Error
 	})
 }
 
-// List は全アセットをカテゴリ→タイトル順で返す。
-func (i *Index) List() ([]Asset, error) {
+// Sort は一覧の並び順。
+type Sort string
+
+const (
+	// SortTitle はカテゴリ→タイトル順(既定)。
+	SortTitle Sort = ""
+	// SortUpdatedDesc は更新日の新しい順。
+	SortUpdatedDesc Sort = "updated_desc"
+	// SortUpdatedAsc は更新日の古い順。
+	SortUpdatedAsc Sort = "updated_asc"
+)
+
+// ListOptions は一覧の絞り込み・並び順(requirements.md §7 検索)。
+type ListOptions struct {
+	// Query はタイトルの部分一致。ASCII は大文字小文字を区別しない
+	// (SQLite LIKE の仕様。非 ASCII は区別される)。空なら全件。
+	Query string
+	// Category はカテゴリの完全一致。空なら全カテゴリ。
+	Category string
+	Sort     Sort
+}
+
+// List は条件に合うアセットを返す。
+func (i *Index) List(opts ListOptions) ([]Asset, error) {
+	q := i.db.Model(&Asset{})
+	if opts.Query != "" {
+		q = q.Where("title LIKE ? ESCAPE '\\'", "%"+escapeLike(opts.Query)+"%")
+	}
+	if opts.Category != "" {
+		q = q.Where("category = ?", opts.Category)
+	}
+	switch opts.Sort {
+	case SortUpdatedDesc:
+		q = q.Order("updated_at DESC, category, title")
+	case SortUpdatedAsc:
+		q = q.Order("updated_at ASC, category, title")
+	default:
+		q = q.Order("category, title")
+	}
 	assets := []Asset{}
-	err := i.db.Order("category, title").Find(&assets).Error
+	err := q.Find(&assets).Error
 	return assets, err
+}
+
+// escapeLike は LIKE パターンのメタ文字をリテラル扱いにする。
+func escapeLike(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return r.Replace(s)
+}
+
+// CategoryCount はカテゴリ名とそのアセット件数。
+type CategoryCount struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// Categories はカテゴリ一覧(名前順)を件数付きで返す。
+func (i *Index) Categories() ([]CategoryCount, error) {
+	categories := []CategoryCount{}
+	err := i.db.Model(&Asset{}).
+		Select("category AS name, COUNT(*) AS count").
+		Group("category").
+		Order("category").
+		Find(&categories).Error
+	return categories, err
 }

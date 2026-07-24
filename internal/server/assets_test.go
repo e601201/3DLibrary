@@ -202,6 +202,64 @@ func TestSwitchingLibraryDirUsesNewIndex(t *testing.T) {
 	}
 }
 
+func TestAssetsSearchFilterSort(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "Wooden Chair", true)
+	addAsset(t, libDir, "Props", "Wooden Table", true)
+	addAsset(t, libDir, "Characters", "wood elf", true)
+	rescan(t, srv)
+
+	// 検索 + カテゴリ + ソートの組み合わせ
+	rec := doRequest(t, srv, http.MethodGet, "/api/assets?q=wood&category=Props&sort=updated_desc", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var assets []index.Asset
+	if err := json.Unmarshal(rec.Body.Bytes(), &assets); err != nil {
+		t.Fatal(err)
+	}
+	if len(assets) != 2 {
+		t.Fatalf("len = %d, want 2 (Props の wood*)", len(assets))
+	}
+	for _, a := range assets {
+		if a.Category != "Props" {
+			t.Errorf("category = %q", a.Category)
+		}
+	}
+}
+
+func TestAssetsRejectsUnknownSort(t *testing.T) {
+	srv, _ := newLibraryServer(t)
+	rec := doRequest(t, srv, http.MethodGet, "/api/assets?sort=nope", "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	}
+	if code := errorCode(t, rec); code != "validation_failed" {
+		t.Fatalf("error.code = %q", code)
+	}
+}
+
+func TestCategoriesEndpoint(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "Chair", true)
+	addAsset(t, libDir, "Props", "Table", true)
+	addAsset(t, libDir, "Characters", "Hero", false)
+	rescan(t, srv)
+
+	rec := doRequest(t, srv, http.MethodGet, "/api/categories", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var got []index.CategoryCount
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	want := []index.CategoryCount{{Name: "Characters", Count: 1}, {Name: "Props", Count: 2}}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("categories = %+v, want %+v", got, want)
+	}
+}
+
 func TestAssetsAndScanWrongMethodReturns405(t *testing.T) {
 	srv, _ := newLibraryServer(t)
 	for _, req := range []struct{ method, path string }{
