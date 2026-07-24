@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  deleteCache,
   putConfig,
   THEME_OPTIONS,
   THUMBNAIL_SIZES,
@@ -15,18 +16,26 @@ type SaveState =
   | { kind: 'saved' }
   | { kind: 'error'; message: string };
 
+type ClearState =
+  | { kind: 'idle' }
+  | { kind: 'clearing' }
+  | { kind: 'done' }
+  | { kind: 'error'; message: string };
+
 type Props = {
   initial: Config;
   onSaved: (config: Config) => void;
+  onCacheCleared: () => void;
 };
 
 const inputClass =
   'w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm ' +
   'dark:border-neutral-600 dark:bg-neutral-800';
 
-export default function Settings({ initial, onSaved }: Props) {
+export default function Settings({ initial, onSaved, onCacheCleared }: Props) {
   const [draft, setDraft] = useState(initial);
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
+  const [clear, setClear] = useState<ClearState>({ kind: 'idle' });
 
   // テーマは選択と同時にプレビュー適用する。保存せずにパネルを閉じたら
   // 最後に保存されたテーマへ戻す。
@@ -38,6 +47,21 @@ export default function Settings({ initial, onSaved }: Props) {
   const update = (patch: Partial<Config>) => {
     setDraft((d) => ({ ...d, ...patch }));
     setSave({ kind: 'idle' });
+  };
+
+  const handleClearCache = async () => {
+    // 削除は不可逆なので必ず確認する(キャッシュは再生成可能)
+    if (!window.confirm('キャッシュ(GLB・サムネイル・抽出メタデータ)を全て削除しますか?\nsource とタグは残ります。再生成は「不足分を一括生成」で行えます。')) {
+      return;
+    }
+    setClear({ kind: 'clearing' });
+    try {
+      await deleteCache();
+      setClear({ kind: 'done' });
+      onCacheCleared();
+    } catch (err) {
+      setClear({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
+    }
   };
 
   const handleSave = async () => {
@@ -124,6 +148,28 @@ export default function Settings({ initial, onSaved }: Props) {
           {save.kind === 'saved' && <span className="text-sm text-green-600 dark:text-green-400">保存しました</span>}
           {save.kind === 'error' && (
             <span className="text-sm text-red-600 dark:text-red-400">{save.message}</span>
+          )}
+        </div>
+
+        <div className="mt-2 border-t border-neutral-200 pt-4 dark:border-neutral-700">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="rounded border border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+              disabled={clear.kind === 'clearing'}
+              onClick={() => void handleClearCache()}
+            >
+              {clear.kind === 'clearing' ? '削除中…' : 'キャッシュを削除'}
+            </button>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              cache/ を丸ごと削除します(source とタグは無傷)
+            </span>
+          </div>
+          {clear.kind === 'done' && (
+            <p className="mt-2 text-sm text-green-600 dark:text-green-400">キャッシュを削除しました</p>
+          )}
+          {clear.kind === 'error' && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">削除に失敗しました: {clear.message}</p>
           )}
         </div>
       </div>

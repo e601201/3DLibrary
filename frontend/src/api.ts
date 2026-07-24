@@ -252,6 +252,20 @@ export function getTemplates(): Promise<string[]> {
   return request('/api/templates');
 }
 
+export interface CacheInfo {
+  sizeBytes: number;
+  fileCount: number;
+}
+
+export function getCacheInfo(): Promise<CacheInfo> {
+  return request('/api/cache');
+}
+
+// キャッシュを丸ごと削除する(再生成は「不足分を一括生成」で)
+export function deleteCache(): Promise<void> {
+  return request('/api/cache', { method: 'DELETE' });
+}
+
 export function postScan(): Promise<{ assetCount: number }> {
   return request('/api/scan', { method: 'POST' });
 }

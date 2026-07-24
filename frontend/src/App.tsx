@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   getAssets,
+  getCacheInfo,
   getCategories,
   getConfig,
   getJobs,
@@ -12,10 +13,12 @@ import {
   type Asset,
   type AssetSort,
   type CategoryCount,
+  type CacheInfo,
   type Config,
   type JobStatus,
   type TagCount,
 } from './api';
+import { formatSize } from './format';
 import { applyTheme } from './theme';
 import AssetDetail from './AssetDetail';
 import AssetGrid, { type ViewMode } from './AssetGrid';
@@ -44,6 +47,7 @@ export default function App() {
   const [assetsState, setAssetsState] = useState<AssetsState>({ kind: 'loading' });
   const [categories, setCategories] = useState<CategoryCount[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
+  const [cache, setCache] = useState<CacheInfo | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -94,6 +98,14 @@ export default function App() {
     }
   }, [query, category, tag, sort]);
 
+  // キャッシュ容量は検索条件と無関係なので loadAssets(キーストローク毎)
+  // には含めず、変化しうるタイミングでだけ取り直す
+  const loadCache = useCallback(() => {
+    getCacheInfo()
+      .then(setCache)
+      .catch(() => {});
+  }, []);
+
   const rescan = useCallback(async () => {
     setScanning(true);
     setScanError(null);
@@ -101,6 +113,7 @@ export default function App() {
     try {
       await postScan();
       await loadAssets();
+      loadCache();
     } catch (err) {
       if (isNotConfigured(err)) {
         setAssetsState({ kind: 'notConfigured' });
@@ -110,7 +123,7 @@ export default function App() {
     } finally {
       setScanning(false);
     }
-  }, [loadAssets]);
+  }, [loadAssets, loadCache]);
 
   const jobsActive = jobs !== null && (jobs.running !== null || jobs.pendingCount > 0);
 
@@ -124,13 +137,14 @@ export default function App() {
           // ジョブ完了分を随時カードへ反映する(サーバーはジョブごとに
           // 再スキャン済み)。キューが空になればポーリング自体が止まる
           void loadAssets();
+          loadCache(); // 生成でキャッシュ容量が変わる
         })
         .catch(() => {
           // 一時的な失敗は次のポーリングに任せる
         });
     }, 1000);
     return () => clearInterval(timer);
-  }, [jobsActive, loadAssets]);
+  }, [jobsActive, loadAssets, loadCache]);
 
   const handleGenerate = useCallback(async (asset: Asset) => {
     setJobPostError(null);
@@ -161,6 +175,7 @@ export default function App() {
     getJobs()
       .then(setJobs)
       .catch(() => {});
+    loadCache();
     getConfig()
       .then((c) => {
         setConfig(c);
@@ -169,7 +184,7 @@ export default function App() {
       .catch(() => {
         // 設定が読めなくてもアプリ自体は動かす(テーマはデフォルトのまま)
       });
-  }, []);
+  }, [loadCache]);
 
   // 起動時スキャンはバックエンドが済ませている。フィルタ変更時も再取得
   useEffect(() => {
@@ -257,7 +272,16 @@ export default function App() {
           </div>
         </header>
 
-        {showSettings && config && <Settings initial={config} onSaved={handleSaved} />}
+        {showSettings && config && (
+          <Settings
+            initial={config}
+            onSaved={handleSaved}
+            onCacheCleared={() => {
+              void loadAssets();
+              loadCache();
+            }}
+          />
+        )}
 
         {jobsActive && jobs && (
           <p className="rounded border border-blue-300 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
@@ -344,6 +368,11 @@ export default function App() {
                     ))}
                   </nav>
                 </>
+              )}
+              {cache && (
+                <p className="mt-4 border-t border-neutral-200 px-3 pt-3 text-xs text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+                  キャッシュ: {formatSize(cache.sizeBytes)}({cache.fileCount} ファイル)
+                </p>
               )}
             </aside>
 

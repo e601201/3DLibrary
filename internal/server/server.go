@@ -42,6 +42,7 @@ func New(static fs.FS, store *config.Store) *Server {
 	mux.HandleFunc("/api/categories", handleCategories(lib))
 	mux.HandleFunc("/api/jobs", handleJobs(lib, queue))
 	mux.HandleFunc("/api/jobs/bulk", handleBulkJobs(lib, queue))
+	mux.HandleFunc("/api/cache", handleCache(lib))
 	mux.HandleFunc("/api/tags", handleTags(lib))
 	mux.HandleFunc("/api/assets/{category}/{title}/tags", handleAssetTags(lib))
 	mux.HandleFunc("/api/assets/{category}/{title}/files", handleAssetFiles(lib))

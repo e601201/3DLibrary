@@ -18,13 +18,15 @@ import (
 //go:embed templates/empty.blend
 var emptyBlend []byte
 
-var skeletonDirs = []string{
-	"source",
-	filepath.Join("cache", "glb"),
-	filepath.Join("cache", "thumbnails"),
-	filepath.Join("cache", "metadata"),
-	"templates",
-}
+// skeletonDirs はライブラリの骨格。cache 配下は cacheSubdirs から導出する
+// (キャッシュ種別の追加が 1 箇所で済むように)。
+var skeletonDirs = func() []string {
+	dirs := []string{"source"}
+	for _, sub := range cacheSubdirs {
+		dirs = append(dirs, filepath.Join("cache", sub))
+	}
+	return append(dirs, "templates")
+}()
 
 // Ensure は dir をライブラリとして使える状態にする。
 //   - 空のディレクトリ → 骨格と empty.blend を作成する
