@@ -153,17 +153,21 @@ func cacheFileHandler(lib *libraryState, prefix, subdir string) http.HandlerFunc
 			return
 		}
 		root := filepath.Join(dir, "cache", subdir)
-		rel := strings.TrimPrefix(r.URL.Path, prefix)
-		path := filepath.Join(root, filepath.FromSlash(rel))
-		// cache 配下以外へは出さない(パストラバーサル対策)
-		if rel == "" || !strings.HasPrefix(path, root+string(filepath.Separator)) {
-			writeError(w, http.StatusNotFound, "not_found", "no such cache file")
-			return
-		}
-		if info, err := os.Stat(path); err != nil || info.IsDir() {
-			writeError(w, http.StatusNotFound, "not_found", "no such cache file")
-			return
-		}
-		http.ServeFile(w, r, path)
+		serveContainedFile(w, r, root, strings.TrimPrefix(r.URL.Path, prefix))
 	}
+}
+
+// serveContainedFile は root 配下の rel を配信する。root の外に出る
+// パスや存在しないファイルは 404(パストラバーサル対策)。
+func serveContainedFile(w http.ResponseWriter, r *http.Request, root, rel string) {
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	if rel == "" || !strings.HasPrefix(path, root+string(filepath.Separator)) {
+		writeError(w, http.StatusNotFound, "not_found", "no such file")
+		return
+	}
+	if info, err := os.Stat(path); err != nil || info.IsDir() {
+		writeError(w, http.StatusNotFound, "not_found", "no such file")
+		return
+	}
+	http.ServeFile(w, r, path)
 }

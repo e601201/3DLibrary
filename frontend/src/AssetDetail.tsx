@@ -4,6 +4,7 @@ import {
   getExtractedMetadata,
   glbUrl,
   postOpenBlender,
+  postReveal,
   putTags,
   type Asset,
   type AssetFiles,
@@ -11,6 +12,7 @@ import {
 } from './api';
 import { formatSize } from './format';
 import { StaleBadge } from './AssetGrid';
+import FileViewerTabs from './FileViewerTabs';
 import GlbViewer from './GlbViewer';
 
 type Props = {
@@ -60,6 +62,15 @@ export default function AssetDetail({ asset, generating, onBack, onGenerate, onT
     }
   };
 
+  const handleReveal = async () => {
+    setActionError(null);
+    try {
+      await postReveal(asset.category, asset.title);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const glb = glbUrl(asset);
 
   return (
@@ -87,6 +98,14 @@ export default function AssetDetail({ asset, generating, onBack, onGenerate, onT
             onClick={() => onGenerate(asset)}
           >
             {generating ? '生成中…' : glb ? '再生成' : '生成'}
+          </button>
+          <button
+            type="button"
+            className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800"
+            title="OS のファイルマネージャでアセットディレクトリを開く"
+            onClick={() => void handleReveal()}
+          >
+            Finderで表示
           </button>
           <button
             type="button"
@@ -195,6 +214,9 @@ export default function AssetDetail({ asset, generating, onBack, onGenerate, onT
           </section>
         </div>
       </div>
+
+      {/* ファイルビューア(textures / references / renders / notes.md) */}
+      <FileViewerTabs asset={asset} />
     </div>
   );
 }

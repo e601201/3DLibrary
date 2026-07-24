@@ -167,6 +167,35 @@ export function getAssetFiles(category: string, title: string): Promise<AssetFil
   );
 }
 
+export interface BrowseEntry {
+  name: string;
+  size: number;
+}
+
+// アセット直下のサブディレクトリのファイル一覧(無ければ空)
+export function getAssetDir(
+  category: string,
+  title: string,
+  subdir: string,
+): Promise<BrowseEntry[]> {
+  return request(
+    `/api/assets/${encodeURIComponent(category)}/${encodeURIComponent(title)}/dir/${encodeURIComponent(subdir)}`,
+  );
+}
+
+// アセット内ファイルの配信 URL(読み取り専用)
+export function assetRawUrl(category: string, title: string, rel: string): string {
+  const encoded = rel.split('/').map(encodeURIComponent).join('/');
+  return `/api/assets/${encodeURIComponent(category)}/${encodeURIComponent(title)}/raw/${encoded}`;
+}
+
+export function postReveal(category: string, title: string): Promise<void> {
+  return request(
+    `/api/assets/${encodeURIComponent(category)}/${encodeURIComponent(title)}/reveal`,
+    { method: 'POST' },
+  );
+}
+
 export function postOpenBlender(category: string, title: string): Promise<void> {
   return request(
     `/api/assets/${encodeURIComponent(category)}/${encodeURIComponent(title)}/open`,
