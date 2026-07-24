@@ -279,7 +279,7 @@ source/
 
 - Collection / Camera / Lighting / Render設定 / World設定
 
-ライブラリ初期化時にアプリ同梱の `empty.blend`(Blender 4.5 LTS で作成)が配置されるため、初回起動直後から新規作成が可能。
+ライブラリ初期化時にアプリ同梱の `empty.blend`(Blender 5.2 LTS で作成)が配置されるため、初回起動直後から新規作成が可能。
 
 ---
 
@@ -371,7 +371,7 @@ cache/
 |項目|内容|
 |------|------|
 |対応OS|Windows / macOS(Linuxは将来対応)|
-|Blender|4.5 LTS 以上(4.5 LTS と 5.1 でテストする)|
+|Blender|5.2 LTS 以上(5.2 LTS でテストする)|
 |インターネット接続|不要|
 |オフライン動作|必須|
 |ネットワーク|127.0.0.1 のみバインド。LANに露出しない|

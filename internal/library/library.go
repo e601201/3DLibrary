@@ -12,9 +12,7 @@ import (
 )
 
 // アプリ同梱のテンプレート。ライブラリ初期化時に templates/ へ配置される。
-// NOTE: 本来は Blender 4.5 LTS で作成する規定(requirements.md §9)だが、
-// 現状は Blender 5.0.1 で生成したファイルを同梱している。4.5 系ユーザーへの
-// 配布前に 4.5 LTS で作り直すこと。
+// Blender 5.2 LTS で作成(requirements.md §9 の規定どおり)。
 //
 //go:embed templates/empty.blend
 var emptyBlend []byte
