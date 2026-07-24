@@ -9,10 +9,15 @@ database.db
 # Frontend (React + Vite)
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Backend (Go)
 *.exe
 bin/
+
+# go:embed 用フロントエンドビルド成果物（frontend/ の npm run build が生成）
+internal/web/static/*
+!internal/web/static/.gitkeep
 
 # ローカル環境設定
 .env
