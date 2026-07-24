@@ -8,10 +8,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 
+	"github.com/e601201/3DLibrary/internal/config"
 	"github.com/e601201/3DLibrary/internal/server"
 	"github.com/e601201/3DLibrary/internal/web"
 )
@@ -22,6 +25,12 @@ const listenAddr = "127.0.0.1:8765"
 func main() {
 	noBrowser := flag.Bool("no-browser", false, "起動時にブラウザを開かない(開発用)")
 	flag.Parse()
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatalf("設定ディレクトリを取得できません: %v", err)
+	}
+	store := config.NewStore(filepath.Join(configDir, "3DLibrary", "config.json"))
 
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
@@ -39,7 +48,7 @@ func main() {
 		}()
 	}
 
-	if err := http.Serve(ln, server.New(web.Static())); err != nil {
+	if err := http.Serve(ln, server.New(web.Static(), store)); err != nil {
 		log.Fatal(err)
 	}
 }

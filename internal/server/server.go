@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"io/fs"
 	"net/http"
+
+	"github.com/e601201/3DLibrary/internal/config"
 )
 
 // New は API と埋め込みフロントエンド(static)を配信するハンドラを返す。
-func New(static fs.FS) http.Handler {
+func New(static fs.FS, store *config.Store) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", handleHealth)
+	mux.HandleFunc("/api/config", handleConfig(store))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "no such API endpoint")
 	})

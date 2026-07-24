@@ -29,6 +29,7 @@ go build -o bin/3dlibrary ./cmd/3dlibrary
 - `http://127.0.0.1:8765` で待ち受け、デフォルトブラウザが自動で開く
 - `127.0.0.1` のみにバインドし、LAN には露出しない
 - `--no-browser` でブラウザの自動起動を抑止できる(開発用)
+- 設定は OS 標準の設定ディレクトリ(例: Linux は `~/.config/3DLibrary/config.json`)に保存される
 
 ## 開発モード(Vite + Go の分離構成)
 

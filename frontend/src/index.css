@@ -1,1 +1,4 @@
 @import 'tailwindcss';
+
+/* テーマは <html> の .dark クラスで切り替える(src/theme.ts が管理) */
+@custom-variant dark (&:where(.dark, .dark *));

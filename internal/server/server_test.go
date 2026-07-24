@@ -5,9 +5,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/e601201/3DLibrary/internal/config"
 )
 
 func newTestServer(t *testing.T) http.Handler {
@@ -18,7 +21,7 @@ func newTestServer(t *testing.T) http.Handler {
 		"assets/app.css": {Data: []byte("body{}")},
 		".gitkeep":       {Data: []byte("")},
 	}
-	return New(static)
+	return New(static, config.NewStore(filepath.Join(t.TempDir(), "config.json")))
 }
 
 func TestHealth(t *testing.T) {
@@ -119,7 +122,7 @@ func TestSPAFallbackServesIndexHTML(t *testing.T) {
 }
 
 func TestMissingFrontendBuildServesHint(t *testing.T) {
-	srv := New(fstest.MapFS{".gitkeep": {Data: []byte("")}})
+	srv := New(fstest.MapFS{".gitkeep": {Data: []byte("")}}, config.NewStore(filepath.Join(t.TempDir(), "config.json")))
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 
