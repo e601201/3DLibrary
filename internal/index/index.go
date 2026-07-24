@@ -6,6 +6,9 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// DBFileName はライブラリ直下に置くインデックスファイル名。
+const DBFileName = "database.db"
+
 // Index は 1 つのライブラリの SQLite インデックス(database.db)。
 type Index struct {
 	db *gorm.DB

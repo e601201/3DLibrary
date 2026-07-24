@@ -6,9 +6,10 @@ package library
 import (
 	_ "embed"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/e601201/3DLibrary/internal/index"
 )
 
 // アプリ同梱のテンプレート。ライブラリ初期化時に templates/ へ配置される。
@@ -63,10 +64,16 @@ func isEmptyDir(dir string) (bool, error) {
 	if !info.IsDir() {
 		return false, fmt.Errorf("not a directory: %s", dir)
 	}
-	if _, err := f.ReadDir(1); err == io.EOF {
-		return true, nil
-	} else if err != nil {
+	entries, err := f.ReadDir(-1)
+	if err != nil {
 		return false, err
 	}
-	return false, nil
+	for _, e := range entries {
+		// インデックスはアプリ生成の派生物なので空判定では無視する
+		// (起動時スキャンが初期化より先に DB を作ることがある)
+		if e.Name() != index.DBFileName {
+			return false, nil
+		}
+	}
+	return true, nil
 }

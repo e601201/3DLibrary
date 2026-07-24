@@ -5,11 +5,18 @@ import (
 	"net/http"
 )
 
-// handleAssets は GET /api/assets(インデックスの一覧)を処理する。
+// handleAssets は GET /api/assets(一覧)と POST /api/assets(新規作成)を
+// 処理する。
 func handleAssets(lib *libraryState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
+		switch r.Method {
+		case http.MethodGet:
+			// この下の一覧処理へ
+		case http.MethodPost:
+			createAsset(w, r, lib)
+			return
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET or POST")
 			return
 		}
 		idx, _, err := lib.resolve()

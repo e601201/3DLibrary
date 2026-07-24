@@ -64,6 +64,24 @@ export function getAssets(): Promise<Asset[]> {
   return request('/api/assets');
 }
 
+export interface CreateAssetInput {
+  title: string;
+  category: string;
+  template: string;
+}
+
+export function createAsset(input: CreateAssetInput): Promise<CreateAssetInput> {
+  return request('/api/assets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export function getTemplates(): Promise<string[]> {
+  return request('/api/templates');
+}
+
 export function postScan(): Promise<{ assetCount: number }> {
   return request('/api/scan', { method: 'POST' });
 }

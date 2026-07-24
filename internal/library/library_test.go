@@ -47,6 +47,23 @@ func TestEnsureFailsWhenDirMissing(t *testing.T) {
 	}
 }
 
+func TestEnsureTreatsDatabaseOnlyDirAsEmpty(t *testing.T) {
+	// アプリはインデックス(database.db)をライブラリ直下に作るため、
+	// 「database.db しかないディレクトリ」は空とみなして初期化する
+	// (起動時スキャンが先に走ると DB だけが先に生まれる)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "database.db"), []byte("db"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Ensure(dir); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	assertSkeleton(t, dir)
+	if b, err := os.ReadFile(filepath.Join(dir, "database.db")); err != nil || string(b) != "db" {
+		t.Error("database.db must be untouched")
+	}
+}
+
 func TestEnsureLeavesNonEmptyDirUntouched(t *testing.T) {
 	// 既存ライブラリ(または無関係なディレクトリ)は一切変更しない
 	dir := t.TempDir()

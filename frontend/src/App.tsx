@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ApiError, getAssets, getConfig, postScan, type Asset, type Config } from './api';
 import { applyTheme } from './theme';
 import AssetGrid from './AssetGrid';
+import NewAssetModal from './NewAssetModal';
 import Settings from './Settings';
 
 type AssetsState =
@@ -22,6 +23,7 @@ export default function App() {
   const [assetsState, setAssetsState] = useState<AssetsState>({ kind: 'loading' });
   const [config, setConfig] = useState<Config | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
 
@@ -90,6 +92,14 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+              disabled={assetsState.kind === 'notConfigured'}
+              onClick={() => setShowCreate(true)}
+            >
+              ＋ 新規作成
+            </button>
+            <button
+              type="button"
               className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
               disabled={scanning || assetsState.kind === 'notConfigured'}
               onClick={() => void rescan()}
@@ -138,6 +148,18 @@ export default function App() {
         )}
         {assetsState.kind === 'ready' && <AssetGrid assets={assetsState.assets} />}
       </div>
+
+      {showCreate && (
+        <NewAssetModal
+          categories={
+            assetsState.kind === 'ready'
+              ? [...new Set(assetsState.assets.map((a) => a.category))]
+              : []
+          }
+          onClose={() => setShowCreate(false)}
+          onCreated={() => void loadAssets()}
+        />
+      )}
     </main>
   );
 }

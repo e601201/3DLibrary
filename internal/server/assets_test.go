@@ -205,7 +205,7 @@ func TestSwitchingLibraryDirUsesNewIndex(t *testing.T) {
 func TestAssetsAndScanWrongMethodReturns405(t *testing.T) {
 	srv, _ := newLibraryServer(t)
 	for _, req := range []struct{ method, path string }{
-		{http.MethodPost, "/api/assets"},
+		{http.MethodDelete, "/api/assets"},
 		{http.MethodGet, "/api/scan"},
 	} {
 		rec := doRequest(t, srv, req.method, req.path, "")

@@ -50,7 +50,7 @@ func (l *libraryState) resolve() (*index.Index, string, error) {
 		l.idx.Close()
 		l.idx = nil
 	}
-	idx, err := index.Open(filepath.Join(cfg.LibraryDir, "database.db"))
+	idx, err := index.Open(filepath.Join(cfg.LibraryDir, index.DBFileName))
 	if err != nil {
 		return nil, "", err
 	}
