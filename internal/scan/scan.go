@@ -5,6 +5,7 @@ package scan
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,10 +20,10 @@ import (
 //   - model.blend を持たないアセットは不完全アセットとして返す
 //   - キャッシュ(GLB・サムネイル・抽出メタデータのポリゴン数)が
 //     あれば表示用として取り込む(requirements.md §7 スキャン)
+//   - meta.json のタグをインデックスへ射影する
 //
 // requirements.md §7 のうち未実装の取り込みは後続チケットで行う:
-// meta.json のタグ反映(#8)、陳腐化判定(#9)。
-// いずれもこの関数に足すこと(index.ReplaceAll 参照)。
+// 陳腐化判定(#9)。この関数に足すこと(index.ReplaceAll 参照)。
 func Scan(libDir string) ([]index.Asset, error) {
 	sourceDir := filepath.Join(libDir, "source")
 	categories, err := os.ReadDir(sourceDir)
@@ -60,6 +61,16 @@ func readAsset(libDir, sourceDir, category, title string) index.Asset {
 		asset.Size = info.Size()
 		asset.UpdatedAt = info.ModTime()
 		attachCache(&asset, libDir)
+	}
+	// タグは不完全アセットにも付きうる(meta.json はソースの一部)。
+	// 壊れた meta.json はタグ空として扱い、スキャン全体は止めない
+	// (ただし黙って消えたように見えないようログには残す)
+	if tags, err := library.ReadTags(libDir, category, title); err == nil {
+		for _, name := range tags {
+			asset.Tags = append(asset.Tags, index.Tag{Name: name})
+		}
+	} else {
+		log.Printf("meta.json を読めません(タグ空として扱います)%s/%s: %v", category, title, err)
 	}
 	return asset
 }

@@ -176,6 +176,31 @@ func TestScanPicksUpCache(t *testing.T) {
 	}
 }
 
+func TestScanProjectsMetaJSONTags(t *testing.T) {
+	lib := buildSource(t)
+	metaPath := filepath.Join(lib, "source", "Props", "Wooden Chair", "meta.json")
+	if err := os.WriteFile(metaPath, []byte(`{"tags":["wood","furniture"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	assets, err := Scan(lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range assets {
+		switch a.Title {
+		case "Wooden Chair":
+			if len(a.Tags) != 2 || a.Tags[0].Name != "wood" || a.Tags[1].Name != "furniture" {
+				t.Errorf("Tags = %+v", a.Tags)
+			}
+		case "Hero":
+			if len(a.Tags) != 0 {
+				t.Errorf("Hero should have no tags: %+v", a.Tags)
+			}
+		}
+	}
+}
+
 func TestScanMissingSourceDirReturnsError(t *testing.T) {
 	if _, err := Scan(t.TempDir()); err == nil {
 		t.Fatal("missing source dir should error")

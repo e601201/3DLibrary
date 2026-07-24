@@ -4,6 +4,7 @@ import {
   getExtractedMetadata,
   glbUrl,
   postOpenBlender,
+  putTags,
   type Asset,
   type AssetFiles,
   type ExtractedMetadata,
@@ -16,9 +17,10 @@ type Props = {
   generating: boolean; // このアセットのジョブが実行中か
   onBack: () => void;
   onGenerate: (asset: Asset) => void;
+  onTagsChanged: (savedTags: string[]) => void; // タグ保存後に一覧・サイドバーを更新する
 };
 
-export default function AssetDetail({ asset, generating, onBack, onGenerate }: Props) {
+export default function AssetDetail({ asset, generating, onBack, onGenerate, onTagsChanged }: Props) {
   const [metadata, setMetadata] = useState<ExtractedMetadata | null>(null);
   const [files, setFiles] = useState<AssetFiles | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -131,6 +133,9 @@ export default function AssetDetail({ asset, generating, onBack, onGenerate }: P
         </div>
 
         <div className="flex flex-col gap-4">
+          {/* タグ(meta.json に保存) */}
+          <TagEditor asset={asset} onChanged={onTagsChanged} onError={setActionError} />
+
           {/* 抽出メタデータ */}
           <section className="rounded-lg border border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
             <h3 className="mb-2 text-sm font-semibold">抽出メタデータ</h3>
@@ -187,6 +192,99 @@ export default function AssetDetail({ asset, generating, onBack, onGenerate }: P
         </div>
       </div>
     </div>
+  );
+}
+
+function TagEditor({
+  asset,
+  onChanged,
+  onError,
+}: {
+  asset: Asset;
+  onChanged: (savedTags: string[]) => void;
+  onError: (message: string) => void;
+}) {
+  // 表示はローカル state を正とし、保存レスポンス(正規化済み)で即時更新する
+  // (プロップの asset.tags は一覧の再読込まで古いままのため)
+  const [tags, setTags] = useState(asset.tags);
+  const [input, setInput] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setTags(asset.tags);
+  }, [asset.id, asset.tags]);
+
+  const save = async (next: string[]) => {
+    setSaving(true);
+    try {
+      const res = await putTags(asset.category, asset.title, next);
+      setTags(res.tags);
+      onChanged(res.tags);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addTag = () => {
+    const tag = input.trim();
+    if (tag === '' || tags.includes(tag)) {
+      setInput('');
+      return;
+    }
+    setInput('');
+    void save([...tags, tag]);
+  };
+
+  return (
+    <section className="rounded-lg border border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+      <h3 className="mb-2 text-sm font-semibold">タグ</h3>
+      <div className="flex flex-wrap gap-1.5">
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs dark:bg-neutral-700"
+          >
+            {tag}
+            <button
+              type="button"
+              className="text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+              aria-label={`タグ ${tag} を削除`}
+              disabled={saving}
+              onClick={() => void save(tags.filter((t) => t !== tag))}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        {tags.length === 0 && (
+          <span className="text-xs text-neutral-500 dark:text-neutral-400">タグはありません</span>
+        )}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input
+          type="text"
+          className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+          placeholder="タグを追加…"
+          value={input}
+          disabled={saving}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            // IME の変換確定 Enter では追加しない
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) addTag();
+          }}
+        />
+        <button
+          type="button"
+          className="rounded border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-700"
+          disabled={saving || input.trim() === ''}
+          onClick={addTag}
+        >
+          追加
+        </button>
+      </div>
+    </section>
   );
 }
 

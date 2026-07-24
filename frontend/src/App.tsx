@@ -5,6 +5,7 @@ import {
   getCategories,
   getConfig,
   getJobs,
+  getTags,
   postJob,
   postScan,
   type Asset,
@@ -12,6 +13,7 @@ import {
   type CategoryCount,
   type Config,
   type JobStatus,
+  type TagCount,
 } from './api';
 import { applyTheme } from './theme';
 import AssetDetail from './AssetDetail';
@@ -40,6 +42,7 @@ const controlClass =
 export default function App() {
   const [assetsState, setAssetsState] = useState<AssetsState>({ kind: 'loading' });
   const [categories, setCategories] = useState<CategoryCount[]>([]);
+  const [tags, setTags] = useState<TagCount[]>([]);
   const [config, setConfig] = useState<Config | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -53,6 +56,7 @@ export default function App() {
   const [queryInput, setQueryInput] = useState('');
   const [query, setQuery] = useState(''); // デバウンス済み
   const [category, setCategory] = useState(''); // '' = すべて
+  const [tag, setTag] = useState(''); // '' = すべて
   const [sort, setSort] = useState<AssetSort>('title');
   const [view, setView] = useState<ViewMode>('card');
 
@@ -69,13 +73,15 @@ export default function App() {
   const loadAssets = useCallback(async () => {
     const seq = ++loadSeq.current;
     try {
-      const [assets, cats] = await Promise.all([
-        getAssets({ q: query, category, sort }),
+      const [assets, cats, tagCounts] = await Promise.all([
+        getAssets({ q: query, category, tag, sort }),
         getCategories(),
+        getTags(),
       ]);
       if (seq !== loadSeq.current) return; // 古いレスポンスは捨てる
       setAssetsState({ kind: 'ready', assets });
       setCategories(cats);
+      setTags(tagCounts);
     } catch (err) {
       if (seq !== loadSeq.current) return;
       if (isNotConfigured(err)) {
@@ -84,7 +90,7 @@ export default function App() {
         setAssetsState({ kind: 'error', message: errorMessage(err) });
       }
     }
-  }, [query, category, sort]);
+  }, [query, category, tag, sort]);
 
   const rescan = useCallback(async () => {
     setScanning(true);
@@ -162,7 +168,7 @@ export default function App() {
     }
   };
 
-  const filtered = query !== '' || category !== '';
+  const filtered = query !== '' || category !== '' || tag !== '';
   const totalCount = categories.reduce((sum, c) => sum + c.count, 0);
   const ready = assetsState.kind === 'ready';
   const runningKey = jobs?.running ? `${jobs.running.category}/${jobs.running.title}` : null;
@@ -261,6 +267,12 @@ export default function App() {
             generating={runningKey === `${selectedAsset.category}/${selectedAsset.title}`}
             onBack={() => setSelected(null)}
             onGenerate={(a) => void handleGenerate(a)}
+            onTagsChanged={(savedTags) => {
+              // 絞り込み中のタグを外した場合はフィルタも解除する
+              // (詳細画面から突然追い出されないように)
+              if (tag && !savedTags.includes(tag)) setTag('');
+              void loadAssets();
+            }}
           />
         ) : (
           <div className="flex gap-6">
@@ -283,6 +295,24 @@ export default function App() {
                   />
                 ))}
               </nav>
+              {tags.length > 0 && (
+                <>
+                  <p className="mb-1 mt-4 px-3 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                    タグ
+                  </p>
+                  <nav className="flex flex-col gap-1">
+                    {tags.map((t) => (
+                      <CategoryButton
+                        key={t.name}
+                        label={`# ${t.name}`}
+                        count={t.count}
+                        active={tag === t.name}
+                        onClick={() => setTag(tag === t.name ? '' : t.name)}
+                      />
+                    ))}
+                  </nav>
+                </>
+              )}
             </aside>
 
             <section className="flex min-w-0 flex-1 flex-col gap-4">
@@ -308,6 +338,21 @@ export default function App() {
                     </option>
                   ))}
                 </select>
+                {tags.length > 0 && (
+                  <select
+                    className={`${controlClass} lg:hidden`}
+                    value={tag}
+                    onChange={(e) => setTag(e.target.value)}
+                    aria-label="タグ"
+                  >
+                    <option value="">すべてのタグ</option>
+                    {tags.map((t) => (
+                      <option key={t.name} value={t.name}>
+                        {t.name} ({t.count})
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <select
                   className={controlClass}
                   value={sort}

@@ -45,6 +45,7 @@ func parseListOptions(w http.ResponseWriter, r *http.Request) (index.ListOptions
 	opts := index.ListOptions{
 		Query:    r.URL.Query().Get("q"),
 		Category: r.URL.Query().Get("category"),
+		Tag:      r.URL.Query().Get("tag"),
 	}
 	switch sort := r.URL.Query().Get("sort"); sort {
 	case "", "title":

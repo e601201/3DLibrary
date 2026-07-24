@@ -59,6 +59,7 @@ export interface Asset {
   isStale: boolean;
   updatedAt: string;
   createdAt: string;
+  tags: string[];
 }
 
 export type AssetSort = 'title' | 'updated_desc' | 'updated_asc';
@@ -66,6 +67,7 @@ export type AssetSort = 'title' | 'updated_desc' | 'updated_asc';
 export interface AssetFilter {
   q?: string;
   category?: string;
+  tag?: string;
   sort?: AssetSort;
 }
 
@@ -73,6 +75,7 @@ export function getAssets(filter: AssetFilter = {}): Promise<Asset[]> {
   const params = new URLSearchParams();
   if (filter.q) params.set('q', filter.q);
   if (filter.category) params.set('category', filter.category);
+  if (filter.tag) params.set('tag', filter.tag);
   if (filter.sort) params.set('sort', filter.sort);
   const qs = params.toString();
   return request(qs ? `/api/assets?${qs}` : '/api/assets');
@@ -173,6 +176,28 @@ export interface CategoryCount {
 
 export function getCategories(): Promise<CategoryCount[]> {
   return request('/api/categories');
+}
+
+// タグ一覧(件数付き)
+export type TagCount = CategoryCount;
+
+export function getTags(): Promise<TagCount[]> {
+  return request('/api/tags');
+}
+
+export function putTags(
+  category: string,
+  title: string,
+  tags: string[],
+): Promise<{ tags: string[] }> {
+  return request(
+    `/api/assets/${encodeURIComponent(category)}/${encodeURIComponent(title)}/tags`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+    },
+  );
 }
 
 export interface CreateAssetInput {
