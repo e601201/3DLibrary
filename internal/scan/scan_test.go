@@ -5,12 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/e601201/3DLibrary/internal/library"
 )
 
 // buildSource は source ディレクトリのテスト用ツリーを作る。
 func buildSource(t *testing.T) string {
 	t.Helper()
-	src := t.TempDir()
+	lib := t.TempDir()
+	src := filepath.Join(lib, "source")
 
 	write := func(rel string, data string) {
 		t.Helper()
@@ -34,12 +37,12 @@ func buildSource(t *testing.T) string {
 	// 隠しディレクトリは無視する
 	write(".hidden/Whatever/model.blend", "ignored")
 
-	return src
+	return lib
 }
 
 func TestScanFindsAssets(t *testing.T) {
-	src := buildSource(t)
-	assets, err := Scan(src)
+	lib := buildSource(t)
+	assets, err := Scan(lib)
 	if err != nil {
 		t.Fatalf("Scan: %v", err)
 	}
@@ -60,8 +63,8 @@ func TestScanFindsAssets(t *testing.T) {
 }
 
 func TestScanCompleteAsset(t *testing.T) {
-	src := buildSource(t)
-	assets, err := Scan(src)
+	lib := buildSource(t)
+	assets, err := Scan(lib)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +75,7 @@ func TestScanCompleteAsset(t *testing.T) {
 		if a.IsIncomplete {
 			t.Error("Wooden Chair should be complete")
 		}
-		wantPath := filepath.Join(src, "Props", "Wooden Chair", "model.blend")
+		wantPath := filepath.Join(lib, "source", "Props", "Wooden Chair", "model.blend")
 		if a.Path != wantPath {
 			t.Errorf("Path = %q, want %q", a.Path, wantPath)
 		}
@@ -89,8 +92,8 @@ func TestScanCompleteAsset(t *testing.T) {
 }
 
 func TestScanIncompleteAsset(t *testing.T) {
-	src := buildSource(t)
-	assets, err := Scan(src)
+	lib := buildSource(t)
+	assets, err := Scan(lib)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,9 +116,10 @@ func TestScanIncompleteAsset(t *testing.T) {
 }
 
 func TestScanDoesNotWriteToSource(t *testing.T) {
-	src := buildSource(t)
+	lib := buildSource(t)
+	src := filepath.Join(lib, "source")
 	before := snapshot(t, src)
-	if _, err := Scan(src); err != nil {
+	if _, err := Scan(lib); err != nil {
 		t.Fatal(err)
 	}
 	after := snapshot(t, src)
@@ -129,8 +133,51 @@ func TestScanDoesNotWriteToSource(t *testing.T) {
 	}
 }
 
+func TestScanPicksUpCache(t *testing.T) {
+	lib := buildSource(t)
+	// Wooden Chair のキャッシュ 3 点を用意(Broken にはキャッシュなし)
+	paths := library.CachePaths(lib, "Props", "Wooden Chair")
+	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(paths.GLB, []byte("glb"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(paths.Thumbnail, []byte("png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(paths.Metadata, []byte(`{"polygonCount":1234}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	assets, err := Scan(lib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range assets {
+		switch a.Title {
+		case "Wooden Chair":
+			if a.ThumbnailPath == nil || *a.ThumbnailPath != paths.Thumbnail {
+				t.Errorf("ThumbnailPath = %v", a.ThumbnailPath)
+			}
+			if a.GlbPath == nil || *a.GlbPath != paths.GLB {
+				t.Errorf("GlbPath = %v", a.GlbPath)
+			}
+			if a.PolygonCount == nil || *a.PolygonCount != 1234 {
+				t.Errorf("PolygonCount = %v", a.PolygonCount)
+			}
+		case "Hero":
+			if a.ThumbnailPath != nil || a.GlbPath != nil || a.PolygonCount != nil {
+				t.Errorf("Hero should have no cache: %+v", a)
+			}
+		}
+	}
+}
+
 func TestScanMissingSourceDirReturnsError(t *testing.T) {
-	if _, err := Scan(filepath.Join(t.TempDir(), "source")); err == nil {
+	if _, err := Scan(t.TempDir()); err == nil {
 		t.Fatal("missing source dir should error")
 	}
 }

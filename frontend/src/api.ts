@@ -77,6 +77,38 @@ export function getAssets(filter: AssetFilter = {}): Promise<Asset[]> {
   return request(qs ? `/api/assets?${qs}` : '/api/assets');
 }
 
+export interface JobRef {
+  category: string;
+  title: string;
+}
+
+export interface JobStatus {
+  running: JobRef | null;
+  pendingCount: number;
+  batchDone: number;
+  batchTotal: number;
+  lastError: (JobRef & { message: string }) | null;
+}
+
+export function getJobs(): Promise<JobStatus> {
+  return request('/api/jobs');
+}
+
+export function postJob(ref: JobRef): Promise<JobStatus> {
+  return request('/api/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(ref),
+  });
+}
+
+// サムネイルの配信 URL。?v= は再スキャンごとに変わる id で、
+// 再生成後にブラウザキャッシュへ残った古い画像を避けるため
+export function thumbnailUrl(asset: Asset): string | null {
+  if (!asset.thumbnailPath) return null;
+  return `/api/thumbnails/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.png?v=${asset.id}`;
+}
+
 export interface CategoryCount {
   name: string;
   count: number;

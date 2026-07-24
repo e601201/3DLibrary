@@ -65,7 +65,7 @@ func (l *libraryState) runScan() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	assets, err := scan.Scan(filepath.Join(dir, "source"))
+	assets, err := scan.Scan(dir)
 	if err != nil {
 		return 0, err
 	}

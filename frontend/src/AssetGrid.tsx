@@ -1,4 +1,4 @@
-import type { Asset } from './api';
+import { thumbnailUrl, type Asset } from './api';
 
 export type ViewMode = 'card' | 'list';
 
@@ -6,9 +6,11 @@ type Props = {
   assets: Asset[];
   view: ViewMode;
   filtered: boolean; // 検索・フィルタが効いているか(空表示の文言用)
+  onGenerate: (asset: Asset) => void;
+  runningKey: string | null; // 生成実行中のアセット(category/title)
 };
 
-export default function AssetGrid({ assets, view, filtered }: Props) {
+export default function AssetGrid({ assets, view, filtered, onGenerate, runningKey }: Props) {
   if (assets.length === 0) {
     return (
       <p className="py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">
@@ -30,7 +32,12 @@ export default function AssetGrid({ assets, view, filtered }: Props) {
   return (
     <ul className="grid w-full grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {assets.map((asset) => (
-        <AssetCard key={asset.id} asset={asset} />
+        <AssetCard
+          key={asset.id}
+          asset={asset}
+          onGenerate={onGenerate}
+          generating={runningKey === `${asset.category}/${asset.title}`}
+        />
       ))}
     </ul>
   );
@@ -58,14 +65,24 @@ function Placeholder({ className = '' }: { className?: string }) {
   );
 }
 
-function AssetCard({ asset }: { asset: Asset }) {
+function AssetCard({
+  asset,
+  onGenerate,
+  generating,
+}: {
+  asset: Asset;
+  onGenerate: (asset: Asset) => void;
+  generating: boolean;
+}) {
+  const thumb = thumbnailUrl(asset);
   return (
     <li className="overflow-hidden rounded-lg border border-neutral-300 bg-white dark:border-neutral-700 dark:bg-neutral-800">
       <div className="relative flex aspect-square items-center justify-center bg-neutral-100 dark:bg-neutral-900">
-        {/* thumbnailPath はサーバー側のファイルパス。画像として表示するには
-            配信 API が必要で、それは生成チケット(#6)で入る。それまでは
-            常にプレースホルダーを表示する */}
-        <Placeholder className="text-4xl" />
+        {thumb ? (
+          <img src={thumb} alt={asset.title} className="h-full w-full object-contain" loading="lazy" />
+        ) : (
+          <Placeholder className="text-4xl" />
+        )}
         {asset.isIncomplete && <IncompleteBadge className="absolute left-2 top-2" />}
       </div>
       <div className="p-3">
@@ -73,9 +90,20 @@ function AssetCard({ asset }: { asset: Asset }) {
           {asset.title}
         </p>
         <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{asset.category}</p>
-        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          ポリゴン数: {asset.polygonCount ?? '—'}
-        </p>
+        <div className="mt-1 flex items-center justify-between">
+          <span className="text-xs text-neutral-500 dark:text-neutral-400">
+            ポリゴン数: {asset.polygonCount ?? '—'}
+          </span>
+          <button
+            type="button"
+            className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-600 dark:hover:bg-neutral-700"
+            disabled={asset.isIncomplete || generating}
+            title={asset.isIncomplete ? 'model.blend が無いため生成できません' : 'GLB・サムネイル・抽出メタデータを生成'}
+            onClick={() => onGenerate(asset)}
+          >
+            {generating ? '生成中…' : '生成'}
+          </button>
+        </div>
       </div>
     </li>
   );
@@ -84,8 +112,12 @@ function AssetCard({ asset }: { asset: Asset }) {
 function AssetRow({ asset }: { asset: Asset }) {
   return (
     <li className="flex items-center gap-3 px-4 py-2">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-neutral-100 dark:bg-neutral-900">
-        <Placeholder className="text-xl" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-neutral-100 dark:bg-neutral-900">
+        {thumbnailUrl(asset) ? (
+          <img src={thumbnailUrl(asset)!} alt="" className="h-full w-full object-contain" loading="lazy" />
+        ) : (
+          <Placeholder className="text-xl" />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium" title={asset.title}>

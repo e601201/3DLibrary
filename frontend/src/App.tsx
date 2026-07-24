@@ -4,11 +4,14 @@ import {
   getAssets,
   getCategories,
   getConfig,
+  getJobs,
+  postJob,
   postScan,
   type Asset,
   type AssetSort,
   type CategoryCount,
   type Config,
+  type JobStatus,
 } from './api';
 import { applyTheme } from './theme';
 import AssetGrid, { type ViewMode } from './AssetGrid';
@@ -41,6 +44,8 @@ export default function App() {
   const [showCreate, setShowCreate] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<JobStatus | null>(null);
+  const [jobPostError, setJobPostError] = useState<string | null>(null);
 
   // 検索・フィルタ・表示
   const [queryInput, setQueryInput] = useState('');
@@ -96,7 +101,40 @@ export default function App() {
     }
   }, [loadAssets]);
 
+  const jobsActive = jobs !== null && (jobs.running !== null || jobs.pendingCount > 0);
+
+  // ADR-0002: キューが動いている間だけ 1 秒間隔でポーリングする
   useEffect(() => {
+    if (!jobsActive) return;
+    const timer = setInterval(() => {
+      getJobs()
+        .then((s) => {
+          setJobs(s);
+          // ジョブ完了分を随時カードへ反映する(サーバーはジョブごとに
+          // 再スキャン済み)。キューが空になればポーリング自体が止まる
+          void loadAssets();
+        })
+        .catch(() => {
+          // 一時的な失敗は次のポーリングに任せる
+        });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [jobsActive, loadAssets]);
+
+  const handleGenerate = useCallback(async (asset: Asset) => {
+    setJobPostError(null);
+    try {
+      setJobs(await postJob({ category: asset.category, title: asset.title }));
+    } catch (err) {
+      setJobPostError(errorMessage(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    // リロード時に進行中のバッチがあれば表示を復元する
+    getJobs()
+      .then(setJobs)
+      .catch(() => {});
     getConfig()
       .then((c) => {
         setConfig(c);
@@ -165,11 +203,21 @@ export default function App() {
 
         {showSettings && config && <Settings initial={config} onSaved={handleSaved} />}
 
-        {scanError && (
-          <p className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
-            スキャンに失敗しました: {scanError}
+        {jobsActive && jobs && (
+          <p className="rounded border border-blue-300 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
+            {jobs.running ? '生成中' : '生成準備中'}{' '}
+            {Math.min(jobs.batchDone + 1, jobs.batchTotal)}/{jobs.batchTotal}
+            {jobs.running && <>: {jobs.running.category}/{jobs.running.title}</>}
+            (待機 {jobs.pendingCount} 件)
           </p>
         )}
+        {!jobsActive && jobs?.lastError && (
+          <ErrorBanner>
+            生成に失敗しました({jobs.lastError.category}/{jobs.lastError.title}): {jobs.lastError.message}
+          </ErrorBanner>
+        )}
+        {jobPostError && <ErrorBanner>生成を開始できません: {jobPostError}</ErrorBanner>}
+        {scanError && <ErrorBanner>スキャンに失敗しました: {scanError}</ErrorBanner>}
 
         {assetsState.kind === 'notConfigured' ? (
           <div className="flex flex-col items-center gap-3 py-12">
@@ -254,7 +302,15 @@ export default function App() {
                   一覧を取得できません: {assetsState.message}
                 </p>
               )}
-              {ready && <AssetGrid assets={assetsState.assets} view={view} filtered={filtered} />}
+              {ready && (
+                <AssetGrid
+                  assets={assetsState.assets}
+                  view={view}
+                  filtered={filtered}
+                  onGenerate={(a) => void handleGenerate(a)}
+                  runningKey={jobs?.running ? `${jobs.running.category}/${jobs.running.title}` : null}
+                />
+              )}
             </section>
           </div>
         )}
@@ -268,6 +324,14 @@ export default function App() {
         />
       )}
     </main>
+  );
+}
+
+function ErrorBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+      {children}
+    </p>
   );
 }
 

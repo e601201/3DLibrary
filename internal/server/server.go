@@ -6,20 +6,33 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log"
 	"net/http"
 
 	"github.com/e601201/3DLibrary/internal/config"
+	"github.com/e601201/3DLibrary/internal/generate"
 )
 
 // Server は API と埋め込みフロントエンドを配信する。
 type Server struct {
 	http.Handler
-	lib *libraryState
+	lib   *libraryState
+	queue *generate.Queue
 }
 
 // New は API と埋め込みフロントエンド(static)を配信するサーバーを返す。
 func New(static fs.FS, store *config.Store) *Server {
 	lib := newLibraryState(store)
+	runner := generate.NewRunner(store)
+	// ジョブ完了ごとに再スキャンし、キャッシュをインデックスへ取り込む
+	queue := generate.NewQueue(runner.Run, func(job generate.Job, jobErr error) {
+		if jobErr != nil {
+			log.Printf("生成に失敗しました %s/%s: %v", job.Category, job.Title, jobErr)
+		}
+		if _, err := lib.runScan(); err != nil {
+			log.Printf("生成後の再スキャンに失敗しました: %v", err)
+		}
+	})
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", handleHealth)
 	mux.HandleFunc("/api/config", handleConfig(store))
@@ -27,11 +40,13 @@ func New(static fs.FS, store *config.Store) *Server {
 	mux.HandleFunc("/api/scan", handleScan(lib))
 	mux.HandleFunc("/api/templates", handleTemplates(lib))
 	mux.HandleFunc("/api/categories", handleCategories(lib))
+	mux.HandleFunc("/api/jobs", handleJobs(lib, queue))
+	mux.HandleFunc("/api/thumbnails/", handleThumbnails(lib))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "no such API endpoint")
 	})
 	mux.Handle("/", spaHandler(static))
-	return &Server{Handler: mux, lib: lib}
+	return &Server{Handler: mux, lib: lib, queue: queue}
 }
 
 // StartupScan は起動時の自動スキャンを実行する(requirements.md §7)。
@@ -44,8 +59,10 @@ func (s *Server) StartupScan() (int, error) {
 	return n, err
 }
 
-// CloseLibrary は開いているインデックス DB を閉じる(終了時・テスト用)。
+// CloseLibrary はジョブキューを止め、インデックス DB を閉じる
+// (終了時・テスト用)。
 func (s *Server) CloseLibrary() {
+	s.queue.Stop()
 	s.lib.close()
 }
 

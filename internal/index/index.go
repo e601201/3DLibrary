@@ -1,6 +1,8 @@
 package index
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/glebarez/sqlite"
@@ -108,6 +110,19 @@ func (i *Index) List(opts ListOptions) ([]Asset, error) {
 func escapeLike(s string) string {
 	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 	return r.Replace(s)
+}
+
+// ErrNotFound は Find で該当アセットが無い場合のエラー。
+var ErrNotFound = errors.New("asset not found")
+
+// Find はカテゴリとタイトルでアセットを 1 件引く。
+func (i *Index) Find(category, title string) (Asset, error) {
+	var asset Asset
+	err := i.db.Where("category = ? AND title = ?", category, title).First(&asset).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return Asset{}, fmt.Errorf("%w: %s/%s", ErrNotFound, category, title)
+	}
+	return asset, err
 }
 
 // CategoryCount はカテゴリ名とそのアセット件数。
