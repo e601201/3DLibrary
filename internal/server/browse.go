@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/e601201/3DLibrary/internal/library"
 )
 
 // browseEntry はサブディレクトリ内の 1 ファイル。
@@ -46,7 +48,7 @@ func handleAssetDir(lib *libraryState) http.HandlerFunc {
 		// os.ReadDir は名前順を保証する
 		files := []browseEntry{}
 		for _, e := range entries {
-			if e.IsDir() {
+			if e.IsDir() || library.IsHidden(e.Name()) {
 				continue
 			}
 			entry := browseEntry{Name: e.Name()}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/e601201/3DLibrary/internal/index"
 )
@@ -73,9 +74,27 @@ func isEmptyDir(dir string) (bool, error) {
 	for _, e := range entries {
 		// インデックスはアプリ生成の派生物なので空判定では無視する
 		// (起動時スキャンが初期化より先に DB を作ることがある)
-		if e.Name() != index.DBFileName {
-			return false, nil
+		if e.Name() == index.DBFileName {
+			continue
 		}
+		// OS が勝手に作る不可視ファイルも「中身」とはみなさない。
+		// これを数えると、Finder で作って開いただけの空フォルダが
+		// .DS_Store のせいで既存ライブラリ扱いになり、骨格が作られない。
+		if IsHidden(e.Name()) {
+			continue
+		}
+		return false, nil
 	}
 	return true, nil
+}
+
+// IsHidden は OS 標準で不可視として扱われるファイル名かを返す。
+// macOS の Finder は開いただけのフォルダに .DS_Store を、Windows の
+// エクスプローラーは Thumbs.db / desktop.ini を書き込む。利用者からは
+// 見えないので、空ディレクトリ判定にもファイル一覧にも含めない。
+func IsHidden(name string) bool {
+	if strings.HasPrefix(name, ".") {
+		return true
+	}
+	return name == "Thumbs.db" || name == "desktop.ini"
 }

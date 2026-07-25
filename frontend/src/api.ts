@@ -275,6 +275,17 @@ export function postScan(): Promise<{ assetCount: number }> {
   return request('/api/scan', { method: 'POST' });
 }
 
+// 実行中の OS。設定画面がパスの入力例を出し分けるのに使う
+// (Go の runtime.GOOS がそのまま入る: 'darwin' | 'windows' | 'linux' 等)。
+export interface Health {
+  status: string;
+  os: string;
+}
+
+export function getHealth(): Promise<Health> {
+  return request('/api/health');
+}
+
 export function getConfig(): Promise<Config> {
   return request('/api/config');
 }

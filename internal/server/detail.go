@@ -47,6 +47,9 @@ func handleAssetFiles(lib *libraryState) http.HandlerFunc {
 		}
 		resp := filesResponse{Entries: []fileEntry{}}
 		for _, e := range dirEntries {
+			if library.IsHidden(e.Name()) {
+				continue
+			}
 			entry := fileEntry{Name: e.Name(), IsDir: e.IsDir()}
 			if e.IsDir() {
 				entry.Size, entry.FileCount = dirSize(filepath.Join(assetDir, e.Name()))
@@ -128,6 +131,11 @@ func dirSize(root string) (int64, int) {
 	var count int
 	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
+			return nil
+		}
+		// 一覧に出さないファイルは件数・サイズにも数えない
+		// (空の textures が「1 ファイル」と表示されてしまう)
+		if library.IsHidden(d.Name()) {
 			return nil
 		}
 		if info, err := d.Info(); err == nil {

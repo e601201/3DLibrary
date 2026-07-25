@@ -43,6 +43,14 @@ func putConfig(w http.ResponseWriter, r *http.Request, store *config.Store) {
 		writeError(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
+	// macOS のアプリバンドル指定を実行ファイルへ読み替える。誤ったパスは
+	// 生成時ではなく保存時に弾く(生成時の "permission denied" は原因が伝わらない)。
+	blenderPath, err := config.NormalizeBlenderPath(c.BlenderPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "blender_path_invalid", err.Error())
+		return
+	}
+	c.BlenderPath = blenderPath
 	if c.LibraryDir != "" {
 		if err := library.Ensure(c.LibraryDir); err != nil {
 			writeError(w, http.StatusBadRequest, "library_init_failed", err.Error())

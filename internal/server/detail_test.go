@@ -71,6 +71,41 @@ func TestAssetFilesListing(t *testing.T) {
 	}
 }
 
+func TestAssetFilesHidesOSMetadata(t *testing.T) {
+	// .DS_Store は一覧に出さないだけでなく、サブディレクトリの
+	// 件数・サイズにも数えない(空の textures が「1 ファイル」に見えてしまう)
+	srv, libDir := newLibraryServer(t)
+	assetDir := filepath.Join(libDir, "source", "Props", "Chair")
+	writeFileIn(t, assetDir, "model.blend", "0123456789")
+	writeFileIn(t, assetDir, ".DS_Store", "junk")
+	writeFileIn(t, assetDir, "textures/.DS_Store", "junk")
+	rescan(t, srv)
+
+	rec := doRequest(t, srv, http.MethodGet, "/api/assets/Props/Chair/files", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var got struct {
+		Entries []struct {
+			Name      string `json:"name"`
+			Size      int64  `json:"size"`
+			IsDir     bool   `json:"isDir"`
+			FileCount int    `json:"fileCount"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range got.Entries {
+		if e.Name == ".DS_Store" {
+			t.Error(".DS_Store should not be listed")
+		}
+		if e.Name == "textures" && (e.FileCount != 0 || e.Size != 0) {
+			t.Errorf("textures = %+v, want empty(.DS_Store を数えない)", e)
+		}
+	}
+}
+
 func TestAssetFilesNotFound(t *testing.T) {
 	srv, _ := newLibraryServer(t)
 	rec := doRequest(t, srv, http.MethodGet, "/api/assets/Props/Ghost/files", "")

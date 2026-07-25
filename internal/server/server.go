@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"runtime"
 
 	"github.com/e601201/3DLibrary/internal/config"
 	"github.com/e601201/3DLibrary/internal/generate"
@@ -79,6 +80,9 @@ func (s *Server) CloseLibrary() {
 
 type healthResponse struct {
 	Status string `json:"status"`
+	// 実行中の OS(runtime.GOOS)。設定画面がパスの入力例を
+	// OS ごとに出し分けるために使う。
+	OS string `json:"os"`
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +90,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
 		return
 	}
-	writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
+	writeJSON(w, http.StatusOK, healthResponse{Status: "ok", OS: runtime.GOOS})
 }
 
 // spaHandler は static 内のファイルを配信し、見つからないパスには

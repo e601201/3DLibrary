@@ -42,6 +42,32 @@ func TestAssetDirListing(t *testing.T) {
 	}
 }
 
+func TestAssetDirListingHidesOSMetadata(t *testing.T) {
+	// Finder が textures/ を開くと .DS_Store が生まれる。利用者からは
+	// 不可視のファイルなので、アプリの一覧にも出さない
+	srv, libDir := newBrowseServer(t)
+	writeFileIn(t, filepath.Join(libDir, "source", "Props", "Chair"), "textures/.DS_Store", "junk")
+
+	rec := doRequest(t, srv, http.MethodGet, "/api/assets/Props/Chair/dir/textures", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var files []struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &files); err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("files = %+v, want 2 (.DS_Store を除く)", files)
+	}
+	for _, f := range files {
+		if f.Name == ".DS_Store" {
+			t.Error(".DS_Store should not be listed")
+		}
+	}
+}
+
 func TestAssetDirListingMissingDirIsEmpty(t *testing.T) {
 	srv, _ := newBrowseServer(t)
 	// references/ が無いアセット(Finder 作成)でも空一覧で返す

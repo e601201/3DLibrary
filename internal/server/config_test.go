@@ -67,10 +67,24 @@ func TestGetConfigReturnsDefaults(t *testing.T) {
 	}
 }
 
+// writeFakeBlender は実在する Blender 実行ファイルの代わりを作る。
+// blenderPath は保存時に実在チェックを通るため、テストでも実体が要る。
+func writeFakeBlender(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, "blender")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func TestPutConfigSavesAndReturnsConfig(t *testing.T) {
 	srv, store := newConfigTestServer(t)
-	rec := doRequest(t, srv, http.MethodPut, "/api/config",
-		`{"blenderPath":"/usr/bin/blender","libraryDir":"","thumbnailSize":1024,"theme":"dark"}`)
+	blender := writeFakeBlender(t, t.TempDir())
+	body, _ := json.Marshal(config.Config{
+		BlenderPath: blender, ThumbnailSize: 1024, Theme: "dark",
+	})
+	rec := doRequest(t, srv, http.MethodPut, "/api/config", string(body))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
@@ -83,8 +97,94 @@ func TestPutConfigSavesAndReturnsConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.Theme != "dark" || saved.BlenderPath != "/usr/bin/blender" {
+	if saved.Theme != "dark" || saved.BlenderPath != blender {
 		t.Fatalf("saved = %+v", saved)
+	}
+}
+
+func TestPutConfigResolvesMacAppBundle(t *testing.T) {
+	// macOS で /Applications/Blender.app を指定するのは自然な操作。
+	// そのまま保存すると生成時に permission denied になるので、
+	// 保存の時点で中の実行ファイルへ読み替える
+	srv, store := newConfigTestServer(t)
+	bundle := filepath.Join(t.TempDir(), "Blender.app")
+	binary := filepath.Join(bundle, "Contents", "MacOS", "Blender")
+	if err := os.MkdirAll(filepath.Dir(binary), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(config.Config{
+		BlenderPath: bundle, ThumbnailSize: 512, Theme: "system",
+	})
+	rec := doRequest(t, srv, http.MethodPut, "/api/config", string(body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	// レスポンスにも保存内容にも、読み替え後のパスが入ること
+	// (設定画面の入力欄が実際に使われるパスを表示できるように)
+	if got := decodeConfig(t, rec); got.BlenderPath != binary {
+		t.Errorf("response blenderPath = %q, want %q", got.BlenderPath, binary)
+	}
+	saved, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.BlenderPath != binary {
+		t.Errorf("saved blenderPath = %q, want %q", saved.BlenderPath, binary)
+	}
+}
+
+func TestPutConfigRejectsUnusableBlenderPath(t *testing.T) {
+	// 誤ったパスは「生成に失敗しました: permission denied」ではなく
+	// 保存時にはっきり弾く
+	srv, _ := newConfigTestServer(t)
+	for name, path := range map[string]string{
+		"missing":   filepath.Join(t.TempDir(), "no-such-blender"),
+		"directory": t.TempDir(),
+	} {
+		body, _ := json.Marshal(config.Config{
+			BlenderPath: path, ThumbnailSize: 512, Theme: "system",
+		})
+		rec := doRequest(t, srv, http.MethodPut, "/api/config", string(body))
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", name, rec.Code)
+			continue
+		}
+		if code := errorCode(t, rec); code != "blender_path_invalid" {
+			t.Errorf("%s: error.code = %q, want blender_path_invalid", name, code)
+		}
+	}
+}
+
+func TestPutConfigInitializesLibraryDirWithOSMetadata(t *testing.T) {
+	// Finder で作って中を確認しただけの空フォルダには .DS_Store が入る。
+	// これで初期化がスキップされると、以降スキャンもテンプレート一覧も
+	// 500 になり、保存し直しても復旧しない
+	srv, _ := newConfigTestServer(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".DS_Store"), []byte("junk"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(config.Config{LibraryDir: dir, ThumbnailSize: 512, Theme: "system"})
+	rec := doRequest(t, srv, http.MethodPut, "/api/config", string(body))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	for _, d := range []string{"source", "cache", "templates"} {
+		if info, err := os.Stat(filepath.Join(dir, d)); err != nil || !info.IsDir() {
+			t.Errorf("skeleton %s: %v", d, err)
+		}
+	}
+	// 骨格ができていれば、以降のスキャンとテンプレート一覧も通る
+	if rec := doRequest(t, srv, http.MethodPost, "/api/scan", ""); rec.Code != http.StatusOK {
+		t.Errorf("scan status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := doRequest(t, srv, http.MethodGet, "/api/templates", ""); rec.Code != http.StatusOK {
+		t.Errorf("templates status = %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

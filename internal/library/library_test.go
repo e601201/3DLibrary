@@ -64,6 +64,51 @@ func TestEnsureTreatsDatabaseOnlyDirAsEmpty(t *testing.T) {
 	}
 }
 
+func TestEnsureTreatsOSMetadataOnlyDirAsEmpty(t *testing.T) {
+	// Finder は開いただけのフォルダに .DS_Store を書く。これを「中身」と
+	// みなすと、利用者が用意した空フォルダが既存ライブラリ扱いになり
+	// 骨格が作られないまま保存が成功してしまう
+	for _, name := range []string{".DS_Store", ".localized", "Thumbs.db", "desktop.ini"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := Ensure(dir); err != nil {
+				t.Fatalf("Ensure: %v", err)
+			}
+			assertSkeleton(t, dir)
+		})
+	}
+}
+
+func TestEnsureTreatsOSMetadataWithDatabaseAsEmpty(t *testing.T) {
+	// 保存し直したときの状態(DB と .DS_Store が両方ある)からも復旧できること
+	dir := t.TempDir()
+	for _, name := range []string{"database.db", ".DS_Store"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := Ensure(dir); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	assertSkeleton(t, dir)
+}
+
+func TestIsHidden(t *testing.T) {
+	for _, name := range []string{".DS_Store", ".localized", "._model.blend", "Thumbs.db", "desktop.ini"} {
+		if !IsHidden(name) {
+			t.Errorf("IsHidden(%q) = false, want true", name)
+		}
+	}
+	for _, name := range []string{"model.blend", "meta.json", "notes.md", "textures"} {
+		if IsHidden(name) {
+			t.Errorf("IsHidden(%q) = true, want false", name)
+		}
+	}
+}
+
 func TestEnsureLeavesNonEmptyDirUntouched(t *testing.T) {
 	// 既存ライブラリ(または無関係なディレクトリ)は一切変更しない
 	dir := t.TempDir()
