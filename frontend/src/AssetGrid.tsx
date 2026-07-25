@@ -1,5 +1,10 @@
+// design/Design.pen 画面01 のカードグリッドとリスト表示。
+// カードはサムネイル(3:2)+ 情報部(padding 12-14 / gap 8)の 2 段構成。
+
+import { ImageOff, RefreshCw, TriangleAlert, Zap } from 'lucide-react';
 import { thumbnailUrl, type Asset } from './api';
-import { formatDate, formatSize } from './format';
+import { formatDate, formatDay, formatPolygons, formatSize } from './format';
+import { Centered, cx } from './ui';
 
 export type ViewMode = 'card' | 'list';
 
@@ -12,27 +17,42 @@ type Props = {
   runningKey: string | null; // 生成実行中のアセット(category/title)
 };
 
-export default function AssetGrid({ assets, view, filtered, onGenerate, onSelect, runningKey }: Props) {
+export default function AssetGrid({
+  assets,
+  view,
+  filtered,
+  onGenerate,
+  onSelect,
+  runningKey,
+}: Props) {
   if (assets.length === 0) {
     return (
-      <p className="py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">
-        {filtered
-          ? '条件に一致するアセットがありません。'
-          : 'アセットがありません。source のカテゴリディレクトリ直下にアセットディレクトリを追加して「再スキャン」してください。'}
-      </p>
+      <Centered>
+        <ImageOff size={32} className="text-ink-faint" />
+        <p className="text-sm font-semibold text-ink">
+          {filtered ? '条件に一致するアセットがありません' : 'アセットがありません'}
+        </p>
+        {!filtered && (
+          <p className="max-w-md text-xs text-ink-faint">
+            source のカテゴリディレクトリ直下にアセットディレクトリを追加して「再スキャン」してください。
+          </p>
+        )}
+      </Centered>
     );
   }
+
   if (view === 'list') {
     return (
-      <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-300 bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
+      <ul className="border border-border bg-surface">
         {assets.map((asset) => (
           <AssetRow key={asset.id} asset={asset} onSelect={onSelect} />
         ))}
       </ul>
     );
   }
+
   return (
-    <ul className="grid w-full grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
       {assets.map((asset) => (
         <AssetCard
           key={asset.id}
@@ -46,35 +66,19 @@ export default function AssetGrid({ assets, view, filtered, onGenerate, onSelect
   );
 }
 
-function IncompleteBadge({ className = '' }: { className?: string }) {
+// 「要更新」バッジ。サムネイル上(onStage)はデザインどおり
+// fill #0A0A0ACC + 暗色前提の配色、それ以外の面ではテーマ追従の配色にする。
+export function StaleBadge({ onStage = false }: { onStage?: boolean }) {
   return (
     <span
-      className={`rounded bg-amber-500/90 px-1.5 py-0.5 text-xs font-medium text-white ${className}`}
-      title="model.blend がありません。プレビュー・生成・Blender 起動はできません"
-    >
-      ⚠ 不完全
-    </span>
-  );
-}
-
-export function StaleBadge({ className = '' }: { className?: string }) {
-  return (
-    <span
-      className={`rounded bg-red-500/90 px-1.5 py-0.5 text-xs font-medium text-white ${className}`}
+      className={cx(
+        'flex shrink-0 items-center gap-1 border px-2 py-1 font-mono text-[9px] leading-none',
+        onStage ? 'border-stage-warn bg-stage/80 text-stage-warn' : 'border-warn text-warn',
+      )}
       title="model.blend がキャッシュより新しいか、サムネイルサイズが変更されています。生成で最新化できます"
     >
+      <RefreshCw size={10} />
       要更新
-    </span>
-  );
-}
-
-function Placeholder({ className = '' }: { className?: string }) {
-  return (
-    <span
-      className={`select-none text-neutral-300 dark:text-neutral-600 ${className}`}
-      aria-label="サムネイル未生成"
-    >
-      ◇
     </span>
   );
 }
@@ -93,73 +97,147 @@ function AssetCard({
   const thumb = thumbnailUrl(asset);
   return (
     <li
-      className="cursor-pointer overflow-hidden rounded-lg border border-neutral-300 bg-white transition-shadow hover:shadow-md dark:border-neutral-700 dark:bg-neutral-800"
+      className="group flex cursor-pointer flex-col border border-border bg-surface transition hover:border-ink-faint"
       onClick={() => onSelect(asset)}
     >
-      <div className="relative flex aspect-square items-center justify-center bg-neutral-100 dark:bg-neutral-900">
-        {thumb ? (
-          <img src={thumb} alt={asset.title} className="h-full w-full object-contain" loading="lazy" />
-        ) : (
-          <Placeholder className="text-4xl" />
+      <div
+        className={cx(
+          'relative flex aspect-[3/2] items-center justify-center overflow-hidden bg-surface-2',
+          // 画像は縁まで使う。プレースホルダだけデザインどおり内側に余白を取る
+          !asset.isIncomplete && thumb ? '' : 'p-2',
         )}
-        {asset.isIncomplete && <IncompleteBadge className="absolute left-2 top-2" />}
-        {asset.isStale && <StaleBadge className="absolute right-2 top-2" />}
+      >
+        {asset.isIncomplete ? (
+          <div className="flex flex-col items-center gap-2 text-center">
+            <TriangleAlert size={22} className="text-warn" />
+            <span className="font-mono text-[10px] text-warn">model.blend がありません</span>
+          </div>
+        ) : thumb ? (
+          <img
+            src={thumb}
+            alt={asset.title}
+            className="h-full w-full object-contain"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-2 text-center">
+            <ImageOff size={22} className="text-ink-faint" />
+            <span className="font-mono text-[10px] text-ink-faint">サムネイル未生成</span>
+            <GenerateButton asset={asset} generating={generating} onGenerate={onGenerate} />
+          </div>
+        )}
+
+        {asset.isStale && (
+          <div className="absolute top-2 right-2">
+            <StaleBadge onStage />
+          </div>
+        )}
+
+        {/* サムネイルがある場合の再生成はホバーでだけ出す(デザインの
+            静止状態を保ちつつ、要更新アセットを個別に直せるように) */}
+        {!asset.isIncomplete && thumb && (
+          <div className="absolute right-2 bottom-2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+            <GenerateButton
+              asset={asset}
+              generating={generating}
+              onGenerate={onGenerate}
+              label={asset.isStale ? '更新' : '再生成'}
+            />
+          </div>
+        )}
       </div>
-      <div className="p-3">
-        <p className="truncate text-sm font-medium" title={asset.title}>
+
+      <div className="flex flex-col gap-2 px-3.5 py-3">
+        <p className="truncate text-sm font-semibold text-ink" title={asset.title}>
           {asset.title}
         </p>
-        <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{asset.category}</p>
-        <div className="mt-1 flex items-center justify-between">
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">
-            ポリゴン数: {asset.polygonCount ?? '—'}
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate font-mono text-[10px] tracking-[0.5px] text-accent uppercase">
+            {asset.category}
           </span>
-          <button
-            type="button"
-            className="rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-600 dark:hover:bg-neutral-700"
-            disabled={asset.isIncomplete || generating}
-            title={asset.isIncomplete ? 'model.blend が無いため生成できません' : 'GLB・サムネイル・抽出メタデータを生成'}
-            onClick={(e) => {
-              e.stopPropagation(); // カードクリック(詳細遷移)と干渉させない
-              onGenerate(asset);
-            }}
-          >
-            {generating ? '生成中…' : '生成'}
-          </button>
+          <span className="shrink-0 font-mono text-[10px] whitespace-nowrap text-ink-faint">
+            {formatPolygons(asset.polygonCount)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2 font-mono text-[10px] text-ink-faint">
+          <span>{formatDay(asset.updatedAt)}</span>
+          <span>{formatSize(asset.size, true)}</span>
         </div>
       </div>
     </li>
   );
 }
 
+// サムネイル未生成カードの小さな生成ボタン(padding 5-10 / gap 5)
+function GenerateButton({
+  asset,
+  generating,
+  onGenerate,
+  label = '生成',
+}: {
+  asset: Asset;
+  generating: boolean;
+  onGenerate: (asset: Asset) => void;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={generating}
+      title="GLB・サムネイル・抽出メタデータを生成"
+      className="flex items-center gap-1.5 border border-border bg-surface px-2.5 py-[5px] text-[11px] leading-none text-ink-muted transition hover:border-accent hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+      onClick={(e) => {
+        e.stopPropagation(); // カードクリック(詳細遷移)と干渉させない
+        onGenerate(asset);
+      }}
+    >
+      <Zap size={11} className="text-accent" />
+      {generating ? '生成中…' : label}
+    </button>
+  );
+}
+
 function AssetRow({ asset, onSelect }: { asset: Asset; onSelect: (asset: Asset) => void }) {
+  const thumb = thumbnailUrl(asset);
   return (
     <li
-      className="flex cursor-pointer items-center gap-3 px-4 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-700/50"
+      className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-2 transition last:border-b-0 hover:bg-surface-2"
       onClick={() => onSelect(asset)}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-neutral-100 dark:bg-neutral-900">
-        {thumbnailUrl(asset) ? (
-          <img src={thumbnailUrl(asset)!} alt="" className="h-full w-full object-contain" loading="lazy" />
+      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden bg-surface-2">
+        {thumb ? (
+          <img src={thumb} alt="" className="h-full w-full object-contain" loading="lazy" />
         ) : (
-          <Placeholder className="text-xl" />
+          <ImageOff size={14} className={cx(asset.isIncomplete ? 'text-warn' : 'text-ink-faint')} />
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium" title={asset.title}>
+        <p className="truncate text-[13px] font-medium text-ink" title={asset.title}>
           {asset.title}
         </p>
-        <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{asset.category}</p>
+        <p className="truncate font-mono text-[10px] tracking-[0.5px] text-accent uppercase">
+          {asset.category}
+        </p>
       </div>
-      {asset.isIncomplete && <IncompleteBadge />}
+      {asset.isIncomplete && (
+        <span
+          className="flex shrink-0 items-center gap-1 border border-warn px-2 py-1 font-mono text-[9px] leading-none text-warn"
+          title="model.blend がありません。プレビュー・生成・Blender 起動はできません"
+        >
+          <TriangleAlert size={10} />
+          不完全
+        </span>
+      )}
       {asset.isStale && <StaleBadge />}
-      <span className="hidden w-24 text-right text-xs text-neutral-500 sm:block dark:text-neutral-400">
+      <span className="hidden w-28 shrink-0 text-right font-mono text-[10px] text-ink-faint sm:block">
+        {formatPolygons(asset.polygonCount)}
+      </span>
+      <span className="hidden w-20 shrink-0 text-right font-mono text-[10px] text-ink-faint sm:block">
         {formatSize(asset.size, true)}
       </span>
-      <span className="hidden w-36 text-right text-xs text-neutral-500 sm:block dark:text-neutral-400">
+      <span className="hidden w-36 shrink-0 text-right font-mono text-[10px] text-ink-faint md:block">
         {formatDate(asset.updatedAt)}
       </span>
     </li>
   );
 }
-

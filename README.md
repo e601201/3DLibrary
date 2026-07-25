@@ -3,6 +3,8 @@
 Blender で制作した 3D アセットをローカル PC 上で一元管理する Web アプリケーション。
 要件は [requirements.md](./requirements.md)、用語は [CONTEXT.md](./CONTEXT.md)、API 規約は [docs/api-conventions.md](./docs/api-conventions.md) を参照。
 
+UI は [design/Design.pen](./design/Design.pen)(Pencil)を正とする。配色・書体・余白は `frontend/src/index.css` のトークンに、共通パーツは `frontend/src/ui.tsx` に写してあるので、画面を足すときはまずそこを見る。
+
 ## 必要環境
 
 - Go 1.26+

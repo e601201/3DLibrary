@@ -3,13 +3,9 @@
 export type Theme = 'dark' | 'light' | 'system';
 export type ThumbnailSize = 256 | 512 | 1024;
 
-// 許容値の一覧(バックエンド internal/config の validate と対応)
+// 許容値の一覧(バックエンド internal/config の validate と対応)。
+// テーマの選択肢はアイコン付きセグメントとして Settings 側が持つ。
 export const THUMBNAIL_SIZES: readonly ThumbnailSize[] = [256, 512, 1024];
-export const THEME_OPTIONS: readonly { value: Theme; label: string }[] = [
-  { value: 'dark', label: 'ダーク' },
-  { value: 'light', label: 'ライト' },
-  { value: 'system', label: 'システム' },
-];
 
 export interface Config {
   blenderPath: string;
@@ -60,6 +56,15 @@ export interface Asset {
   updatedAt: string;
   createdAt: string;
   tags: string[];
+}
+
+// キャッシュ未生成または陳腐化か。サーバーの needsGeneration
+// (internal/server/jobs.go)と同じ条件で、「不足分」の件数表示に使う。
+export function needsGeneration(asset: Asset): boolean {
+  if (asset.isIncomplete) return false;
+  const missing =
+    asset.thumbnailPath === null || asset.glbPath === null || asset.polygonCount === null;
+  return missing || asset.isStale;
 }
 
 export type AssetSort = 'title' | 'updated_desc' | 'updated_asc';

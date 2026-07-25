@@ -3,21 +3,250 @@
 /* テーマは <html> の .dark クラスで切り替える(src/theme.ts が管理) */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* notes.md の Markdown 表示(FileViewerTabs) */
-.prose-notes h1 { font-size: 1.25rem; font-weight: 700; margin: 0.8em 0 0.4em; }
-.prose-notes h2 { font-size: 1.1rem; font-weight: 700; margin: 0.8em 0 0.4em; }
-.prose-notes h3 { font-size: 1rem; font-weight: 600; margin: 0.8em 0 0.4em; }
-.prose-notes p { margin: 0.5em 0; }
-.prose-notes ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
-.prose-notes ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
-.prose-notes code { background: rgb(0 0 0 / 0.08); padding: 0.1em 0.3em; border-radius: 0.25em; }
-.prose-notes pre { background: rgb(0 0 0 / 0.08); padding: 0.75em; border-radius: 0.4em; overflow-x: auto; margin: 0.5em 0; }
-.prose-notes pre code { background: none; padding: 0; }
-.prose-notes blockquote { border-left: 3px solid rgb(0 0 0 / 0.2); padding-left: 0.8em; margin: 0.5em 0; color: rgb(0 0 0 / 0.6); }
-.prose-notes a { color: #2563eb; text-decoration: underline; }
-.prose-notes table { border-collapse: collapse; margin: 0.5em 0; }
-.prose-notes th, .prose-notes td { border: 1px solid rgb(0 0 0 / 0.2); padding: 0.3em 0.6em; }
-.dark .prose-notes code, .dark .prose-notes pre { background: rgb(255 255 255 / 0.1); }
-.dark .prose-notes blockquote { border-color: rgb(255 255 255 / 0.3); color: rgb(255 255 255 / 0.6); }
-.dark .prose-notes a { color: #60a5fa; }
-.dark .prose-notes th, .dark .prose-notes td { border-color: rgb(255 255 255 / 0.25); }
+/* design/Design.pen の変数をトークン化する。値は inline 参照なので、
+   :root / .dark で --c-* を差し替えるだけでテーマが切り替わる。
+   Design.pen の名前との対応:
+     ink = text-primary / ink-muted = text-secondary / ink-faint = text-muted
+     stage = 3D ビューポートの背景(デザインは常に暗色) */
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-border: var(--c-border);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-ink: var(--c-ink);
+  --color-ink-muted: var(--c-ink-muted);
+  --color-ink-faint: var(--c-ink-faint);
+  --color-warn: var(--c-warn);
+  --color-danger: var(--c-danger);
+  --color-ok: var(--c-ok);
+
+  /* 3D ビューポート / レンダー画像の下地はテーマに関わらず暗色のままにする。
+     その上に載る文字・枠・アクセントもテーマで反転させてはいけないので、
+     ダーク側の値で固定した stage-* を用意して必ずこちらを使う。 */
+  --color-stage: #0a0a0a;
+  --color-stage-ink: #fafafa;
+  --color-stage-ink-muted: #a1a1aa;
+  --color-stage-ink-faint: #71717a;
+  --color-stage-border: #27272a;
+  --color-stage-accent: #a855f7;
+  --color-stage-warn: #f59e0b;
+  --color-stage-danger: #ef4444;
+  --color-stage-ok: #4ade80;
+
+  --font-sans:
+    'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', 'Yu Gothic UI',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo, sans-serif;
+  --font-heading:
+    'Geist Variable', Geist, 'Inter Variable', system-ui, 'Segoe UI', 'Yu Gothic UI',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo, sans-serif;
+  --font-mono:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Yu Gothic UI',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo, monospace;
+}
+
+/* ライト(Design.pen はダークのみ定義。役割を保ったまま明色へ反転している) */
+:root {
+  --c-bg: #fafafa;
+  --c-surface: #ffffff;
+  --c-surface-2: #f4f4f5;
+  --c-border: #e4e4e7;
+  --c-accent: #9333ea;
+  --c-accent-soft: #9333ea1a;
+  --c-ink: #18181b;
+  --c-ink-muted: #52525b;
+  --c-ink-faint: #71717a;
+  --c-warn: #b45309;
+  --c-danger: #dc2626;
+  --c-ok: #16a34a;
+  --c-scrim: #00000059;
+  color-scheme: light;
+}
+
+/* ダーク(Design.pen の値そのもの) */
+.dark {
+  --c-bg: #0a0a0a;
+  --c-surface: #141414;
+  --c-surface-2: #1f1f23;
+  --c-border: #27272a;
+  --c-accent: #a855f7;
+  --c-accent-soft: #a855f71f;
+  --c-ink: #fafafa;
+  --c-ink-muted: #a1a1aa;
+  --c-ink-faint: #71717a;
+  --c-warn: #f59e0b;
+  --c-danger: #ef4444;
+  --c-ok: #4ade80;
+  --c-scrim: #000000b3;
+  color-scheme: dark;
+}
+
+@layer base {
+  /* Design.pen は角丸を一切使わない。ブラウザ既定の丸みも打ち消す */
+  input,
+  select,
+  textarea,
+  button {
+    border-radius: 0;
+  }
+
+  /* フォーカスリングはアクセントで統一する(角丸なしに合わせて矩形) */
+  :focus-visible {
+    outline: 1px solid var(--c-accent);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: var(--c-accent-soft);
+  }
+
+  /* スクロールバーを面の色になじませる */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-border) transparent;
+  }
+}
+
+/* notes.md の Markdown 表示(FileViewer)。デザイン 08 のドキュメント体裁 */
+.prose-notes {
+  color: var(--c-ink-muted);
+  font-size: 13px;
+}
+.prose-notes > :first-child {
+  margin-top: 0;
+}
+.prose-notes h1 {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--c-ink);
+  margin: 0 0 0.5em;
+}
+.prose-notes h2 {
+  font-family: var(--font-heading);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--c-ink);
+  margin: 1.4em 0 0.5em;
+}
+.prose-notes h3 {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-ink);
+  margin: 1.2em 0 0.4em;
+}
+.prose-notes p {
+  line-height: 1.7;
+  margin: 0.8em 0;
+}
+.prose-notes hr {
+  border: 0;
+  border-top: 1px solid var(--c-border);
+  margin: 1.2em 0;
+}
+.prose-notes ul,
+.prose-notes ol {
+  margin: 0.8em 0;
+  padding-left: 1.4em;
+  line-height: 1.6;
+}
+.prose-notes ul {
+  list-style: none;
+  padding-left: 0;
+}
+.prose-notes ul > li {
+  padding-left: 1.4em;
+  position: relative;
+}
+/* デザインのメモ行は先頭がアクセント色の "–" */
+.prose-notes ul > li::before {
+  content: '–';
+  position: absolute;
+  left: 0.3em;
+  color: var(--c-accent);
+}
+.prose-notes ol {
+  list-style: decimal;
+}
+.prose-notes li {
+  margin: 0.35em 0;
+}
+/* GFM のタスクリストは既定のマーカーを使わず、チェックボックスを行頭に置く。
+   項目間に空行がある loose list では remark が <li><p><input>…</p></li> と
+   段落を残すため、直下・段落内の両方を対象にする */
+.prose-notes li:has(> input[type='checkbox']),
+.prose-notes li:has(> p > input[type='checkbox']) {
+  padding-left: 0;
+}
+.prose-notes li:has(> input[type='checkbox'])::before,
+.prose-notes li:has(> p > input[type='checkbox'])::before {
+  content: none;
+}
+.prose-notes li > input[type='checkbox'],
+.prose-notes li > p > input[type='checkbox'] {
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  margin-right: 10px;
+  vertical-align: -2px;
+  border: 1px solid var(--c-border);
+}
+.prose-notes li > input[type='checkbox']:checked {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+}
+/* チェック済みは完了扱いで淡くする(デザイン 08) */
+.prose-notes li:has(> input[type='checkbox']:checked) {
+  color: var(--c-ink-faint);
+}
+.prose-notes code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  padding: 0.1em 0.35em;
+}
+.prose-notes pre {
+  font-family: var(--font-mono);
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  margin: 0.9em 0;
+}
+.prose-notes pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.prose-notes blockquote {
+  border-left: 2px solid var(--c-accent);
+  padding-left: 1em;
+  margin: 0.9em 0;
+  color: var(--c-ink-faint);
+}
+.prose-notes a {
+  color: var(--c-accent);
+  text-decoration: underline;
+}
+.prose-notes table {
+  border-collapse: collapse;
+  margin: 0.9em 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.prose-notes th,
+.prose-notes td {
+  border: 1px solid var(--c-border);
+  padding: 0.45em 0.8em;
+  text-align: left;
+}
+.prose-notes th {
+  color: var(--c-ink-faint);
+  font-weight: 400;
+}
+.prose-notes img {
+  max-width: 100%;
+}

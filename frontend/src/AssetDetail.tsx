@@ -1,4 +1,23 @@
+// design/Design.pen 画面02・05-09 のアセット詳細。サイドバーを持たない
+// 全画面レイアウトで、ヘッダー + (ビューポート | ファイルビューア) + 右サイドパネル。
+
 import { useEffect, useState } from 'react';
+import {
+  ArrowLeft,
+  Aperture,
+  Box,
+  ExternalLink,
+  FileBox,
+  FileText,
+  FolderOpen,
+  Image as ImageIcon,
+  Images,
+  Plus,
+  RefreshCw,
+  TriangleAlert,
+  X,
+  Zap,
+} from 'lucide-react';
 import {
   getAssetFiles,
   getExtractedMetadata,
@@ -9,25 +28,95 @@ import {
   type Asset,
   type AssetFiles,
   type ExtractedMetadata,
+  type FileEntry,
 } from './api';
-import { formatSize } from './format';
+import { formatDate, formatNumber, formatSize } from './format';
 import { StaleBadge } from './AssetGrid';
-import FileViewerTabs from './FileViewerTabs';
+import FileViewer, { type FileView } from './FileViewer';
 import GlbViewer from './GlbViewer';
+import {
+  Banner,
+  Button,
+  Chip,
+  IconButton,
+  SectionLabel,
+  cx,
+  type LucideIcon,
+} from './ui';
 
 type Props = {
   asset: Asset;
   generating: boolean; // このアセットのジョブが実行中か
+  jobError: string | null; // 生成キューの失敗(一覧と同じ内容をここでも出す)
   onBack: () => void;
   onGenerate: (asset: Asset) => void;
   onTagsChanged: (savedTags: string[]) => void; // タグ保存後に一覧・サイドバーを更新する
 };
 
-export default function AssetDetail({ asset, generating, onBack, onGenerate, onTagsChanged }: Props) {
+type View = 'preview' | FileView;
+
+// パンくずの末尾(デザイン: SOURCE / PROPS / WOODEN CHAIR / TEXTURES)
+const VIEW_CRUMB: Record<FileView, string> = {
+  textures: 'TEXTURES',
+  references: 'REFERENCES',
+  renders: 'RENDERS',
+  notes: 'NOTES.MD',
+};
+
+// ファイル一覧の行から開けるビュー。ディレクトリ名は library の作成規約に対応する。
+const FILE_VIEWS: Record<string, FileView> = {
+  textures: 'textures',
+  references: 'references',
+  renders: 'renders',
+  'notes.md': 'notes',
+};
+
+const FILE_ICONS: Record<string, LucideIcon> = {
+  'model.blend': Box,
+  textures: ImageIcon,
+  references: Images,
+  renders: Aperture,
+  'notes.md': FileText,
+};
+
+// デザインのファイル一覧の並び。ここに無い名前は後ろへ名前順で続く。
+const FILE_ORDER = ['model.blend', 'textures', 'references', 'renders', 'notes.md'];
+
+type Row = { entry: FileEntry; icon?: LucideIcon; view?: View };
+
+// デザインでは model.blend の直後に GLB キャッシュが並ぶ
+function fileRows(files: AssetFiles, title: string): Row[] {
+  const rank = (name: string) => {
+    const i = FILE_ORDER.indexOf(name);
+    return i === -1 ? FILE_ORDER.length : i;
+  };
+  const rows: Row[] = [...files.entries]
+    .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name))
+    .map((entry) => ({ entry, view: FILE_VIEWS[entry.name] }));
+  if (files.glbSize === null) return rows;
+  const glbRow: Row = {
+    entry: { name: `cache/glb/${title}.glb`, size: files.glbSize, isDir: false, fileCount: 0 },
+    icon: FileBox,
+    view: 'preview',
+  };
+  const after = rows.findIndex((r) => r.entry.name === 'model.blend');
+  rows.splice(after === -1 ? 0 : after + 1, 0, glbRow);
+  return rows;
+}
+
+export default function AssetDetail({
+  asset,
+  generating,
+  jobError,
+  onBack,
+  onGenerate,
+  onTagsChanged,
+}: Props) {
   const [metadata, setMetadata] = useState<ExtractedMetadata | null>(null);
   const [files, setFiles] = useState<AssetFiles | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [view, setView] = useState<View>('preview');
 
   // asset.id は再スキャンごとに変わるので、生成完了後に自動で取り直される
   useEffect(() => {
@@ -72,152 +161,226 @@ export default function AssetDetail({ asset, generating, onBack, onGenerate, onT
   };
 
   const glb = glbUrl(asset);
+  const crumb = [
+    'SOURCE',
+    asset.category.toUpperCase(),
+    asset.title.toUpperCase(),
+    ...(view === 'preview' ? [] : [VIEW_CRUMB[view]]),
+  ].join(' / ');
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800"
-          onClick={onBack}
-        >
-          ← 一覧へ
-        </button>
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-xl font-bold">
-            <span className="truncate">{asset.title}</span>
+    <div className="flex h-screen flex-col overflow-hidden bg-bg font-sans text-ink">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-5 py-3">
+        <IconButton icon={ArrowLeft} label="一覧へ戻る" onClick={onBack} />
+        <div className="flex min-w-0 flex-col gap-[3px]">
+          <p className="truncate font-mono text-[10px] leading-none text-ink-faint">{crumb}</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate font-heading text-lg leading-none font-bold text-ink">
+              {asset.title}
+            </h1>
             {asset.isStale && <StaleBadge />}
-          </h2>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{asset.category}</p>
+            {asset.isIncomplete && (
+              <span
+                className="flex shrink-0 items-center gap-1 border border-warn px-2 py-1 font-mono text-[9px] leading-none text-warn"
+                title="model.blend がありません。プレビュー・生成・Blender 起動はできません"
+              >
+                <TriangleAlert size={10} />
+                不完全
+              </span>
+            )}
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
-            disabled={asset.isIncomplete || generating}
-            onClick={() => onGenerate(asset)}
-          >
-            {generating ? '生成中…' : glb ? '再生成' : '生成'}
-          </button>
-          <button
-            type="button"
-            className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800"
-            title="OS のファイルマネージャでアセットディレクトリを開く"
-            onClick={() => void handleReveal()}
-          >
-            Finderで表示
-          </button>
-          <button
-            type="button"
-            className="rounded bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
-            disabled={asset.isIncomplete}
-            onClick={() => void handleOpenBlender()}
-          >
-            Blenderで開く
-          </button>
+
+        <div className="flex-1" />
+
+        <IconButton
+          icon={FolderOpen}
+          label="Finderで表示"
+          onClick={() => void handleReveal()}
+        />
+        <Button
+          icon={RefreshCw}
+          disabled={asset.isIncomplete || generating}
+          onClick={() => onGenerate(asset)}
+        >
+          {generating ? '生成中…' : glb ? '再生成' : '生成'}
+        </Button>
+        <Button
+          variant="primary"
+          icon={ExternalLink}
+          disabled={asset.isIncomplete}
+          onClick={() => void handleOpenBlender()}
+        >
+          Blenderで開く
+        </Button>
+      </header>
+
+      {(loadError || actionError || jobError) && (
+        <div className="flex shrink-0 flex-col gap-2 border-b border-border px-5 py-2">
+          {jobError && <Banner tone="error">{jobError}</Banner>}
+          {loadError && <Banner tone="error">詳細情報を取得できません: {loadError}</Banner>}
+          {actionError && <Banner tone="error">{actionError}</Banner>}
         </div>
-      </div>
-
-      {loadError && (
-        <p className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
-          詳細情報を取得できません: {loadError}
-        </p>
-      )}
-      {actionError && (
-        <p className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
-          {actionError}
-        </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        {/* プレビュー */}
-        <div className="h-[420px] overflow-hidden rounded-lg border border-neutral-300 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-950">
-          {glb ? (
-            <GlbViewer url={glb} />
+      <div className="flex min-h-0 flex-1">
+        <section className="flex min-w-0 flex-1 flex-col">
+          {view === 'preview' ? (
+            glb ? (
+              <GlbViewer url={glb} sizeBytes={files?.glbSize ?? null} title={asset.title} />
+            ) : (
+              <EmptyViewport asset={asset} generating={generating} onGenerate={onGenerate} />
+            )
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                {asset.isIncomplete
-                  ? 'model.blend が無いためプレビューできません'
-                  : 'GLB が未生成です'}
-              </p>
-              {!asset.isIncomplete && (
-                <button
-                  type="button"
-                  className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
-                  disabled={generating}
-                  onClick={() => onGenerate(asset)}
-                >
-                  {generating ? '生成中…' : '生成する'}
-                </button>
-              )}
-            </div>
+            <FileViewer asset={asset} view={view} onReveal={() => void handleReveal()} />
           )}
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-4">
-          {/* タグ(meta.json に保存) */}
+        <aside className="flex w-80 shrink-0 flex-col gap-5 overflow-y-auto border-l border-border bg-surface p-5">
+          <section className="flex flex-col gap-2.5">
+            <SectionLabel>メタデータ</SectionLabel>
+            <div className="flex flex-col border border-border">
+              <MetaRow index={0} label="OBJECTS" value={metadata?.objectCount} />
+              <MetaRow index={1} label="COLLECTIONS" value={metadata?.collectionCount} />
+              <MetaRow index={2} label="MATERIALS" value={metadata?.materialCount} />
+              <MetaRow index={3} label="POLYGONS" value={metadata?.polygonCount} />
+              <MetaRow index={4} label="TEXTURES" value={metadata?.textureCount} />
+              <MetaRow
+                index={5}
+                label="ANIMATION"
+                value={metadata ? (metadata.hasAnimation ? 'あり' : 'なし') : undefined}
+              />
+            </div>
+          </section>
+
           <TagEditor asset={asset} onChanged={onTagsChanged} onError={setActionError} />
 
-          {/* 抽出メタデータ */}
-          <section className="rounded-lg border border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-            <h3 className="mb-2 text-sm font-semibold">抽出メタデータ</h3>
-            <table className="w-full text-sm">
-              <tbody>
-                <MetaRow label="Object 数" value={metadata?.objectCount} />
-                <MetaRow label="Collection 数" value={metadata?.collectionCount} />
-                <MetaRow label="Material 数" value={metadata?.materialCount} />
-                <MetaRow label="Polygon 数" value={metadata?.polygonCount} />
-                <MetaRow label="Texture 数" value={metadata?.textureCount} />
-                <MetaRow
-                  label="Animation"
-                  value={metadata ? (metadata.hasAnimation ? 'あり' : 'なし') : undefined}
-                />
-              </tbody>
-            </table>
-          </section>
-
-          {/* ファイル一覧 */}
-          <section className="rounded-lg border border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-            <h3 className="mb-2 text-sm font-semibold">ファイル</h3>
+          <section className="flex flex-col gap-2.5">
+            <SectionLabel>ファイル</SectionLabel>
             {files === null ? (
-              <p className="text-sm text-neutral-500">読み込み中…</p>
+              <p className="font-mono text-[11px] text-ink-faint">読み込み中…</p>
             ) : (
-              <table className="w-full text-sm">
-                <tbody>
-                  {files.entries.map((e) => (
-                    <tr key={e.name} className="border-b border-neutral-200 last:border-0 dark:border-neutral-700">
-                      <td className="py-1 pr-2">
-                        {e.name}
-                        {e.isDir && (
-                          <span className="ml-1 text-xs text-neutral-500 dark:text-neutral-400">
-                            ({e.fileCount} ファイル)
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1 text-right text-neutral-500 dark:text-neutral-400">
-                        {formatSize(e.size)}
-                      </td>
-                    </tr>
-                  ))}
-                  {files.glbSize !== null && (
-                    <tr>
-                      <td className="py-1 pr-2">GLB(キャッシュ)</td>
-                      <td className="py-1 text-right text-neutral-500 dark:text-neutral-400">
-                        {formatSize(files.glbSize)}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <div className="flex flex-col gap-2">
+                {fileRows(files, asset.title).map(({ entry, icon, view: rowView }) => (
+                  <FileRow
+                    key={entry.name}
+                    entry={entry}
+                    icon={icon}
+                    active={rowView !== undefined && rowView === view}
+                    onOpen={rowView === undefined ? undefined : () => setView(rowView)}
+                  />
+                ))}
+              </div>
             )}
+            <div className="flex flex-col gap-1 py-2 font-mono text-[10px] text-ink-faint">
+              <span>更新: {formatDate(asset.updatedAt)}</span>
+              <span>作成: {formatDate(asset.createdAt)}</span>
+            </div>
           </section>
-        </div>
+        </aside>
       </div>
-
-      {/* ファイルビューア(textures / references / renders / notes.md) */}
-      <FileViewerTabs asset={asset} />
     </div>
+  );
+}
+
+// 画面09: GLB 未生成のビューポート
+function EmptyViewport({
+  asset,
+  generating,
+  onGenerate,
+}: {
+  asset: Asset;
+  generating: boolean;
+  onGenerate: (asset: Asset) => void;
+}) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2.5 bg-stage px-6 text-center">
+      <Box size={32} className="text-stage-ink-faint" />
+      <p className="text-sm font-semibold text-stage-ink">
+        {asset.isIncomplete ? 'model.blend がありません' : 'GLBが未生成です'}
+      </p>
+      <p className="text-xs text-stage-ink-faint">
+        {asset.isIncomplete
+          ? 'model.blend を置いて再スキャンするとプレビューできます'
+          : '生成するとThree.jsプレビューが表示されます'}
+      </p>
+      {!asset.isIncomplete && (
+        <div className="mt-1.5">
+          <Button variant="primary" icon={Zap} disabled={generating} onClick={() => onGenerate(asset)}>
+            {generating ? '生成中…' : '生成'}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// メタデータ表の 1 行(奇数行 surface-2 / 偶数行 surface のストライプ)
+function MetaRow({
+  index,
+  label,
+  value,
+}: {
+  index: number;
+  label: string;
+  value: number | string | undefined;
+}) {
+  return (
+    <div
+      className={cx(
+        'flex items-center justify-between gap-3 px-3 py-2',
+        index % 2 === 0 ? 'bg-surface-2' : 'bg-surface',
+      )}
+    >
+      <span className="font-mono text-[10px] tracking-[0.5px] text-ink-faint">{label}</span>
+      <span className="font-mono text-[11px] text-ink">
+        {value === undefined ? '—' : typeof value === 'number' ? formatNumber(value) : value}
+      </span>
+    </div>
+  );
+}
+
+function FileRow({
+  entry,
+  icon,
+  active,
+  onOpen,
+}: {
+  entry: FileEntry;
+  icon?: LucideIcon;
+  active: boolean;
+  onOpen?: () => void;
+}) {
+  const Icon = icon ?? FILE_ICONS[entry.name] ?? FileText;
+  const label = entry.isDir ? `${entry.name}/ (${entry.fileCount})` : entry.name;
+  const content = (
+    <>
+      <span className="flex min-w-0 items-center gap-2">
+        <Icon size={13} className={cx('shrink-0', active ? 'text-accent' : 'text-ink-muted')} />
+        <span
+          className={cx('truncate font-mono text-[11px]', active ? 'text-accent' : 'text-ink-muted')}
+        >
+          {label}
+        </span>
+      </span>
+      <span className="shrink-0 font-mono text-[10px] text-ink-faint">
+        {formatSize(entry.size)}
+      </span>
+    </>
+  );
+
+  if (!onOpen) {
+    return <div className="flex items-center justify-between gap-2">{content}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={`${label} を開く`}
+      className="flex items-center justify-between gap-2 text-left transition hover:opacity-80"
+    >
+      {content}
+    </button>
   );
 }
 
@@ -234,6 +397,7 @@ function TagEditor({
   // (プロップの asset.tags は一覧の再読込まで古いままのため)
   const [tags, setTags] = useState(asset.tags);
   const [input, setInput] = useState('');
+  const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -255,71 +419,58 @@ function TagEditor({
 
   const addTag = () => {
     const tag = input.trim();
-    if (tag === '' || tags.includes(tag)) {
-      setInput('');
-      return;
-    }
     setInput('');
+    setAdding(false);
+    if (tag === '' || tags.includes(tag)) return;
     void save([...tags, tag]);
   };
 
   return (
-    <section className="rounded-lg border border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-      <h3 className="mb-2 text-sm font-semibold">タグ</h3>
-      <div className="flex flex-wrap gap-1.5">
+    <section className="flex flex-col gap-2.5">
+      <SectionLabel>タグ</SectionLabel>
+      <div className="flex flex-wrap items-center gap-1.5">
         {tags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs dark:bg-neutral-700"
+            className="group inline-flex items-center gap-1.5 border border-border px-2.5 py-1 font-mono text-[11px] leading-none text-ink-muted"
           >
             {tag}
             <button
               type="button"
-              className="text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+              className="text-ink-faint opacity-0 transition group-hover:opacity-100 hover:text-danger focus-visible:opacity-100"
               aria-label={`タグ ${tag} を削除`}
               disabled={saving}
               onClick={() => void save(tags.filter((t) => t !== tag))}
             >
-              ×
+              <X size={11} />
             </button>
           </span>
         ))}
-        {tags.length === 0 && (
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">タグはありません</span>
+        {adding ? (
+          <input
+            type="text"
+            autoFocus
+            value={input}
+            disabled={saving}
+            placeholder="タグ名"
+            className="w-28 border border-accent bg-surface-2 px-2.5 py-1 font-mono text-[11px] text-ink placeholder:text-ink-faint focus:outline-none"
+            onChange={(e) => setInput(e.target.value)}
+            onBlur={addTag}
+            onKeyDown={(e) => {
+              // IME の変換確定 Enter では追加しない
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) addTag();
+              if (e.key === 'Escape') {
+                setInput('');
+                setAdding(false);
+              }
+            }}
+          />
+        ) : (
+          <Chip title="タグを追加" onClick={() => setAdding(true)}>
+            <Plus size={11} />
+          </Chip>
         )}
-      </div>
-      <div className="mt-2 flex gap-2">
-        <input
-          type="text"
-          className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-900"
-          placeholder="タグを追加…"
-          value={input}
-          disabled={saving}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            // IME の変換確定 Enter では追加しない
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) addTag();
-          }}
-        />
-        <button
-          type="button"
-          className="rounded border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-700"
-          disabled={saving || input.trim() === ''}
-          onClick={addTag}
-        >
-          追加
-        </button>
       </div>
     </section>
   );
 }
-
-function MetaRow({ label, value }: { label: string; value: number | string | undefined }) {
-  return (
-    <tr className="border-b border-neutral-200 last:border-0 dark:border-neutral-700">
-      <td className="py-1 pr-2 text-neutral-500 dark:text-neutral-400">{label}</td>
-      <td className="py-1 text-right">{value ?? '—'}</td>
-    </tr>
-  );
-}
-

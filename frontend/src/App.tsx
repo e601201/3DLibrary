@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDown, LayoutGrid, List, Loader, Plus, Search } from 'lucide-react';
 import {
   ApiError,
   getAssets,
@@ -7,6 +8,7 @@ import {
   getConfig,
   getJobs,
   getTags,
+  needsGeneration,
   postBulkJobs,
   postJob,
   postScan,
@@ -18,18 +20,21 @@ import {
   type JobStatus,
   type TagCount,
 } from './api';
-import { formatSize } from './format';
 import { applyTheme } from './theme';
 import AssetDetail from './AssetDetail';
 import AssetGrid, { type ViewMode } from './AssetGrid';
 import NewAssetModal from './NewAssetModal';
 import Settings from './Settings';
+import Sidebar from './Sidebar';
+import { Banner, Button, Centered, cx } from './ui';
 
 type AssetsState =
   | { kind: 'loading' }
   | { kind: 'ready'; assets: Asset[] }
   | { kind: 'notConfigured' }
   | { kind: 'error'; message: string };
+
+type Page = 'library' | 'settings';
 
 function isNotConfigured(err: unknown): boolean {
   return err instanceof ApiError && err.code === 'library_not_configured';
@@ -39,17 +44,27 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-const controlClass =
-  'rounded border border-neutral-300 bg-white px-3 py-2 text-sm ' +
-  'dark:border-neutral-600 dark:bg-neutral-800';
+const SORT_LABELS: Record<AssetSort, string> = {
+  title: 'カテゴリ・タイトル順',
+  updated_desc: '更新日: 新しい順',
+  updated_asc: '更新日: 古い順',
+};
+
+// デザイン 01 のヘッダー右端はライブラリの source パス。Windows の
+// バックスラッシュ区切りに合わせて連結する。
+function sourcePath(libraryDir: string): string {
+  if (libraryDir === '') return '';
+  return libraryDir.includes('\\') ? `${libraryDir}\\source` : `${libraryDir}/source`;
+}
 
 export default function App() {
   const [assetsState, setAssetsState] = useState<AssetsState>({ kind: 'loading' });
   const [categories, setCategories] = useState<CategoryCount[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
   const [cache, setCache] = useState<CacheInfo | null>(null);
+  const [missingCount, setMissingCount] = useState<number | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
+  const [page, setPage] = useState<Page>('library');
   const [showCreate, setShowCreate] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -76,6 +91,11 @@ export default function App() {
   // 新しい結果を上書きしないための連番
   const loadSeq = useRef(0);
 
+  const filtered = query !== '' || category !== '' || tag !== '';
+  // ポーリング中に依存が変わって interval が張り直されないよう ref で読む
+  const filteredRef = useRef(filtered);
+  filteredRef.current = filtered;
+
   const loadAssets = useCallback(async () => {
     const seq = ++loadSeq.current;
     try {
@@ -88,6 +108,8 @@ export default function App() {
       setAssetsState({ kind: 'ready', assets });
       setCategories(cats);
       setTags(tagCounts);
+      // 絞り込みが無ければこの結果が全件なので、そのまま「不足分」を数える
+      if (!filteredRef.current) setMissingCount(assets.filter(needsGeneration).length);
     } catch (err) {
       if (seq !== loadSeq.current) return;
       if (isNotConfigured(err)) {
@@ -100,10 +122,15 @@ export default function App() {
 
   // キャッシュ容量は検索条件と無関係なので loadAssets(キーストローク毎)
   // には含めず、変化しうるタイミングでだけ取り直す
-  const loadCache = useCallback(() => {
+  const loadStats = useCallback(() => {
     getCacheInfo()
       .then(setCache)
       .catch(() => {});
+    // 絞り込み中は一覧が全件ではないので、サイドバーの「(3)」だけ別に数える
+    if (!filteredRef.current) return;
+    getAssets({})
+      .then((all) => setMissingCount(all.filter(needsGeneration).length))
+      .catch(() => setMissingCount(null));
   }, []);
 
   const rescan = useCallback(async () => {
@@ -113,7 +140,7 @@ export default function App() {
     try {
       await postScan();
       await loadAssets();
-      loadCache();
+      loadStats();
     } catch (err) {
       if (isNotConfigured(err)) {
         setAssetsState({ kind: 'notConfigured' });
@@ -123,7 +150,7 @@ export default function App() {
     } finally {
       setScanning(false);
     }
-  }, [loadAssets, loadCache]);
+  }, [loadAssets, loadStats]);
 
   const jobsActive = jobs !== null && (jobs.running !== null || jobs.pendingCount > 0);
 
@@ -137,14 +164,14 @@ export default function App() {
           // ジョブ完了分を随時カードへ反映する(サーバーはジョブごとに
           // 再スキャン済み)。キューが空になればポーリング自体が止まる
           void loadAssets();
-          loadCache(); // 生成でキャッシュ容量が変わる
+          loadStats(); // 生成でキャッシュ容量と不足件数が変わる
         })
         .catch(() => {
           // 一時的な失敗は次のポーリングに任せる
         });
     }, 1000);
     return () => clearInterval(timer);
-  }, [jobsActive, loadAssets, loadCache]);
+  }, [jobsActive, loadAssets, loadStats]);
 
   const handleGenerate = useCallback(async (asset: Asset) => {
     setJobPostError(null);
@@ -175,7 +202,7 @@ export default function App() {
     getJobs()
       .then(setJobs)
       .catch(() => {});
-    loadCache();
+    loadStats();
     getConfig()
       .then((c) => {
         setConfig(c);
@@ -184,7 +211,7 @@ export default function App() {
       .catch(() => {
         // 設定が読めなくてもアプリ自体は動かす(テーマはデフォルトのまま)
       });
-  }, [loadCache]);
+  }, [loadStats]);
 
   // 起動時スキャンはバックエンドが済ませている。フィルタ変更時も再取得
   useEffect(() => {
@@ -201,9 +228,9 @@ export default function App() {
     }
   };
 
-  const filtered = query !== '' || category !== '' || tag !== '';
   const totalCount = categories.reduce((sum, c) => sum + c.count, 0);
   const ready = assetsState.kind === 'ready';
+  const notConfigured = assetsState.kind === 'notConfigured';
   const runningKey = jobs?.running ? `${jobs.running.category}/${jobs.running.title}` : null;
 
   // 選択中のアセットが一覧から消えたら(削除・フィルタ除外)選択を解除する
@@ -226,217 +253,193 @@ export default function App() {
         )
       : undefined;
 
+  // 生成の失敗は一覧でも詳細でも同じ文言で出す(詳細は全画面で
+  // 一覧のバナーが描画されないため、ここで組み立てて渡す)
+  const jobError = jobPostError
+    ? `生成を開始できません: ${jobPostError}`
+    : !jobsActive && jobs?.lastError
+      ? `生成に失敗しました(${jobs.lastError.category}/${jobs.lastError.title}): ${jobs.lastError.message}`
+      : null;
+
+  // 詳細はデザイン 02 のとおりサイドバーを持たない全画面レイアウト
+  if (selected && selectedAsset) {
+    return (
+      <AssetDetail
+        asset={selectedAsset}
+        generating={runningKey === `${selectedAsset.category}/${selectedAsset.title}`}
+        jobError={jobError}
+        onBack={() => setSelected(null)}
+        onGenerate={(a) => void handleGenerate(a)}
+        onTagsChanged={(savedTags) => {
+          // 絞り込み中のタグを外した場合はフィルタも解除する
+          // (詳細画面から突然追い出されないように)
+          if (tag && !savedTags.includes(tag)) setTag('');
+          void loadAssets();
+        }}
+      />
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-8">
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">3DLibrary</h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Blender アセットのローカル管理
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
-              disabled={assetsState.kind === 'notConfigured'}
-              onClick={() => setShowCreate(true)}
-            >
-              ＋ 新規作成
-            </button>
-            <button
-              type="button"
-              className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
-              disabled={assetsState.kind === 'notConfigured' || jobsActive}
-              title="キャッシュ未生成または要更新のアセットだけを順番に生成します"
-              onClick={() => void handleBulkGenerate()}
-            >
-              ⚙ 不足分を一括生成
-            </button>
-            <button
-              type="button"
-              className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
-              disabled={scanning || assetsState.kind === 'notConfigured'}
-              onClick={() => void rescan()}
-            >
-              {scanning ? 'スキャン中…' : '↻ 再スキャン'}
-            </button>
-            <button
-              type="button"
-              className="rounded border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800"
-              onClick={() => setShowSettings((v) => !v)}
-            >
-              {showSettings ? '設定を閉じる' : '⚙ 設定'}
-            </button>
-          </div>
-        </header>
+    <div className="flex h-screen overflow-hidden bg-bg font-sans text-ink">
+      <Sidebar
+        page={page}
+        categories={categories}
+        tags={tags}
+        category={category}
+        tag={tag}
+        totalCount={totalCount}
+        cache={cache}
+        missingCount={missingCount}
+        scanning={scanning}
+        jobsActive={jobsActive}
+        disabled={notConfigured}
+        onCategory={setCategory}
+        onTag={setTag}
+        onRescan={() => void rescan()}
+        onBulkGenerate={() => void handleBulkGenerate()}
+        onOpenLibrary={() => setPage('library')}
+        onOpenSettings={() => setPage('settings')}
+      />
 
-        {showSettings && config && (
-          <Settings
-            initial={config}
-            onSaved={handleSaved}
-            onCacheCleared={() => {
-              void loadAssets();
-              loadCache();
-            }}
-          />
-        )}
-
-        {jobsActive && jobs && (
-          <p className="rounded border border-blue-300 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300">
-            {jobs.running ? '生成中' : '生成準備中'}{' '}
-            {Math.min(jobs.batchDone + 1, jobs.batchTotal)}/{jobs.batchTotal}
-            {jobs.running && <>: {jobs.running.category}/{jobs.running.title}</>}
-            (待機 {jobs.pendingCount} 件)
-          </p>
-        )}
-        {!jobsActive && jobs?.lastError && (
-          <ErrorBanner>
-            生成に失敗しました({jobs.lastError.category}/{jobs.lastError.title}): {jobs.lastError.message}
-          </ErrorBanner>
-        )}
-        {jobPostError && <ErrorBanner>生成を開始できません: {jobPostError}</ErrorBanner>}
-        {notice && (
-          <p className="rounded border border-neutral-300 bg-neutral-100 px-4 py-2 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-            {notice}
-          </p>
-        )}
-        {scanError && <ErrorBanner>スキャンに失敗しました: {scanError}</ErrorBanner>}
-
-        {assetsState.kind === 'notConfigured' ? (
-          <div className="flex flex-col items-center gap-3 py-12">
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              ライブラリディレクトリが設定されていません。
-            </p>
-            <button
-              type="button"
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
-              onClick={() => setShowSettings(true)}
-            >
-              設定を開く
-            </button>
-          </div>
-        ) : selected && selectedAsset ? (
-          <AssetDetail
-            asset={selectedAsset}
-            generating={runningKey === `${selectedAsset.category}/${selectedAsset.title}`}
-            onBack={() => setSelected(null)}
-            onGenerate={(a) => void handleGenerate(a)}
-            onTagsChanged={(savedTags) => {
-              // 絞り込み中のタグを外した場合はフィルタも解除する
-              // (詳細画面から突然追い出されないように)
-              if (tag && !savedTags.includes(tag)) setTag('');
-              void loadAssets();
-            }}
-          />
+      <main className="flex min-w-0 flex-1 flex-col">
+        {page === 'settings' ? (
+          config ? (
+            <Settings
+              initial={config}
+              cache={cache}
+              onSaved={handleSaved}
+              onCacheCleared={() => {
+                void loadAssets();
+                loadStats();
+              }}
+            />
+          ) : (
+            <Centered>
+              <p className="text-[13px] text-ink-faint">設定を読み込んでいます…</p>
+            </Centered>
+          )
         ) : (
-          <div className="flex gap-6">
-            {/* サイドバー: 動的カテゴリ一覧(件数付き) */}
-            <aside className="hidden w-56 shrink-0 lg:block">
-              <nav className="flex flex-col gap-1">
-                <CategoryButton
-                  label="すべて"
-                  count={totalCount}
-                  active={category === ''}
-                  onClick={() => setCategory('')}
-                />
-                {categories.map((c) => (
-                  <CategoryButton
-                    key={c.name}
-                    label={c.name}
-                    count={c.count}
-                    active={category === c.name}
-                    onClick={() => setCategory(c.name)}
-                  />
-                ))}
-              </nav>
-              {tags.length > 0 && (
-                <>
-                  <p className="mb-1 mt-4 px-3 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
-                    タグ
-                  </p>
-                  <nav className="flex flex-col gap-1">
-                    {tags.map((t) => (
-                      <CategoryButton
-                        key={t.name}
-                        label={`# ${t.name}`}
-                        count={t.count}
-                        active={tag === t.name}
-                        onClick={() => setTag(tag === t.name ? '' : t.name)}
-                      />
-                    ))}
-                  </nav>
-                </>
-              )}
-              {cache && (
-                <p className="mt-4 border-t border-neutral-200 px-3 pt-3 text-xs text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
-                  キャッシュ: {formatSize(cache.sizeBytes)}({cache.fileCount} ファイル)
-                </p>
-              )}
-            </aside>
-
-            <section className="flex min-w-0 flex-1 flex-col gap-4">
-              {/* ツールバー: 検索・カテゴリ(小画面)・ソート・表示切替 */}
-              <div className="flex flex-wrap items-center gap-2">
+          <>
+            <div className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-3">
+              <div className="flex w-80 shrink-0 items-center gap-2 border border-border bg-surface-2 px-3 py-[9px] focus-within:border-accent">
+                <Search size={14} className="shrink-0 text-ink-faint" />
                 <input
                   type="search"
-                  className={`${controlClass} min-w-0 flex-1`}
-                  placeholder="タイトルで検索…"
+                  className="w-full min-w-0 bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
+                  placeholder="タイトル・タグで検索..."
                   value={queryInput}
+                  aria-label="検索"
                   onChange={(e) => setQueryInput(e.target.value)}
                 />
-                <select
-                  className={`${controlClass} lg:hidden`}
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  aria-label="カテゴリ"
-                >
-                  <option value="">すべてのカテゴリ</option>
-                  {categories.map((c) => (
-                    <option key={c.name} value={c.name}>
-                      {c.name} ({c.count})
-                    </option>
-                  ))}
-                </select>
-                {tags.length > 0 && (
-                  <select
-                    className={`${controlClass} lg:hidden`}
-                    value={tag}
-                    onChange={(e) => setTag(e.target.value)}
-                    aria-label="タグ"
-                  >
-                    <option value="">すべてのタグ</option>
-                    {tags.map((t) => (
-                      <option key={t.name} value={t.name}>
-                        {t.name} ({t.count})
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <select
-                  className={controlClass}
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as AssetSort)}
-                  aria-label="並び順"
-                >
-                  <option value="title">カテゴリ・タイトル順</option>
-                  <option value="updated_desc">更新日(新しい順)</option>
-                  <option value="updated_asc">更新日(古い順)</option>
-                </select>
-                <div className="flex overflow-hidden rounded border border-neutral-300 dark:border-neutral-600">
-                  <ViewButton label="カード" active={view === 'card'} onClick={() => setView('card')} />
-                  <ViewButton label="リスト" active={view === 'list'} onClick={() => setView('list')} />
-                </div>
               </div>
 
+              <FilterSelect
+                label="カテゴリ"
+                value={category}
+                onChange={setCategory}
+                options={[
+                  { value: '', label: 'カテゴリ: すべて' },
+                  ...categories.map((c) => ({ value: c.name, label: `カテゴリ: ${c.name}` })),
+                ]}
+              />
+              <FilterSelect
+                label="並び順"
+                value={sort}
+                onChange={(v) => setSort(v as AssetSort)}
+                options={(Object.keys(SORT_LABELS) as AssetSort[]).map((s) => ({
+                  value: s,
+                  label: SORT_LABELS[s],
+                }))}
+              />
+
+              <div className="flex-1" />
+
+              {jobsActive && jobs && (
+                <div className="flex shrink-0 items-center gap-1.5 border border-border bg-surface-2 px-3 py-2">
+                  <Loader size={13} className="animate-spin text-accent" />
+                  <span className="font-mono text-[11px] whitespace-nowrap text-ink-muted">
+                    {jobs.running ? '生成中' : '生成準備中'}{' '}
+                    {Math.min(jobs.batchDone + 1, jobs.batchTotal)}/{jobs.batchTotal}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex shrink-0 border border-border">
+                <ViewButton
+                  icon={LayoutGrid}
+                  label="カード表示"
+                  active={view === 'card'}
+                  onClick={() => setView('card')}
+                />
+                <ViewButton
+                  icon={List}
+                  label="リスト表示"
+                  active={view === 'list'}
+                  onClick={() => setView('list')}
+                />
+              </div>
+
+              <Button
+                variant="primary"
+                icon={Plus}
+                disabled={notConfigured}
+                onClick={() => setShowCreate(true)}
+              >
+                新規アセット
+              </Button>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
+              <div className="flex items-end justify-between gap-4">
+                <div className="flex min-w-0 items-end gap-2.5">
+                  <h1 className="font-heading text-xl leading-none font-bold text-ink">
+                    {category === '' ? 'すべてのアセット' : category}
+                  </h1>
+                  <span className="font-mono text-[11px] leading-none whitespace-nowrap text-ink-faint">
+                    {ready ? assetsState.assets.length : '—'} ASSETS
+                  </span>
+                  {tag !== '' && (
+                    <button
+                      type="button"
+                      className="font-mono text-[11px] leading-none text-accent hover:underline"
+                      title="タグの絞り込みを解除"
+                      onClick={() => setTag('')}
+                    >
+                      #{tag} ×
+                    </button>
+                  )}
+                </div>
+                {config?.libraryDir && (
+                  <span className="truncate font-mono text-[10px] text-ink-faint">
+                    {sourcePath(config.libraryDir)}
+                  </span>
+                )}
+              </div>
+
+              {jobError && <Banner tone="error">{jobError}</Banner>}
+              {scanError && <Banner tone="error">スキャンに失敗しました: {scanError}</Banner>}
+              {notice && <Banner tone="info">{notice}</Banner>}
+
+              {notConfigured && (
+                <Centered>
+                  <p className="text-[13px] text-ink-muted">
+                    ライブラリディレクトリが設定されていません。
+                  </p>
+                  <Button variant="primary" onClick={() => setPage('settings')}>
+                    設定を開く
+                  </Button>
+                </Centered>
+              )}
               {assetsState.kind === 'loading' && (
-                <p className="py-12 text-center text-sm text-neutral-500">読み込み中…</p>
+                <Centered>
+                  <p className="font-mono text-[11px] text-ink-faint">読み込み中…</p>
+                </Centered>
               )}
               {assetsState.kind === 'error' && (
-                <p className="py-12 text-center text-sm text-red-600 dark:text-red-400">
-                  一覧を取得できません: {assetsState.message}
-                </p>
+                <Centered>
+                  <p className="text-[13px] text-danger">一覧を取得できません: {assetsState.message}</p>
+                </Centered>
               )}
               {ready && (
                 <AssetGrid
@@ -448,64 +451,66 @@ export default function App() {
                   runningKey={runningKey}
                 />
               )}
-            </section>
-          </div>
+            </div>
+          </>
         )}
-      </div>
+      </main>
 
       {showCreate && (
         <NewAssetModal
           categories={categories.map((c) => c.name)}
           onClose={() => setShowCreate(false)}
-          onCreated={() => void loadAssets()}
+          onCreated={() => {
+            void loadAssets();
+            loadStats();
+          }}
         />
       )}
-    </main>
+    </div>
   );
 }
 
-function ErrorBanner({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="rounded border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
-      {children}
-    </p>
-  );
-}
-
-function CategoryButton({
+// デザイン 01 のトップバーのフィルタ(枠 + ラベル + chevron)
+function FilterSelect({
   label,
-  count,
-  active,
-  onClick,
+  value,
+  options,
+  onChange,
 }: {
   label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
 }) {
   return (
-    <button
-      type="button"
-      className={`flex items-center justify-between rounded px-3 py-2 text-left text-sm ${
-        active
-          ? 'bg-blue-600 text-white'
-          : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
-      }`}
-      onClick={onClick}
-    >
-      <span className="truncate">{label}</span>
-      <span className={active ? 'text-blue-100' : 'text-neutral-500 dark:text-neutral-400'}>
-        {count}
-      </span>
-    </button>
+    <div className="relative shrink-0">
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="max-w-52 appearance-none truncate border border-border bg-transparent py-2 pr-8 pl-3 text-xs text-ink-muted focus:border-accent focus:outline-none"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value} className="bg-surface text-ink">
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={13}
+        className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-ink-faint"
+      />
+    </div>
   );
 }
 
 function ViewButton({
+  icon: Icon,
   label,
   active,
   onClick,
 }: {
+  icon: typeof LayoutGrid;
   label: string;
   active: boolean;
   onClick: () => void;
@@ -513,14 +518,16 @@ function ViewButton({
   return (
     <button
       type="button"
-      className={`px-3 py-2 text-sm ${
-        active
-          ? 'bg-blue-600 text-white'
-          : 'bg-white hover:bg-neutral-100 dark:bg-neutral-800 dark:hover:bg-neutral-700'
-      }`}
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
       onClick={onClick}
+      className={cx(
+        'p-2 transition',
+        active ? 'bg-accent-soft text-accent' : 'text-ink-faint hover:text-ink',
+      )}
     >
-      {label}
+      <Icon size={15} />
     </button>
   );
 }
