@@ -4,10 +4,19 @@
 #   blender -b <model.blend> --factory-startup --python generate.py -- \
 #     --glb <out.glb> --thumb <out.png> --meta <out.json> --size <px>
 import json
+import os
 import sys
 
 import bpy
 import mathutils
+
+# Blender の Material Preview が既定で使うスタジオライト。同じ HDRI を
+# world に組むことでビューポートの見た目をヘッドレスで再現する
+# (--background では bpy.ops.render.opengl が使えないため)。
+STUDIO_HDRI = "forest.exr"
+
+# EEVEE の識別子はバージョンで変わる(4.2〜4.5 系は BLENDER_EEVEE_NEXT)。
+EEVEE_ENGINES = ("BLENDER_EEVEE", "BLENDER_EEVEE_NEXT")
 
 
 def parse_args():
@@ -29,6 +38,37 @@ def extract_metadata():
         "textureCount": len(images),
         "hasAnimation": bool(bpy.data.actions),
     }
+
+
+def unresolved_images():
+    """ファイル実体が見つからない画像テクスチャの名前一覧。"""
+    names = []
+    for img in bpy.data.images:
+        if img.source not in {"FILE", "SEQUENCE", "MOVIE"} or img.packed_file:
+            continue
+        # 誰も参照していない残骸でソリッドに落とさない
+        if img.users == 0:
+            continue
+        path = bpy.path.abspath(img.filepath, library=img.library)
+        if not path or not os.path.exists(path):
+            names.append(img.name)
+    return names
+
+
+def resolve_missing_textures():
+    """未解決テクスチャをアセットディレクトリから探して貼り直し、それでも
+    見つからなかったものの名前を返す。未解決のまま EEVEE でレンダーすると
+    マゼンタ一色になるので、シェーディング選択の判断材料にする。"""
+    if not unresolved_images():
+        return []
+    asset_dir = os.path.dirname(bpy.data.filepath)
+    if asset_dir:
+        try:
+            # model.blend と同じアセットディレクトリ(textures/ 等)を再帰探索
+            bpy.ops.file.find_missing_files(directory=asset_dir)
+        except RuntimeError as e:
+            print("3dlibrary: find_missing_files failed: %s" % e)
+    return unresolved_images()
 
 
 def frame_camera(scene):
@@ -55,25 +95,73 @@ def frame_camera(scene):
     scene.camera = cam
 
 
-def render_thumbnail(path, size):
+def use_eevee(scene):
+    for engine in EEVEE_ENGINES:
+        try:
+            scene.render.engine = engine
+            return
+        except TypeError:
+            continue
+    raise RuntimeError("no EEVEE engine in this Blender build")
+
+
+def setup_material_preview(scene):
+    """Material Preview 相当のシェーディングを組む。.blend 側の world や
+    ライトには依存しない(ライトの無い .blend でも暗くならない)。"""
+    hdri = os.path.join(bpy.utils.system_resource("DATAFILES"), "studiolights", "world", STUDIO_HDRI)
+    world = bpy.data.worlds.new("3dlibrary_studio")
+    world.use_nodes = True
+    nodes, links = world.node_tree.nodes, world.node_tree.links
+    nodes.clear()
+    env = nodes.new("ShaderNodeTexEnvironment")
+    env.image = bpy.data.images.load(hdri)
+    background = nodes.new("ShaderNodeBackground")
+    output = nodes.new("ShaderNodeOutputWorld")
+    links.new(env.outputs["Color"], background.inputs["Color"])
+    links.new(background.outputs["Background"], output.inputs["Surface"])
+    scene.world = world
+
+    use_eevee(scene)
+    scene.eevee.taa_render_samples = 16
+    # ライブラリ内で明るさ・彩度を揃える(.blend ごとの設定に左右されない)
+    scene.view_settings.view_transform = "AgX"
+
+
+def render_thumbnail(path, size, allow_material):
+    """サムネイルを書き出し、使ったシェーディング("material"/"solid")を返す。"""
     scene = bpy.context.scene
     frame_camera(scene)
-    # WORKBENCH はライト不要・高速で、ライトの無い .blend でも確実に映る
-    scene.render.engine = "BLENDER_WORKBENCH"
     scene.render.resolution_x = size
     scene.render.resolution_y = size
     scene.render.resolution_percentage = 100
     scene.render.film_transparent = True
     scene.render.image_settings.file_format = "PNG"
     scene.render.filepath = path
+
+    if allow_material:
+        try:
+            setup_material_preview(scene)
+            bpy.ops.render.render(write_still=True)
+            return "material"
+        except Exception as e:
+            # GPU 無し・EEVEE 非対応ビルド等。原因を問わずソリッドで確実に出す
+            print("3dlibrary: material preview failed (%s), falling back to solid" % e)
+
+    # WORKBENCH はライト不要・高速で、ライトの無い .blend でも確実に映る
+    scene.render.engine = "BLENDER_WORKBENCH"
     bpy.ops.render.render(write_still=True)
+    return "solid"
 
 
 def main():
     args = parse_args()
     meta = extract_metadata()
+    # テクスチャの貼り直しは GLB エクスポートより前に(GLB の埋め込みにも効く)
+    missing = resolve_missing_textures()
+    if missing:
+        print("3dlibrary: unresolved textures: %s" % ", ".join(missing))
     bpy.ops.export_scene.gltf(filepath=args["glb"], export_format="GLB")
-    render_thumbnail(args["thumb"], int(args["size"]))
+    meta["thumbnailShading"] = render_thumbnail(args["thumb"], int(args["size"]), not missing)
     # 抽出メタデータ JSON は最後に書く(成功マーカーを兼ねる)
     with open(args["meta"], "w", encoding="utf-8") as f:
         json.dump(meta, f)
