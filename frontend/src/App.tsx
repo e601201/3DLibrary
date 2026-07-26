@@ -266,6 +266,7 @@ export default function App() {
     return (
       <AssetDetail
         asset={selectedAsset}
+        allTags={tags}
         generating={runningKey === `${selectedAsset.category}/${selectedAsset.title}`}
         jobError={jobError}
         onBack={() => setSelected(null)}

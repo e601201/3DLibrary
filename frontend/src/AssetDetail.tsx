@@ -29,6 +29,7 @@ import {
   type AssetFiles,
   type ExtractedMetadata,
   type FileEntry,
+  type TagCount,
 } from './api';
 import { formatDate, formatNumber, formatSize } from './format';
 import { StaleBadge } from './AssetGrid';
@@ -46,6 +47,7 @@ import {
 
 type Props = {
   asset: Asset;
+  allTags: TagCount[]; // タグサジェストの候補(ライブラリで使用中のタグ、件数付き)
   generating: boolean; // このアセットのジョブが実行中か
   jobError: string | null; // 生成キューの失敗(一覧と同じ内容をここでも出す)
   onBack: () => void;
@@ -106,6 +108,7 @@ function fileRows(files: AssetFiles, title: string): Row[] {
 
 export default function AssetDetail({
   asset,
+  allTags,
   generating,
   jobError,
   onBack,
@@ -253,7 +256,12 @@ export default function AssetDetail({
             </div>
           </section>
 
-          <TagEditor asset={asset} onChanged={onTagsChanged} onError={setActionError} />
+          <TagEditor
+            asset={asset}
+            allTags={allTags}
+            onChanged={onTagsChanged}
+            onError={setActionError}
+          />
 
           <section className="flex flex-col gap-2.5">
             <SectionLabel>ファイル</SectionLabel>
@@ -386,10 +394,12 @@ function FileRow({
 
 function TagEditor({
   asset,
+  allTags,
   onChanged,
   onError,
 }: {
   asset: Asset;
+  allTags: TagCount[];
   onChanged: (savedTags: string[]) => void;
   onError: (message: string) => void;
 }) {
@@ -399,6 +409,8 @@ function TagEditor({
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
+  // サジェストのキーボード選択位置。null は非選択で、Enter は入力テキストを確定する
+  const [highlighted, setHighlighted] = useState<number | null>(null);
 
   useEffect(() => {
     setTags(asset.tags);
@@ -417,10 +429,24 @@ function TagEditor({
     }
   };
 
-  const addTag = () => {
-    const tag = input.trim();
+  // 候補は未付与のタグを部分一致(大文字小文字無視)で絞り、使用回数の多い順に並べる。
+  // タグの同一性そのものは大文字小文字を区別したまま(絞り込みだけ無視する)
+  const query = input.trim().toLowerCase();
+  const suggestions = allTags
+    .filter((t) => !tags.includes(t.name) && t.name.toLowerCase().includes(query))
+    .sort((a, b) => b.count - a.count);
+  // 入力の変化で候補が縮んだとき、範囲外の選択位置は非選択に戻す
+  const activeIndex =
+    highlighted !== null && highlighted < suggestions.length ? highlighted : null;
+
+  const addTag = (name: string, opts?: { close?: boolean }) => {
+    // 保存中の確定は無視する(入力テキストは保持され、再度 Enter できる)
+    if (saving) return;
+    const tag = name.trim();
     setInput('');
-    setAdding(false);
+    setHighlighted(null);
+    // 空の確定と blur は入力を終える。それ以外は連続追加のため開いたままにする
+    if (opts?.close || tag === '') setAdding(false);
     if (tag === '' || tags.includes(tag)) return;
     void save([...tags, tag]);
   };
@@ -447,24 +473,89 @@ function TagEditor({
           </span>
         ))}
         {adding ? (
-          <input
-            type="text"
-            autoFocus
-            value={input}
-            disabled={saving}
-            placeholder="タグ名"
-            className="w-28 border border-accent bg-surface-2 px-2.5 py-1 font-mono text-[11px] text-ink placeholder:text-ink-faint focus:outline-none"
-            onChange={(e) => setInput(e.target.value)}
-            onBlur={addTag}
-            onKeyDown={(e) => {
-              // IME の変換確定 Enter では追加しない
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) addTag();
-              if (e.key === 'Escape') {
-                setInput('');
-                setAdding(false);
-              }
-            }}
-          />
+          <span className="relative">
+            <input
+              type="text"
+              autoFocus
+              value={input}
+              placeholder="タグ名"
+              className="w-28 border border-accent bg-surface-2 px-2.5 py-1 font-mono text-[11px] text-ink placeholder:text-ink-faint focus:outline-none"
+              role="combobox"
+              aria-expanded={suggestions.length > 0}
+              aria-controls="tag-suggest"
+              onChange={(e) => {
+                setInput(e.target.value);
+                setHighlighted(null);
+              }}
+              onBlur={() => addTag(input, { close: true })}
+              onKeyDown={(e) => {
+                // IME の変換確定 Enter では追加しない
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  if (activeIndex !== null) addTag(suggestions[activeIndex].name);
+                  else addTag(input);
+                }
+                if (e.key === 'Escape') {
+                  setInput('');
+                  setHighlighted(null);
+                  setAdding(false);
+                }
+                // IME 変換中の矢印は候補選択ではなく変換操作
+                if (suggestions.length > 0 && !e.nativeEvent.isComposing) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setHighlighted((h) =>
+                      h === null ? 0 : Math.min(h + 1, suggestions.length - 1),
+                    );
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setHighlighted((h) => (h === null || h === 0 ? null : h - 1));
+                  }
+                }
+              }}
+            />
+            {suggestions.length > 0 && (
+              <div
+                id="tag-suggest"
+                role="listbox"
+                className="absolute left-0 top-full z-10 mt-1 w-48 border border-border bg-surface shadow-lg"
+              >
+                <div className="max-h-44 overflow-y-auto">
+                  {suggestions.map((t, i) => (
+                    <button
+                      key={t.name}
+                      type="button"
+                      role="option"
+                      aria-selected={i === activeIndex}
+                      disabled={saving}
+                      className={cx(
+                        'flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left font-mono text-[11px]',
+                        i === activeIndex
+                          ? 'bg-accent-soft font-semibold text-accent'
+                          : 'text-ink-muted hover:bg-surface-2',
+                      )}
+                      // 先に blur が走って入力途中のテキストが確定しないようにする
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => addTag(t.name)}
+                    >
+                      {t.name}
+                      <span
+                        className={cx(
+                          'text-[10px]',
+                          i === activeIndex ? 'text-accent' : 'text-ink-faint',
+                        )}
+                      >
+                        {t.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="border-t border-border px-2.5 py-1.5 font-mono text-[9px] text-ink-faint">
+                  候補にない名前は Enter で新規作成
+                </p>
+              </div>
+            )}
+          </span>
         ) : (
           <Chip title="タグを追加" onClick={() => setAdding(true)}>
             <Plus size={11} />
