@@ -221,14 +221,15 @@ export function TextInput({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={onKeyDown}
-      className={cx(
-        'w-full min-w-0 border border-border bg-surface-2 px-3 py-[9px] text-ink',
-        'placeholder:text-ink-faint focus:border-accent focus:outline-none disabled:opacity-50',
-        mono ? 'font-mono text-[11px]' : 'text-[13px]',
-      )}
+      className={cx(TEXT_INPUT_CLASS, mono ? 'font-mono text-[11px]' : 'text-[13px]')}
     />
   );
 }
+
+// フォームの 1 行入力の見た目(文字サイズを除く)。TextInput では収まらない
+// 入力を自前で持つ部品(タグサジェスト)と共有し、枠・余白がずれないようにする。
+export const TEXT_INPUT_CLASS =
+  'w-full min-w-0 border border-border bg-surface-2 px-3 py-[9px] text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none disabled:opacity-50';
 
 // ビューポート上に重ねるチップ(バッジ・操作ヒント)。
 // 下地が常に暗色なので配色は stage-* で固定する

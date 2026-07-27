@@ -446,10 +446,10 @@ function TagEditor({
             value={input}
             onValueChange={setInput}
             onAdd={(tag) => void save([...tags, tag])}
-            frozen={saving}
+            saving={saving}
             autoFocus
             // 連続追加のため追加後も開いたままにし、Escape・欄外クリック・空 Enter で終える
-            onDone={() => setAdding(false)}
+            onDismiss={() => setAdding(false)}
           />
         ) : (
           <Chip title="タグを追加" onClick={() => setAdding(true)}>

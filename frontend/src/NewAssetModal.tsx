@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Car, Check, File as FileIcon, Plus, Trees, User, X } from 'lucide-react';
 import { createAsset, getTemplates, type TagCount } from './api';
-import TagSuggestInput, { TagChip } from './TagSuggestInput';
+import TagSuggestInput, { TagChip, pendingTagOf } from './TagSuggestInput';
 import { Banner, Button, SectionLabel, TextInput, cx, type LucideIcon } from './ui';
 
 // ドット始まりの名前はカテゴリとして拒否・スキャン対象外なので、
@@ -37,6 +37,7 @@ export default function NewAssetModal({ categories, allTags, onClose, onCreated 
   // 保存先のアセットがまだ無いため)
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [tagComposing, setTagComposing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,10 +65,9 @@ export default function NewAssetModal({ categories, allTags, onClose, onCreated 
   const canSubmit = title.trim() !== '' && category !== '' && template !== '' && !submitting;
 
   // 打ちかけのタグは確定扱いで送る。取り違えたタグは詳細画面で外せるが、
-  // 黙って捨てられたタグは気づけないため
-  const pendingTag = tagInput.trim();
-  const submittedTags =
-    pendingTag !== '' && !tags.includes(pendingTag) ? [...tags, pendingTag] : tags;
+  // 黙って捨てられたタグは気づけないため。IME 変換中の未確定文字は対象外
+  const pendingTag = tagComposing ? null : pendingTagOf(tagInput, tags);
+  const submittedTags = pendingTag !== null ? [...tags, pendingTag] : tags;
 
   const handleCreate = async () => {
     setSubmitting(true);
@@ -208,9 +208,6 @@ export default function NewAssetModal({ categories, allTags, onClose, onCreated 
 
           <div className="flex flex-col gap-2">
             <SectionLabel>タグ</SectionLabel>
-            <p className="text-[10px] text-ink-faint">
-              Enter または候補のクリックで追加します(あとから詳細画面でも編集できます)
-            </p>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {tags.map((tag) => (
@@ -230,7 +227,8 @@ export default function NewAssetModal({ categories, allTags, onClose, onCreated 
               value={tagInput}
               onValueChange={setTagInput}
               onAdd={(tag) => setTags((cur) => [...cur, tag])}
-              frozen={submitting}
+              onComposingChange={setTagComposing}
+              saving={submitting}
               ariaLabel="タグ"
             />
           </div>

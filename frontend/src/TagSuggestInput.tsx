@@ -3,24 +3,36 @@
 // 親へ渡すだけの表示部品にしてある(詳細画面は 1 追加 = 1 保存、新規作成フォームは
 // 送信までローカルに溜める、という違いを親側に置くため)。
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { TagCount } from './api';
-import { cx } from './ui';
+import { TEXT_INPUT_CLASS, cx } from './ui';
 
 // chip は既存タグの並びに混ざる小さな入力(詳細画面)、field はフォームの
 // 1 項目としての横幅いっぱいの入力(新規作成フォーム)。
 type Variant = 'chip' | 'field';
 
-const INPUT_STYLE: Record<Variant, string> = {
-  chip: 'w-28 border border-accent bg-surface-2 px-2.5 py-1',
-  field: 'w-full min-w-0 border border-border bg-surface-2 px-3 py-[9px] focus:border-accent',
+const VARIANT: Record<Variant, { wrapper: string; input: string; dropdown: string }> = {
+  chip: {
+    wrapper: 'relative',
+    input:
+      'w-28 border border-accent bg-surface-2 px-2.5 py-1 text-ink placeholder:text-ink-faint focus:outline-none',
+    dropdown: 'w-48',
+  },
+  field: {
+    wrapper: 'relative w-full',
+    input: TEXT_INPUT_CLASS,
+    dropdown: 'w-full',
+  },
 };
 
-const DROPDOWN_STYLE: Record<Variant, string> = {
-  chip: 'w-48',
-  field: 'w-full',
-};
+// 入力テキストから「追加すべきタグ」を決める。空白のみ・付与済みは追加しない。
+// 入力欄での確定と、送信時の打ちかけテキストの確定で同じ規則を使うため関数にしてある。
+export function pendingTagOf(value: string, exclude: string[]): string | null {
+  const tag = value.trim();
+  if (tag === '' || exclude.includes(tag)) return null;
+  return tag;
+}
 
 export default function TagSuggestInput({
   allTags,
@@ -29,9 +41,10 @@ export default function TagSuggestInput({
   onValueChange,
   onAdd,
   variant = 'chip',
-  frozen = false,
+  saving = false,
   autoFocus = false,
-  onDone,
+  onDismiss,
+  onComposingChange,
   placeholder = 'タグ名',
   ariaLabel,
 }: {
@@ -41,9 +54,10 @@ export default function TagSuggestInput({
   onValueChange: (value: string) => void;
   onAdd: (tag: string) => void;
   variant?: Variant;
-  frozen?: boolean; // 保存中。入力は生かしたまま確定だけ無視する
+  saving?: boolean; // 保存中。入力は生かしたまま確定だけ無視する
   autoFocus?: boolean;
-  onDone?: () => void; // Escape・欄外クリック・空 Enter で「入力を終えた」合図
+  onDismiss?: () => void; // 入力を終えた合図(空 Enter・欄外クリック・何も開いていない Escape)
+  onComposingChange?: (composing: boolean) => void; // IME 変換中か(親が送信時の確定を抑えるため)
   placeholder?: string;
   ariaLabel?: string;
 }) {
@@ -51,6 +65,8 @@ export default function TagSuggestInput({
   const [open, setOpen] = useState(false);
   // キーボード選択位置。null は非選択で、Enter は入力テキストを確定する
   const [highlighted, setHighlighted] = useState<number | null>(null);
+  // blur の時点で参照するため state ではなく ref(再描画を待たずに読む)
+  const composing = useRef(false);
   const listboxId = useId();
 
   // タグの同一性は大文字小文字を区別したまま(絞り込みだけ無視する)
@@ -62,34 +78,35 @@ export default function TagSuggestInput({
   const activeIndex = highlighted !== null && highlighted < suggestions.length ? highlighted : null;
   const showSuggestions = open && suggestions.length > 0;
 
-  const commit = (name: string) => {
-    // 保存中の確定は無視する(入力テキストは保持され、再度 Enter できる)
-    if (frozen) return;
-    const tag = name.trim();
-    onValueChange('');
-    setHighlighted(null);
-    if (tag === '' || exclude.includes(tag)) return;
-    onAdd(tag);
+  const setComposing = (next: boolean) => {
+    composing.current = next;
+    onComposingChange?.(next);
   };
 
-  const Wrapper = variant === 'field' ? 'div' : 'span';
+  const commit = (name: string) => {
+    // 保存中の確定は無視する(入力テキストは保持され、再度 Enter できる)
+    if (saving) return;
+    const tag = pendingTagOf(name, exclude);
+    onValueChange('');
+    setHighlighted(null);
+    if (tag !== null) onAdd(tag);
+  };
 
   return (
-    <Wrapper className={cx('relative', variant === 'field' && 'block w-full')}>
+    <div className={VARIANT[variant].wrapper}>
       <input
         type="text"
         autoFocus={autoFocus}
         value={value}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className={cx(
-          'font-mono text-[11px] text-ink placeholder:text-ink-faint focus:outline-none',
-          INPUT_STYLE[variant],
-        )}
+        className={cx('font-mono text-[11px]', VARIANT[variant].input)}
         role="combobox"
         aria-expanded={showSuggestions}
         aria-controls={listboxId}
         onFocus={() => setOpen(true)}
+        onCompositionStart={() => setComposing(true)}
+        onCompositionEnd={() => setComposing(false)}
         onChange={(e) => {
           onValueChange(e.target.value);
           setHighlighted(null);
@@ -98,27 +115,32 @@ export default function TagSuggestInput({
         onBlur={() => {
           setOpen(false);
           setHighlighted(null);
-          if (frozen) return;
+          // 変換途中の未確定文字はタグにしない
+          if (saving || composing.current) return;
           commit(value);
-          onDone?.();
+          onDismiss?.();
         }}
         onKeyDown={(e) => {
           // IME の変換確定 Enter では追加しない
           if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
             if (activeIndex !== null) commit(suggestions[activeIndex].name);
-            else if (value.trim() === '') onDone?.();
+            else if (value.trim() === '') onDismiss?.();
             else commit(value);
           }
           if (e.key === 'Escape') {
-            // 開いている候補だけを閉じ、外側(モーダル等)へは伝えない。
-            // 候補が閉じている 2 回目の Escape は伝わり、外側が閉じる
+            // 重なっているものを内側から順に 1 つずつ閉じる。何かを閉じた Escape は
+            // 外側(モーダル)へ伝えない。何も開いていなければ伝わり、外側が閉じる
             if (showSuggestions) {
               e.stopPropagation();
               setOpen(false);
+              setHighlighted(null);
+            } else if (value !== '') {
+              e.stopPropagation();
+              onValueChange('');
+              setHighlighted(null);
+            } else {
+              onDismiss?.();
             }
-            onValueChange('');
-            setHighlighted(null);
-            onDone?.();
           }
           // IME 変換中の矢印は候補選択ではなく変換操作
           if (showSuggestions && !e.nativeEvent.isComposing) {
@@ -139,7 +161,7 @@ export default function TagSuggestInput({
           role="listbox"
           className={cx(
             'absolute top-full left-0 z-10 mt-1 border border-border bg-surface shadow-lg',
-            DROPDOWN_STYLE[variant],
+            VARIANT[variant].dropdown,
           )}
         >
           <div className="max-h-44 overflow-y-auto">
@@ -149,7 +171,7 @@ export default function TagSuggestInput({
                 type="button"
                 role="option"
                 aria-selected={i === activeIndex}
-                disabled={frozen}
+                disabled={saving}
                 className={cx(
                   'flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left font-mono text-[11px]',
                   i === activeIndex
@@ -174,7 +196,7 @@ export default function TagSuggestInput({
           </p>
         </div>
       )}
-    </Wrapper>
+    </div>
   );
 }
 

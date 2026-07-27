@@ -35,7 +35,8 @@ func ListTemplates(libDir string) ([]string, error) {
 }
 
 // CreateAsset は source/{category}/{title}/ にアセット骨格を作る
-// (requirements.md §8)。アプリが source へ書き込む 2 経路のうちの 1 つ。
+// (requirements.md §8)。アプリが source へ書き込む 2 経路のうちの 1 つ
+// (もう 1 つは WriteTags で、meta.json の書き出しはそちらに委ねている)。
 // 既存のアセットディレクトリがある場合は何もせずエラーを返す。
 // 引数の並びはパス構造 source/{category}/{title} に合わせている。
 // tags は初期タグ(nil 可)で、meta.json へ WriteTags と同じ正規化を経て入る。
