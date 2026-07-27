@@ -29,10 +29,13 @@ func handleTemplates(lib *libraryState) http.HandlerFunc {
 	}
 }
 
+// Tags は省略可。作成と同時に meta.json へ書くため、タグ付きの新規作成が
+// 1 リクエストで完結する(片方だけ成功する状態を作らない)。
 type createAssetRequest struct {
-	Title    string `json:"title"`
-	Category string `json:"category"`
-	Template string `json:"template"`
+	Title    string   `json:"title"`
+	Category string   `json:"category"`
+	Template string   `json:"template"`
+	Tags     []string `json:"tags"`
 }
 
 // createAsset は POST /api/assets(新規アセット作成)を処理する。
@@ -48,7 +51,7 @@ func createAsset(w http.ResponseWriter, r *http.Request, lib *libraryState) {
 		writeLibraryError(w, err, "index_open_failed")
 		return
 	}
-	if err := library.CreateAsset(dir, req.Category, req.Title, req.Template); err != nil {
+	if err := library.CreateAsset(dir, req.Category, req.Title, req.Template, req.Tags); err != nil {
 		switch {
 		case errors.Is(err, library.ErrAssetExists):
 			writeError(w, http.StatusConflict, "asset_already_exists", err.Error())
@@ -64,5 +67,7 @@ func createAsset(w http.ResponseWriter, r *http.Request, lib *libraryState) {
 			"asset was created but rescan failed: "+err.Error())
 		return
 	}
+	// タグは PUT .../tags と同じく正規化後の姿を返す
+	req.Tags = library.NormalizeTags(req.Tags)
 	writeJSON(w, http.StatusCreated, req)
 }

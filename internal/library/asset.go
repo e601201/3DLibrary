@@ -38,7 +38,8 @@ func ListTemplates(libDir string) ([]string, error) {
 // (requirements.md §8)。アプリが source へ書き込む 2 経路のうちの 1 つ。
 // 既存のアセットディレクトリがある場合は何もせずエラーを返す。
 // 引数の並びはパス構造 source/{category}/{title} に合わせている。
-func CreateAsset(libDir, category, title, template string) error {
+// tags は初期タグ(nil 可)で、meta.json へ WriteTags と同じ正規化を経て入る。
+func CreateAsset(libDir, category, title, template string, tags []string) error {
 	if err := validateDirName("category", category); err != nil {
 		return err
 	}
@@ -72,7 +73,8 @@ func CreateAsset(libDir, category, title, template string) error {
 	if err := copyFile(src, filepath.Join(assetDir, "model.blend")); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(assetDir, "meta.json"), []byte("{\n  \"tags\": []\n}\n"), 0o644); err != nil {
+	// meta.json の書式は WriteTags に一本化する(タグ無しなら tags: [] になる)
+	if err := WriteTags(libDir, category, title, tags); err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(assetDir, "notes.md"), nil, 0o644)
