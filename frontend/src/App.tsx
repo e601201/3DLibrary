@@ -460,6 +460,7 @@ export default function App() {
       {showCreate && (
         <NewAssetModal
           categories={categories.map((c) => c.name)}
+          allTags={tags}
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             void loadAssets();

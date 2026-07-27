@@ -15,7 +15,6 @@ import {
   Plus,
   RefreshCw,
   TriangleAlert,
-  X,
   Zap,
 } from 'lucide-react';
 import {
@@ -35,6 +34,7 @@ import { formatDate, formatNumber, formatSize } from './format';
 import { StaleBadge } from './AssetGrid';
 import FileViewer, { type FileView } from './FileViewer';
 import GlbViewer from './GlbViewer';
+import TagSuggestInput, { TagChip } from './TagSuggestInput';
 import {
   Banner,
   Button,
@@ -409,8 +409,6 @@ function TagEditor({
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
-  // サジェストのキーボード選択位置。null は非選択で、Enter は入力テキストを確定する
-  const [highlighted, setHighlighted] = useState<number | null>(null);
 
   useEffect(() => {
     setTags(asset.tags);
@@ -429,133 +427,30 @@ function TagEditor({
     }
   };
 
-  // 候補は未付与のタグを部分一致(大文字小文字無視)で絞り、使用回数の多い順に並べる。
-  // タグの同一性そのものは大文字小文字を区別したまま(絞り込みだけ無視する)
-  const query = input.trim().toLowerCase();
-  const suggestions = allTags
-    .filter((t) => !tags.includes(t.name) && t.name.toLowerCase().includes(query))
-    .sort((a, b) => b.count - a.count);
-  // 入力の変化で候補が縮んだとき、範囲外の選択位置は非選択に戻す
-  const activeIndex =
-    highlighted !== null && highlighted < suggestions.length ? highlighted : null;
-
-  const addTag = (name: string, opts?: { close?: boolean }) => {
-    // 保存中の確定は無視する(入力テキストは保持され、再度 Enter できる)
-    if (saving) return;
-    const tag = name.trim();
-    setInput('');
-    setHighlighted(null);
-    // 空の確定と blur は入力を終える。それ以外は連続追加のため開いたままにする
-    if (opts?.close || tag === '') setAdding(false);
-    if (tag === '' || tags.includes(tag)) return;
-    void save([...tags, tag]);
-  };
-
   return (
     <section className="flex flex-col gap-2.5">
       <SectionLabel>タグ</SectionLabel>
       <div className="flex flex-wrap items-center gap-1.5">
         {tags.map((tag) => (
-          <span
+          <TagChip
             key={tag}
-            className="group inline-flex items-center gap-1.5 border border-border px-2.5 py-1 font-mono text-[11px] leading-none text-ink-muted"
-          >
-            {tag}
-            <button
-              type="button"
-              className="text-ink-faint opacity-0 transition group-hover:opacity-100 hover:text-danger focus-visible:opacity-100"
-              aria-label={`タグ ${tag} を削除`}
-              disabled={saving}
-              onClick={() => void save(tags.filter((t) => t !== tag))}
-            >
-              <X size={11} />
-            </button>
-          </span>
+            name={tag}
+            disabled={saving}
+            onRemove={() => void save(tags.filter((t) => t !== tag))}
+          />
         ))}
         {adding ? (
-          <span className="relative">
-            <input
-              type="text"
-              autoFocus
-              value={input}
-              placeholder="タグ名"
-              className="w-28 border border-accent bg-surface-2 px-2.5 py-1 font-mono text-[11px] text-ink placeholder:text-ink-faint focus:outline-none"
-              role="combobox"
-              aria-expanded={suggestions.length > 0}
-              aria-controls="tag-suggest"
-              onChange={(e) => {
-                setInput(e.target.value);
-                setHighlighted(null);
-              }}
-              onBlur={() => addTag(input, { close: true })}
-              onKeyDown={(e) => {
-                // IME の変換確定 Enter では追加しない
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                  if (activeIndex !== null) addTag(suggestions[activeIndex].name);
-                  else addTag(input);
-                }
-                if (e.key === 'Escape') {
-                  setInput('');
-                  setHighlighted(null);
-                  setAdding(false);
-                }
-                // IME 変換中の矢印は候補選択ではなく変換操作
-                if (suggestions.length > 0 && !e.nativeEvent.isComposing) {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setHighlighted((h) =>
-                      h === null ? 0 : Math.min(h + 1, suggestions.length - 1),
-                    );
-                  }
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setHighlighted((h) => (h === null || h === 0 ? null : h - 1));
-                  }
-                }
-              }}
-            />
-            {suggestions.length > 0 && (
-              <div
-                id="tag-suggest"
-                role="listbox"
-                className="absolute left-0 top-full z-10 mt-1 w-48 border border-border bg-surface shadow-lg"
-              >
-                <div className="max-h-44 overflow-y-auto">
-                  {suggestions.map((t, i) => (
-                    <button
-                      key={t.name}
-                      type="button"
-                      role="option"
-                      aria-selected={i === activeIndex}
-                      disabled={saving}
-                      className={cx(
-                        'flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left font-mono text-[11px]',
-                        i === activeIndex
-                          ? 'bg-accent-soft font-semibold text-accent'
-                          : 'text-ink-muted hover:bg-surface-2',
-                      )}
-                      // 先に blur が走って入力途中のテキストが確定しないようにする
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => addTag(t.name)}
-                    >
-                      {t.name}
-                      <span
-                        className={cx(
-                          'text-[10px]',
-                          i === activeIndex ? 'text-accent' : 'text-ink-faint',
-                        )}
-                      >
-                        {t.count}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <p className="border-t border-border px-2.5 py-1.5 font-mono text-[9px] text-ink-faint">
-                  候補にない名前は Enter で新規作成
-                </p>
-              </div>
-            )}
-          </span>
+          <TagSuggestInput
+            allTags={allTags}
+            exclude={tags}
+            value={input}
+            onValueChange={setInput}
+            onAdd={(tag) => void save([...tags, tag])}
+            saving={saving}
+            autoFocus
+            // 連続追加のため追加後も開いたままにし、Escape・欄外クリック・空 Enter で終える
+            onDismiss={() => setAdding(false)}
+          />
         ) : (
           <Chip title="タグを追加" onClick={() => setAdding(true)}>
             <Plus size={11} />

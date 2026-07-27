@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,6 +46,51 @@ func TestCreateAssetAppearsInListImmediately(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(libDir, "source", "Props", "Wooden Chair", "meta.json")); err != nil {
 		t.Errorf("meta.json: %v", err)
+	}
+}
+
+func TestCreateAssetWithTags(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addTemplate(t, libDir, "empty.blend")
+
+	rec := doRequest(t, srv, http.MethodPost, "/api/assets",
+		`{"title":"Chair","category":"Props","template":"empty.blend","tags":[" Wood ","","Seating","Wood"]}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// レスポンスは PUT .../tags と同じく正規化後のタグを返す
+	var got struct {
+		Tags []string `json:"tags"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(got.Tags) != 2 || got.Tags[0] != "Wood" || got.Tags[1] != "Seating" {
+		t.Fatalf("response tags = %v, want [Wood Seating]", got.Tags)
+	}
+
+	// 作成後の再スキャンでインデックスにも入る(1 リクエストで完結する)
+	assets := listAssets(t, srv)
+	if len(assets) != 1 {
+		t.Fatalf("assets = %+v", assets)
+	}
+	if len(assets[0].Tags) != 2 || assets[0].Tags[0].Name != "Wood" {
+		t.Fatalf("indexed tags = %v, want [Wood Seating]", assets[0].Tags)
+	}
+}
+
+func TestCreateAssetWithoutTagsStaysEmpty(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addTemplate(t, libDir, "empty.blend")
+
+	rec := doRequest(t, srv, http.MethodPost, "/api/assets",
+		`{"title":"Chair","category":"Props","template":"empty.blend"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if assets := listAssets(t, srv); len(assets) != 1 || len(assets[0].Tags) != 0 {
+		t.Fatalf("assets = %+v, want one asset with no tags", assets)
 	}
 }
 

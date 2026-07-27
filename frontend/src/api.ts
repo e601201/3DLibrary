@@ -239,13 +239,23 @@ export function putTags(
   );
 }
 
+// tags は作成と同時に meta.json へ書かれる初期タグ(省略可)。
 export interface CreateAssetInput {
   title: string;
   category: string;
   template: string;
+  tags?: string[];
 }
 
-export function createAsset(input: CreateAssetInput): Promise<CreateAssetInput> {
+// 作成されたアセット。tags は正規化後(トリム・空除去・重複除去)の姿で必ず入る。
+export interface CreatedAsset {
+  title: string;
+  category: string;
+  template: string;
+  tags: string[];
+}
+
+export function createAsset(input: CreateAssetInput): Promise<CreatedAsset> {
   return request('/api/assets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

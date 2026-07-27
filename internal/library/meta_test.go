@@ -8,7 +8,7 @@ import (
 
 func TestReadMetaMissingFileMeansNoTags(t *testing.T) {
 	dir := newLibrary(t)
-	if err := CreateAsset(dir, "Props", "Chair", "empty.blend"); err != nil {
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err != nil {
 		t.Fatal(err)
 	}
 	// meta.json を消しても「タグ空」として扱う
@@ -54,7 +54,7 @@ func TestWriteTagsCreatesMetaJSONOnFirstTagging(t *testing.T) {
 
 func TestWriteTagsEmptyListWritesEmptyArray(t *testing.T) {
 	dir := newLibrary(t)
-	if err := CreateAsset(dir, "Props", "Chair", "empty.blend"); err != nil {
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := WriteTags(dir, "Props", "Chair", nil); err != nil {
@@ -83,7 +83,7 @@ func TestWriteTagsRejectsMissingAssetDir(t *testing.T) {
 
 func TestWriteTagsNormalizes(t *testing.T) {
 	dir := newLibrary(t)
-	if err := CreateAsset(dir, "Props", "Chair", "empty.blend"); err != nil {
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err != nil {
 		t.Fatal(err)
 	}
 	// 空白トリム・空要素除去・重複除去(順序は維持)

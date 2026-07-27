@@ -46,7 +46,7 @@ func TestListTemplates(t *testing.T) {
 
 func TestCreateAssetBuildsSkeleton(t *testing.T) {
 	dir := newLibrary(t)
-	if err := CreateAsset(dir, "Props", "Wooden Chair", "empty.blend"); err != nil {
+	if err := CreateAsset(dir, "Props", "Wooden Chair", "empty.blend", nil); err != nil {
 		t.Fatalf("CreateAsset: %v", err)
 	}
 
@@ -89,9 +89,24 @@ func TestCreateAssetBuildsSkeleton(t *testing.T) {
 	}
 }
 
+func TestCreateAssetWritesInitialTags(t *testing.T) {
+	dir := newLibrary(t)
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", []string{" Wood ", "", "Seating", "Wood"}); err != nil {
+		t.Fatalf("CreateAsset: %v", err)
+	}
+	// WriteTags と同じ正規化(トリム・空除去・重複除去)を通る
+	tags, err := ReadTags(dir, "Props", "Chair")
+	if err != nil {
+		t.Fatalf("ReadTags: %v", err)
+	}
+	if len(tags) != 2 || tags[0] != "Wood" || tags[1] != "Seating" {
+		t.Fatalf("tags = %v, want [Wood Seating]", tags)
+	}
+}
+
 func TestCreateAssetMakesNewCategory(t *testing.T) {
 	dir := newLibrary(t)
-	if err := CreateAsset(dir, "Vehicles", "Car", "empty.blend"); err != nil {
+	if err := CreateAsset(dir, "Vehicles", "Car", "empty.blend", nil); err != nil {
 		t.Fatalf("CreateAsset: %v", err)
 	}
 	if info, err := os.Stat(filepath.Join(dir, "source", "Vehicles")); err != nil || !info.IsDir() {
@@ -101,7 +116,7 @@ func TestCreateAssetMakesNewCategory(t *testing.T) {
 
 func TestCreateAssetRefusesExisting(t *testing.T) {
 	dir := newLibrary(t)
-	if err := CreateAsset(dir, "Props", "Chair", "empty.blend"); err != nil {
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err != nil {
 		t.Fatal(err)
 	}
 	marker := filepath.Join(dir, "source", "Props", "Chair", "notes.md")
@@ -109,7 +124,7 @@ func TestCreateAssetRefusesExisting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := CreateAsset(dir, "Props", "Chair", "empty.blend"); err == nil {
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err == nil {
 		t.Fatal("existing asset must not be overwritten")
 	}
 	b, _ := os.ReadFile(marker)
@@ -132,7 +147,7 @@ func TestCreateAssetRejectsBadNames(t *testing.T) {
 		{"Props", ".hidden"},
 	}
 	for _, tc := range bad {
-		err := CreateAsset(dir, tc.category, tc.title, "empty.blend")
+		err := CreateAsset(dir, tc.category, tc.title, "empty.blend", nil)
 		if err == nil {
 			t.Errorf("CreateAsset(%q, %q) should fail", tc.category, tc.title)
 			continue
@@ -146,7 +161,7 @@ func TestCreateAssetRejectsBadNames(t *testing.T) {
 func TestCreateAssetRejectsBadTemplate(t *testing.T) {
 	dir := newLibrary(t)
 	for _, tmpl := range []string{"", "missing.blend", "../templates/empty.blend", "notes.txt"} {
-		err := CreateAsset(dir, "Props", "Chair", tmpl)
+		err := CreateAsset(dir, "Props", "Chair", tmpl, nil)
 		if err == nil {
 			t.Errorf("template %q should be rejected", tmpl)
 			continue

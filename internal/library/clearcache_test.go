@@ -51,7 +51,7 @@ func TestClearCache(t *testing.T) {
 	dir := newLibrary(t)
 	seedCache(t, dir)
 	// source とインデックスは無傷であること
-	if err := CreateAsset(dir, "Props", "Chair", "empty.blend"); err != nil {
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "database.db"), []byte("db"), 0o644); err != nil {

@@ -3,7 +3,8 @@
 
 import { useEffect, useState } from 'react';
 import { Car, Check, File as FileIcon, Plus, Trees, User, X } from 'lucide-react';
-import { createAsset, getTemplates } from './api';
+import { createAsset, getTemplates, type TagCount } from './api';
+import TagSuggestInput, { TagChip, pendingTagOf } from './TagSuggestInput';
 import { Banner, Button, SectionLabel, TextInput, cx, type LucideIcon } from './ui';
 
 // ドット始まりの名前はカテゴリとして拒否・スキャン対象外なので、
@@ -21,16 +22,22 @@ const TEMPLATE_META: Record<string, { icon: LucideIcon; description: string }> =
 
 type Props = {
   categories: string[]; // 既存カテゴリ(現在の一覧から)
+  allTags: TagCount[]; // サジェストの母集団(使用中のタグ)
   onClose: () => void;
   onCreated: () => void;
 };
 
-export default function NewAssetModal({ categories, onClose, onCreated }: Props) {
+export default function NewAssetModal({ categories, allTags, onClose, onCreated }: Props) {
   const [title, setTitle] = useState('');
   const [categoryChoice, setCategoryChoice] = useState(categories[0] ?? NEW_CATEGORY);
   const [newCategory, setNewCategory] = useState('');
   const [templates, setTemplates] = useState<string[] | null>(null);
   const [template, setTemplate] = useState('');
+  // タグは作成リクエストまでローカルに溜める(詳細画面の「1 追加 = 1 保存」と違い、
+  // 保存先のアセットがまだ無いため)
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [tagComposing, setTagComposing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,11 +64,16 @@ export default function NewAssetModal({ categories, onClose, onCreated }: Props)
   const category = categoryChoice === NEW_CATEGORY ? newCategory.trim() : categoryChoice;
   const canSubmit = title.trim() !== '' && category !== '' && template !== '' && !submitting;
 
+  // 打ちかけのタグは確定扱いで送る。取り違えたタグは詳細画面で外せるが、
+  // 黙って捨てられたタグは気づけないため。IME 変換中の未確定文字は対象外
+  const pendingTag = tagComposing ? null : pendingTagOf(tagInput, tags);
+  const submittedTags = pendingTag !== null ? [...tags, pendingTag] : tags;
+
   const handleCreate = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      await createAsset({ title: title.trim(), category, template });
+      await createAsset({ title: title.trim(), category, template, tags: submittedTags });
       onCreated();
       onClose();
     } catch (err) {
@@ -192,6 +204,33 @@ export default function NewAssetModal({ categories, onClose, onCreated }: Props)
                 })}
               </div>
             )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <SectionLabel>タグ</SectionLabel>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag) => (
+                  <TagChip
+                    key={tag}
+                    name={tag}
+                    disabled={submitting}
+                    onRemove={() => setTags((cur) => cur.filter((t) => t !== tag))}
+                  />
+                ))}
+              </div>
+            )}
+            <TagSuggestInput
+              variant="field"
+              allTags={allTags}
+              exclude={tags}
+              value={tagInput}
+              onValueChange={setTagInput}
+              onAdd={(tag) => setTags((cur) => [...cur, tag])}
+              onComposingChange={setTagComposing}
+              saving={submitting}
+              ariaLabel="タグ"
+            />
           </div>
 
           <div className="flex flex-col gap-[3px] border border-border bg-bg px-3.5 py-3 font-mono text-[10px]">
