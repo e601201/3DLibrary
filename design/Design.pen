@@ -4077,6 +4077,83 @@
                 },
                 {
                   "type": "frame",
+                  "id": "kCJNY",
+                  "name": "Field Tags",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "kEdyh",
+                      "name": "FTag Label",
+                      "fill": "$text-muted",
+                      "content": "タグ",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "yYYbL",
+                      "name": "FTag Row",
+                      "gap": 6,
+                      "children": [
+                        {
+                          "id": "QjHRP",
+                          "type": "ref",
+                          "ref": "xKoer",
+                          "name": "FTag wood",
+                          "descendants": {
+                            "iLHNQ": {
+                              "content": "wood"
+                            }
+                          }
+                        },
+                        {
+                          "id": "gOD5V",
+                          "type": "ref",
+                          "ref": "xKoer",
+                          "name": "FTag lowpoly",
+                          "descendants": {
+                            "iLHNQ": {
+                              "content": "lowpoly"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XU7LL",
+                      "name": "FTag Input",
+                      "width": "fill_container",
+                      "fill": "$surface-2",
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "KSG31",
+                          "name": "FTag Placeholder",
+                          "fill": "$text-muted",
+                          "content": "タグ名",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "AxAcW",
                   "name": "Folder Preview",
                   "width": "fill_container",
@@ -13216,7 +13293,7 @@
       "name": "タグサジェスト仕様",
       "width": 340,
       "height": 0,
-      "content": "タグサジェスト仕様\n・母集団: 現在いずれかのアセットに付いているタグ(GET /api/tags)。使用回数の多い順\n・「+」クリック直後(空入力)から候補を表示。部分一致・大文字小文字無視で絞り込み\n・このアセットに付与済みのタグ(lowpoly / pbr / furniture)は候補から除外\n・候補クリック or ↑↓+Enter で追加。追加後も入力欄は開いたまま連続追加可\n・候補にない文字列は Enter でそのまま新規タグとして追加\n・Escape / 欄外クリックで閉じる(欄外クリックは入力中テキストを確定)"
+      "content": "タグサジェスト仕様\n・母集団: 現在いずれかのアセットに付いているタグ(GET /api/tags)。使用回数の多い順\n・「+」クリック直後(空入力)から候補を表示。部分一致・大文字小文字無視で絞り込み\n・このアセットに付与済みのタグ(lowpoly / pbr / furniture)は候補から除外\n・候補クリック or ↑↓+Enter で追加。追加後も入力欄は開いたまま連続追加可\n・候補にない文字列は Enter でそのまま新規タグとして追加\n・Escape / 欄外クリックで閉じる(欄外クリックは入力中テキストを確定)\n\n作成フォーム(03)との共用\n・03 新規アセット作成のタグ欄も同じ入力部品。候補の出し方とキー操作は同一\n・ただし保存先のアセットがまだ無いため、追加したタグは「作成する」まではフォーム内に保持され、作成リクエストで一度に送られる\n・03 の Escape は重なっているものを内側から順に閉じる(候補 → 入力テキスト → モーダル)。打ちかけのタグは「作成する」で確定扱いで送られる(IME 変換中を除く)"
     }
   ],
   "variables": {
