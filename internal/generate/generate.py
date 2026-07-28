@@ -87,8 +87,8 @@ def frame_camera(scene):
     cam = bpy.data.objects.new("3dlibrary_thumbnail_camera", cam_data)
     scene.collection.objects.link(cam)
     direction = mathutils.Vector((1.0, -1.0, 0.7)).normalized()
-    # 既定 FOV(約 40°)で全体が収まるのは半径の約 3 倍から
-    cam.location = center + direction * radius * 3.0
+    # 既定 FOV(約 40°)で全体が収まるのは半径の約 3 倍だが、大きく表示したいので2.5倍にする
+    cam.location = center + direction * radius * 2.5
     cam.rotation_euler = (center - cam.location).to_track_quat("-Z", "Y").to_euler()
     cam_data.clip_start = max(0.001, radius * 0.01)
     cam_data.clip_end = max(100.0, radius * 100)
