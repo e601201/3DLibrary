@@ -82,11 +82,13 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
 
     (async () => {
       const THREE = await import('three');
-      const [{ GLTFLoader }, { OrbitControls }, { RoomEnvironment }] = await Promise.all([
-        import('three/addons/loaders/GLTFLoader.js'),
-        import('three/addons/controls/OrbitControls.js'),
-        import('three/addons/environments/RoomEnvironment.js'),
-      ]);
+      const [{ GLTFLoader }, { OrbitControls }, { RoomEnvironment }, { ViewHelper }] =
+        await Promise.all([
+          import('three/addons/loaders/GLTFLoader.js'),
+          import('three/addons/controls/OrbitControls.js'),
+          import('three/addons/environments/RoomEnvironment.js'),
+          import('three/addons/helpers/ViewHelper.js'),
+        ]);
       if (disposed) return;
 
       const scene = new THREE.Scene();
@@ -160,6 +162,55 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
       controls.enableDamping = true;
       controls.autoRotate = autoRotateRef.current;
 
+      // 右下の XYZ ギズモ。軸クリックでカメラをその軸方向へスナップさせる
+      const viewHelper = new ViewHelper(camera, renderer.domElement);
+      viewHelper.center = controls.target; // パン後もスナップが注視点を向くよう参照を共有
+      viewHelper.setLabels('X', 'Y', 'Z');
+
+      // ViewHelper の描画サイズ(dim = 128)は閉包定数で変更できないため、
+      // 描画時のビューポートとクリック判定座標を写像して 192px(1.5 倍)で運用する
+      const GIZMO_DIM = 192;
+      const origRender = viewHelper.render.bind(viewHelper);
+      viewHelper.render = (r) => {
+        const setViewport = r.setViewport.bind(r);
+        r.setViewport = ((x: number, y: number, w: number, h: number) => {
+          if (w === 128 && h === 128) {
+            setViewport(r.domElement.offsetWidth - GIZMO_DIM, 0, GIZMO_DIM, GIZMO_DIM);
+          } else {
+            setViewport(x, y, w, h);
+          }
+        }) as typeof r.setViewport;
+        origRender(r);
+        r.setViewport = setViewport;
+      };
+      const origHandleClick = viewHelper.handleClick.bind(viewHelper);
+      viewHelper.handleClick = (event) => {
+        const dom = renderer.domElement;
+        const rect = dom.getBoundingClientRect();
+        const scale = 128 / GIZMO_DIM;
+        const clientX =
+          rect.left + dom.offsetWidth - 128 +
+          (event.clientX - (rect.left + dom.offsetWidth - GIZMO_DIM)) * scale;
+        const clientY =
+          rect.top + dom.offsetHeight - 128 +
+          (event.clientY - (rect.top + dom.offsetHeight - GIZMO_DIM)) * scale;
+        return origHandleClick({ clientX, clientY } as PointerEvent);
+      };
+
+      // 軌道ドラッグ終了の pointerup で誤スナップしないよう、
+      // ほぼ動いていないクリックだけをギズモに渡す
+      let downX = 0;
+      let downY = 0;
+      const onPointerDown = (e: PointerEvent) => {
+        downX = e.clientX;
+        downY = e.clientY;
+      };
+      const onPointerUp = (e: PointerEvent) => {
+        if (Math.hypot(e.clientX - downX, e.clientY - downY) < 4) viewHelper.handleClick(e);
+      };
+      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+      renderer.domElement.addEventListener('pointerup', onPointerUp);
+
       // ヒントの「パン · SHIFT+ドラッグ」を成立させる
       const rotateButtons = { ...controls.mouseButtons };
       const onShift = (e: KeyboardEvent) => {
@@ -171,13 +222,20 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
       window.addEventListener('keydown', onShift);
       window.addEventListener('keyup', onShift);
 
+      // ギズモを本体シーンの上に重ねるため、クリアは手動で行う
+      renderer.autoClear = false;
+      const clock = new THREE.Clock();
       let raf = 0;
       let frames = 0;
       let lastFpsAt = performance.now();
       const renderLoop = () => {
         raf = requestAnimationFrame(renderLoop);
+        const delta = clock.getDelta();
+        if (viewHelper.animating) viewHelper.update(delta);
         controls.update();
+        renderer.clear();
         renderer.render(scene, camera);
+        viewHelper.render(renderer);
         frames++;
         const now = performance.now();
         if (now - lastFpsAt >= 500) {
@@ -253,8 +311,10 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
         setExposure: (value) => {
           renderer.toneMappingExposure = value;
         },
-        // preserveDrawingBuffer を有効にしなくて済むよう、描画直後に読み出す
+        // preserveDrawingBuffer を有効にしなくて済むよう、描画直後に読み出す。
+        // ギズモ抜きで本体シーンだけを描き直してから読むので、PNG にギズモは写らない
         snapshot: () => {
+          renderer.clear();
           renderer.render(scene, camera);
           const link = document.createElement('a');
           link.href = renderer.domElement.toDataURL('image/png');
@@ -268,7 +328,10 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
         cancelAnimationFrame(raf);
         window.removeEventListener('keydown', onShift);
         window.removeEventListener('keyup', onShift);
+        renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+        renderer.domElement.removeEventListener('pointerup', onPointerUp);
         resizeObserver.disconnect();
+        viewHelper.dispose();
         controls.dispose();
         // GLTF のジオメトリ・マテリアルも解放する(GPU メモリリーク防止)
         scene.traverse((obj) => {
