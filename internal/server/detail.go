@@ -39,7 +39,7 @@ func handleAssetFiles(lib *libraryState) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		assetDir := filepath.Join(dir, "source", asset.Category, asset.Title)
+		assetDir := library.AssetDir(dir, asset.Category, asset.Title)
 		dirEntries, err := os.ReadDir(assetDir)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "files_list_failed", err.Error())

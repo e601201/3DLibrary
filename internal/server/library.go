@@ -2,11 +2,14 @@ package server
 
 import (
 	"errors"
+	"log"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/e601201/3DLibrary/internal/config"
 	"github.com/e601201/3DLibrary/internal/index"
+	"github.com/e601201/3DLibrary/internal/library"
 	"github.com/e601201/3DLibrary/internal/scan"
 )
 
@@ -67,6 +70,7 @@ func (l *libraryState) resolveFor(cfg config.Config) (*index.Index, error) {
 
 // runScan は source をスキャンしてインデックスを置き換え、件数を返す。
 // 設定は 1 回だけ読む(libraryDir と thumbnailSize がずれないように)。
+// 併せて孤児キャッシュを掃除する。
 func (l *libraryState) runScan() (int, error) {
 	cfg, err := l.store.Load()
 	if err != nil {
@@ -83,7 +87,24 @@ func (l *libraryState) runScan() (int, error) {
 	if err := idx.ReplaceAll(assets); err != nil {
 		return 0, err
 	}
+	pruneCache(cfg.LibraryDir)
 	return len(assets), nil
+}
+
+// pruneCache は孤児キャッシュを掃除する。失敗してもスキャン自体は成功
+// 扱いにする(インデックスは既に現実と一致しており、キャッシュは再生成
+// 可能な派生データで、次のスキャンでも再試行される)。
+func pruneCache(libDir string) {
+	result, err := library.PruneCache(libDir)
+	if len(result.RemovedCategories) > 0 {
+		log.Printf("孤児キャッシュを掃除しました(カテゴリごと削除: %s)", strings.Join(result.RemovedCategories, ", "))
+	}
+	if result.RemovedFileCount > 0 {
+		log.Printf("孤児キャッシュを掃除しました(ファイル %d 件を削除)", result.RemovedFileCount)
+	}
+	if err != nil {
+		log.Printf("孤児キャッシュの掃除に失敗しました: %v", err)
+	}
 }
 
 func (l *libraryState) close() {

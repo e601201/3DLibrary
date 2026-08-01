@@ -84,7 +84,7 @@ func TestGenerateJobProducesCacheAndUpdatesIndex(t *testing.T) {
 
 	// キャッシュ 3 点が生成されている
 	paths := library.CachePaths(libDir, "Props", "Chair")
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if _, err := os.Stat(p); err != nil {
 			t.Errorf("missing %s", p)
 		}
@@ -155,7 +155,7 @@ func TestBulkGenerateTargetsMissingAndStaleOnly(t *testing.T) {
 		"Stale": now.Add(-time.Hour),
 	} {
 		paths := library.CachePaths(libDir, "Props", title)
-		for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+		for _, p := range paths.All() {
 			writeFileIn(t, libDir, p[len(libDir)+1:], `{"polygonCount":1}`)
 			if err := os.Chtimes(p, mtime, mtime); err != nil {
 				t.Fatal(err)

@@ -45,7 +45,7 @@ func (r *Runner) Run(job Job) error {
 	}
 
 	paths := library.CachePaths(job.LibDir, job.Category, job.Title)
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func (r *Runner) Run(job Job) error {
 		return fmt.Errorf("blender failed: %w: %s", err, tail(out, 2000))
 	}
 
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if _, err := os.Stat(p); err != nil {
 			return fmt.Errorf("generation finished but output is missing: %s: %s", p, tail(out, 1000))
 		}

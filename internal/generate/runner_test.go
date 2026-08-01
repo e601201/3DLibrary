@@ -71,7 +71,7 @@ func TestRunnerProducesAllThreeCacheFiles(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	paths := library.CachePaths(libDir, "Props", "Chair")
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if _, err := os.Stat(p); err != nil {
 			t.Errorf("missing output %s: %v", p, err)
 		}

@@ -35,7 +35,7 @@ func handleAssetDir(lib *libraryState) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "validation_failed", "invalid directory name")
 			return
 		}
-		entries, err := os.ReadDir(filepath.Join(dir, "source", asset.Category, asset.Title, subdir))
+		entries, err := os.ReadDir(filepath.Join(library.AssetDir(dir, asset.Category, asset.Title), subdir))
 		if os.IsNotExist(err) {
 			// ディレクトリが無いのは空状態(Finder 作成のアセット等)
 			writeJSON(w, http.StatusOK, []browseEntry{})
@@ -73,7 +73,7 @@ func handleAssetRaw(lib *libraryState) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		assetDir := filepath.Join(dir, "source", asset.Category, asset.Title)
+		assetDir := library.AssetDir(dir, asset.Category, asset.Title)
 		serveContainedFile(w, r, assetDir, r.PathValue("path"))
 	}
 }
@@ -112,7 +112,7 @@ func handleReveal(lib *libraryState) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		assetDir := filepath.Join(dir, "source", asset.Category, asset.Title)
+		assetDir := library.AssetDir(dir, asset.Category, asset.Title)
 		name, args := revealCommand(runtime.GOOS, assetDir)
 		if err := execStart(name, args...); err != nil {
 			writeError(w, http.StatusInternalServerError, "reveal_failed", err.Error())

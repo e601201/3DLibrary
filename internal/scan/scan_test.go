@@ -137,7 +137,7 @@ func TestScanPicksUpCache(t *testing.T) {
 	lib := buildSource(t)
 	// Wooden Chair のキャッシュ 3 点を用意(Broken にはキャッシュなし)
 	paths := library.CachePaths(lib, "Props", "Wooden Chair")
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -205,7 +205,7 @@ func TestScanProjectsMetaJSONTags(t *testing.T) {
 func writeCache(t *testing.T, lib string, mtime time.Time) library.CacheSet {
 	t.Helper()
 	paths := library.CachePaths(lib, "Props", "Wooden Chair")
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
