@@ -12,7 +12,7 @@ import {
   SlidersHorizontal,
   ZoomIn,
 } from 'lucide-react';
-import type { Material, Mesh, Texture } from 'three';
+import type { Material, Mesh, Side, Texture } from 'three';
 import { formatSize } from './format';
 import { OverlayChip, cx, type LucideIcon } from './ui';
 
@@ -28,10 +28,13 @@ type Props = {
 // 表示モードは「面の見え方」、ワイヤー重ねは「線を足すか」で軸を分ける。
 // 「ワイヤー」は面が消えている状態なので、そこに線を重ねる意味はない
 // (重ね設定は無効化するが値は保持し、面のあるモードに戻したら復活させる)
-type ShadeMode = 'material' | 'wire';
+type ShadeMode = 'material' | 'clay' | 'wire';
 
 // 背景: 単色 2 種と RoomEnvironment(背景+IBL)と透明(透過 PNG 用)
 type BackgroundMode = 'light' | 'dark' | 'env' | 'transparent';
+
+// クレイはマテリアルの差し替えで表現するので、メッシュごとに両方を控えておく
+type ShadedMesh = { mesh: Mesh; original: Material | Material[]; clay: Material | Material[] };
 
 type ViewerApi = {
   setGrid: (visible: boolean) => void;
@@ -153,7 +156,35 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
       const wireMaterial = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x39ff14 });
       const baseMaterials: Material[] = [];
       const wireMeshes: Mesh[] = [];
+
+      // クレイ表示はテクスチャもマテリアル色も外し、形だけを単色の陰影で見る。
+      // 片面/両面(side)だけは引き継がないと、片面設定の薄い板が裏から抜けて
+      // 「壊れたモデル」に見えてしまうため、side ごとに 1 つ作って共有する。
+      // アルファ抜きは引き継がない(葉や金網はベタ板になる = Blender のソリッド相当)
+      const clayMaterials = new Map<Side, Material>();
+      const clayFor = (side: Side) => {
+        let clay = clayMaterials.get(side);
+        if (!clay) {
+          clay = new THREE.MeshStandardMaterial({
+            color: 0xb0b0b0, // どの背景でも輪郭が立つ明度の無彩色
+            roughness: 0.75,
+            metalness: 0,
+            side,
+            // 元マテリアルと同様、重ねたワイヤーとのチラつきを防ぐ
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
+          });
+          clayMaterials.set(side, clay);
+        }
+        return clay;
+      };
+
+      const shadedMeshes: ShadedMesh[] = [];
+
       const applyShade = (mode: ShadeMode, wireOverlay: boolean) => {
+        for (const e of shadedMeshes) e.mesh.material = mode === 'clay' ? e.clay : e.original;
+        // 「ワイヤー」は元マテリアルに戻したうえで面だけを消す
         for (const m of baseMaterials) m.visible = mode !== 'wire';
         for (const w of wireMeshes) w.visible = mode === 'wire' || wireOverlay;
       };
@@ -284,6 +315,13 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
               m.polygonOffsetUnits = 1;
               baseMaterials.push(m);
             }
+            shadedMeshes.push({
+              mesh,
+              original: mesh.material,
+              clay: Array.isArray(mesh.material)
+                ? mesh.material.map((m) => clayFor(m.side))
+                : clayFor(mesh.material.side),
+            });
             const wire = new THREE.Mesh(mesh.geometry, wireMaterial);
             mesh.add(wire);
             wireMeshes.push(wire);
@@ -347,6 +385,10 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
             : [mesh.material];
           for (const m of materials) m?.dispose();
         });
+        // クレイ表示のままアンマウントすると上の traverse は差し替え後のマテリアルしか
+        // 見ないので、元マテリアルとクレイの両方を明示的に解放する
+        for (const m of baseMaterials) m.dispose();
+        for (const clay of clayMaterials.values()) clay.dispose();
         envMap?.dispose();
         renderer.dispose();
         container.removeChild(renderer.domElement);
@@ -543,6 +585,7 @@ function ViewerSettings({
           label="表示モード"
           options={[
             { value: 'material', label: 'マテリアル' },
+            { value: 'clay', label: 'クレイ' },
             { value: 'wire', label: 'ワイヤー' },
           ]}
         />
