@@ -12,7 +12,7 @@ import {
   SlidersHorizontal,
   ZoomIn,
 } from 'lucide-react';
-import type { Material, Mesh, Texture } from 'three';
+import type { Material, Mesh, Side, Texture } from 'three';
 import { formatSize } from './format';
 import { OverlayChip, cx, type LucideIcon } from './ui';
 
@@ -25,16 +25,21 @@ type Props = {
 // three 側へ命令を送るための最小インターフェース。
 // three の初期化は url が変わったときだけ走らせ、
 // グリッド切替などの UI 操作でシーンを作り直さない。
-// 表示モード: 面のみ / 面+ワイヤー / ワイヤーのみ
-type ShadeMode = 'shaded' | 'shadedWire' | 'wire';
+// 表示モードは「面の見え方」、ワイヤー重ねは「線を足すか」で軸を分ける。
+// 「ワイヤー」は面が消えている状態なので、そこに線を重ねる意味はない
+// (重ね設定は無効化するが値は保持し、面のあるモードに戻したら復活させる)
+type ShadeMode = 'material' | 'clay' | 'wire';
 
 // 背景: 単色 2 種と RoomEnvironment(背景+IBL)と透明(透過 PNG 用)
 type BackgroundMode = 'light' | 'dark' | 'env' | 'transparent';
 
+// クレイはマテリアルの差し替えで表現するので、メッシュごとに両方を控えておく
+type ShadedMesh = { mesh: Mesh; original: Material | Material[]; clay: Material | Material[] };
+
 type ViewerApi = {
   setGrid: (visible: boolean) => void;
   setAutoRotate: (on: boolean) => void;
-  setShadeMode: (mode: ShadeMode) => void;
+  setShade: (mode: ShadeMode, wireOverlay: boolean) => void;
   setBackground: (bg: BackgroundMode) => void;
   setExposure: (value: number) => void;
   snapshot: () => void;
@@ -49,7 +54,8 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [grid, setGrid] = useState(true);
   const [autoRotate, setAutoRotate] = useState(false);
-  const [shadeMode, setShadeMode] = useState<ShadeMode>('shaded');
+  const [shadeMode, setShadeMode] = useState<ShadeMode>('material');
+  const [wireOverlay, setWireOverlay] = useState(false);
   const [background, setBackground] = useState<BackgroundMode>('dark');
   const [exposure, setExposure] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -68,6 +74,8 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
   autoRotateRef.current = autoRotate;
   const shadeModeRef = useRef(shadeMode);
   shadeModeRef.current = shadeMode;
+  const wireOverlayRef = useRef(wireOverlay);
+  wireOverlayRef.current = wireOverlay;
   const backgroundRef = useRef(background);
   backgroundRef.current = background;
   const exposureRef = useRef(exposure);
@@ -148,9 +156,37 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
       const wireMaterial = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x39ff14 });
       const baseMaterials: Material[] = [];
       const wireMeshes: Mesh[] = [];
-      const applyShadeMode = (mode: ShadeMode) => {
+
+      // クレイ表示はテクスチャもマテリアル色も外し、形だけを単色の陰影で見る。
+      // 片面/両面(side)だけは引き継がないと、片面設定の薄い板が裏から抜けて
+      // 「壊れたモデル」に見えてしまうため、side ごとに 1 つ作って共有する。
+      // アルファ抜きは引き継がない(葉や金網はベタ板になる = Blender のソリッド相当)
+      const clayMaterials = new Map<Side, Material>();
+      const clayFor = (side: Side) => {
+        let clay = clayMaterials.get(side);
+        if (!clay) {
+          clay = new THREE.MeshStandardMaterial({
+            color: 0xb0b0b0, // どの背景でも輪郭が立つ明度の無彩色
+            roughness: 0.75,
+            metalness: 0,
+            side,
+            // 元マテリアルと同様、重ねたワイヤーとのチラつきを防ぐ
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
+          });
+          clayMaterials.set(side, clay);
+        }
+        return clay;
+      };
+
+      const shadedMeshes: ShadedMesh[] = [];
+
+      const applyShade = (mode: ShadeMode, wireOverlay: boolean) => {
+        for (const e of shadedMeshes) e.mesh.material = mode === 'clay' ? e.clay : e.original;
+        // 「ワイヤー」は元マテリアルに戻したうえで面だけを消す
         for (const m of baseMaterials) m.visible = mode !== 'wire';
-        for (const w of wireMeshes) w.visible = mode !== 'shaded';
+        for (const w of wireMeshes) w.visible = mode === 'wire' || wireOverlay;
       };
 
       // デザインのビューポートはアクセント色のグリッド床が敷かれている
@@ -279,11 +315,18 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
               m.polygonOffsetUnits = 1;
               baseMaterials.push(m);
             }
+            shadedMeshes.push({
+              mesh,
+              original: mesh.material,
+              clay: Array.isArray(mesh.material)
+                ? mesh.material.map((m) => clayFor(m.side))
+                : clayFor(mesh.material.side),
+            });
             const wire = new THREE.Mesh(mesh.geometry, wireMaterial);
             mesh.add(wire);
             wireMeshes.push(wire);
           }
-          applyShadeMode(shadeModeRef.current);
+          applyShade(shadeModeRef.current, wireOverlayRef.current);
         },
         undefined,
         () => setError('GLB を読み込めませんでした'),
@@ -306,7 +349,7 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
         setAutoRotate: (on) => {
           controls.autoRotate = on;
         },
-        setShadeMode: applyShadeMode,
+        setShade: applyShade,
         setBackground: applyBackground,
         setExposure: (value) => {
           renderer.toneMappingExposure = value;
@@ -342,6 +385,10 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
             : [mesh.material];
           for (const m of materials) m?.dispose();
         });
+        // クレイ表示のままアンマウントすると上の traverse は差し替え後のマテリアルしか
+        // 見ないので、元マテリアルとクレイの両方を明示的に解放する
+        for (const m of baseMaterials) m.dispose();
+        for (const clay of clayMaterials.values()) clay.dispose();
         envMap?.dispose();
         renderer.dispose();
         container.removeChild(renderer.domElement);
@@ -363,8 +410,8 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
   }, [autoRotate]);
 
   useEffect(() => {
-    apiRef.current?.setShadeMode(shadeMode);
-  }, [shadeMode]);
+    apiRef.current?.setShade(shadeMode, wireOverlay);
+  }, [shadeMode, wireOverlay]);
 
   useEffect(() => {
     apiRef.current?.setBackground(background);
@@ -438,9 +485,11 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
             {settingsOpen && (
               <ViewerSettings
                 shadeMode={shadeMode}
+                wireOverlay={wireOverlay}
                 background={background}
                 exposure={exposure}
                 onShadeMode={setShadeMode}
+                onWireOverlay={setWireOverlay}
                 onBackground={setBackground}
                 onExposure={setExposure}
               />
@@ -507,16 +556,20 @@ function ViewportTool({
 // 表示設定のポップオーバー。ビューポートに重なるので配色は stage-* 固定
 function ViewerSettings({
   shadeMode,
+  wireOverlay,
   background,
   exposure,
   onShadeMode,
+  onWireOverlay,
   onBackground,
   onExposure,
 }: {
   shadeMode: ShadeMode;
+  wireOverlay: boolean;
   background: BackgroundMode;
   exposure: number;
   onShadeMode: (mode: ShadeMode) => void;
+  onWireOverlay: (on: boolean) => void;
   onBackground: (bg: BackgroundMode) => void;
   onExposure: (value: number) => void;
 }) {
@@ -531,9 +584,25 @@ function ViewerSettings({
           onChange={onShadeMode}
           label="表示モード"
           options={[
-            { value: 'shaded', label: 'シェード' },
-            { value: 'shadedWire', label: '+ワイヤー' },
+            { value: 'material', label: 'マテリアル' },
+            { value: 'clay', label: 'クレイ' },
             { value: 'wire', label: 'ワイヤー' },
+          ]}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <p className="font-mono text-[10px] leading-none tracking-[1px] text-stage-ink-faint">
+          ワイヤー重ね
+        </p>
+        <StageSegmented
+          value={wireOverlay ? 'on' : 'off'}
+          onChange={(v) => onWireOverlay(v === 'on')}
+          label="ワイヤー重ね"
+          // 面が消えている「ワイヤー」では重ねる対象がないので選ばせない
+          disabled={shadeMode === 'wire'}
+          options={[
+            { value: 'off', label: 'オフ' },
+            { value: 'on', label: 'オン' },
           ]}
         />
       </div>
@@ -583,14 +652,21 @@ function StageSegmented<T extends string>({
   options,
   onChange,
   label,
+  disabled = false,
 }: {
   value: T;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
-    <div className="flex border border-stage-border" role="group" aria-label={label}>
+    <div
+      // 無効時も選択中の値は薄く見せ、戻したときに何が復活するか分かるようにする
+      className={cx('flex border border-stage-border', disabled && 'opacity-40')}
+      role="group"
+      aria-label={label}
+    >
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -598,12 +674,14 @@ function StageSegmented<T extends string>({
             key={o.value}
             type="button"
             aria-pressed={active}
+            disabled={disabled}
             onClick={() => onChange(o.value)}
             className={cx(
               'flex-1 px-1 py-[6px] text-[11px] leading-none transition',
               active
                 ? 'bg-stage-accent/15 font-semibold text-stage-accent'
-                : 'text-stage-ink-muted hover:text-stage-ink',
+                : 'text-stage-ink-muted',
+              disabled ? 'cursor-not-allowed' : !active && 'hover:text-stage-ink',
             )}
           >
             {o.label}
