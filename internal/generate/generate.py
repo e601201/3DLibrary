@@ -5,6 +5,7 @@
 #     --glb <out.glb> --thumb <out.png> --meta <out.json> --size <px>
 import json
 import os
+import struct
 import sys
 
 import bpy
@@ -28,16 +29,39 @@ def parse_args():
 
 
 def extract_metadata():
-    polygons = sum(len(m.polygons) for m in bpy.data.meshes)
     images = [i for i in bpy.data.images if i.name not in ("Render Result", "Viewer Node")]
     return {
         "objectCount": len(bpy.data.objects),
         "collectionCount": len(bpy.data.collections),
         "materialCount": len(bpy.data.materials),
-        "polygonCount": polygons,
         "textureCount": len(images),
         "hasAnimation": bool(bpy.data.actions),
     }
+
+
+def glb_polygon_count(path):
+    """書き出した GLB に入っている三角形の数。.blend のベースメッシュでは
+    なくエクスポート結果を数えるので、モディファイアーの適用・三角形分割・
+    インスタンスの展開まで含めてビューワーの表示内容と一致する。"""
+    with open(path, "rb") as f:
+        data = f.read()
+    # GLB ヘッダ 12 バイトの直後が JSON チャンク(長さ 4 + 種別 4 + 本体)
+    json_length = struct.unpack("<I", data[12:16])[0]
+    gltf = json.loads(data[20 : 20 + json_length])
+    accessors = gltf.get("accessors", [])
+
+    per_mesh = []
+    for mesh in gltf.get("meshes", []):
+        triangles = 0
+        for prim in mesh.get("primitives", []):
+            if prim.get("mode", 4) != 4:  # 4 = TRIANGLES(省略時の既定値)
+                continue
+            index = prim.get("indices")
+            count = accessors[index]["count"] if index is not None else accessors[prim["attributes"]["POSITION"]]["count"]
+            triangles += count // 3
+        per_mesh.append(triangles)
+    # 同じメッシュを複数ノードが参照している(インスタンス)ぶんも数える
+    return sum(per_mesh[n["mesh"]] for n in gltf.get("nodes", []) if "mesh" in n)
 
 
 def unresolved_images():
@@ -69,6 +93,18 @@ def resolve_missing_textures():
         except RuntimeError as e:
             print("3dlibrary: find_missing_files failed: %s" % e)
     return unresolved_images()
+
+
+def apply_render_modifier_settings():
+    """モディファイアーをレンダー時の設定に揃える。glTF エクスポータは
+    ビューポート側の評価結果を書き出すため、表示を軽くするために落として
+    ある設定(Subdivision のビューポートレベル等)がそのまま GLB に出て
+    しまう。ビューポートでのみ切ってあるモディファイアーも有効に戻す。"""
+    for obj in bpy.data.objects:
+        for mod in obj.modifiers:
+            mod.show_viewport = mod.show_render
+            if mod.type in {"SUBSURF", "MULTIRES"}:
+                mod.levels = mod.render_levels
 
 
 def frame_camera(scene):
@@ -160,7 +196,13 @@ def main():
     missing = resolve_missing_textures()
     if missing:
         print("3dlibrary: unresolved textures: %s" % ", ".join(missing))
-    bpy.ops.export_scene.gltf(filepath=args["glb"], export_format="GLB")
+    # モディファイアーを適用した結果を書き出す(Armature は骨として残るよう
+    # エクスポータが自動で除外する)。シェイプキーは適用結果と両立しないため
+    # 出力されない
+    apply_render_modifier_settings()
+    bpy.ops.export_scene.gltf(filepath=args["glb"], export_format="GLB", export_apply=True)
+    # ポリゴン数は書き出した GLB から数える(モディファイアー適用後の実体)
+    meta["polygonCount"] = glb_polygon_count(args["glb"])
     meta["thumbnailShading"] = render_thumbnail(args["thumb"], int(args["size"]), not missing)
     # 抽出メタデータ JSON は最後に書く(成功マーカーを兼ねる)
     with open(args["meta"], "w", encoding="utf-8") as f:
