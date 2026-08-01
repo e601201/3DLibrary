@@ -11,15 +11,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/e601201/3DLibrary/internal/index"
 	"github.com/e601201/3DLibrary/internal/library"
 )
 
 // Scan は libDir/source 直下のカテゴリ/アセットを列挙して返す。
-//   - カテゴリ = source 直下のディレクトリ(隠しディレクトリは除く)
-//   - アセット = カテゴリ直下のディレクトリ。それより深い階層は関知しない
+//   - カテゴリ・アセットの列挙規則は library.Categories / library.AssetTitles
+//     に一本化している(キャッシュの掃除が同じ規則で生死を判定できるように)
+//   - アセットより深い階層はアセットの私有物で関知しない
 //   - model.blend を持たないアセットは不完全アセットとして返す
 //   - キャッシュ(GLB・サムネイル・抽出メタデータのポリゴン数)が
 //     あれば表示用として取り込む(requirements.md §7 スキャン)
@@ -30,25 +30,19 @@ import (
 // thumbnailSize は設定値(0 ならサイズ照合をしない)。
 func Scan(libDir string, thumbnailSize int) ([]index.Asset, error) {
 	sourceDir := filepath.Join(libDir, "source")
-	categories, err := os.ReadDir(sourceDir)
+	categories, err := library.Categories(libDir)
 	if err != nil {
 		return nil, err
 	}
 
 	var assets []index.Asset
 	for _, cat := range categories {
-		if !cat.IsDir() || strings.HasPrefix(cat.Name(), ".") {
-			continue
-		}
-		entries, err := os.ReadDir(filepath.Join(sourceDir, cat.Name()))
+		titles, err := library.AssetTitles(libDir, cat)
 		if err != nil {
 			return nil, err
 		}
-		for _, ent := range entries {
-			if !ent.IsDir() || strings.HasPrefix(ent.Name(), ".") {
-				continue
-			}
-			assets = append(assets, readAsset(libDir, sourceDir, cat.Name(), ent.Name(), thumbnailSize))
+		for _, title := range titles {
+			assets = append(assets, readAsset(libDir, sourceDir, cat, title, thumbnailSize))
 		}
 	}
 	return assets, nil
