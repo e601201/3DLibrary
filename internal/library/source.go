@@ -5,11 +5,22 @@ import (
 	"path/filepath"
 )
 
+// SourceDir は source ディレクトリ(唯一の正のデータの置き場)のパスを返す。
+func SourceDir(libDir string) string {
+	return filepath.Join(libDir, "source")
+}
+
+// AssetDir はアセットディレクトリ source/{category}/{title} のパスを返す。
+// 引数の並びはパス構造に合わせている。
+func AssetDir(libDir, category, title string) string {
+	return filepath.Join(SourceDir(libDir), category, title)
+}
+
 // Categories は source 直下のカテゴリ名を返す(requirements.md §4 カテゴリ)。
 // カテゴリは固定の集合ではなく、source 直下のディレクトリがすべてである。
 // ファイルと不可視エントリはカテゴリではない。
 func Categories(libDir string) ([]string, error) {
-	return subdirs(filepath.Join(libDir, "source"))
+	return subdirs(SourceDir(libDir))
 }
 
 // AssetTitles はカテゴリ直下のアセットのタイトルを返す(requirements.md §5)。
@@ -17,7 +28,7 @@ func Categories(libDir string) ([]string, error) {
 // なので関知しない。model.blend の有無は問わない(不完全アセットもアセット
 // であり、スキャンにも現れる)。
 func AssetTitles(libDir, category string) ([]string, error) {
-	return subdirs(filepath.Join(libDir, "source", category))
+	return subdirs(filepath.Join(SourceDir(libDir), category))
 }
 
 // subdirs は dir 直下の可視ディレクトリ名を返す。カテゴリもアセットも

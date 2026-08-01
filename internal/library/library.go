@@ -1,6 +1,11 @@
-// Package library はライブラリディレクトリの初期化を担う。
-// 骨格(source / cache / templates)の作成と同梱テンプレートの配置のみを行い、
-// 既存の中身があるディレクトリには一切書き込まない(requirements.md §4)。
+// Package library はライブラリディレクトリの構造と規則を一手に担う。
+//   - 初期化: 骨格(source / cache / templates)の作成と同梱テンプレートの
+//     配置。既存の中身があるディレクトリには一切書き込まない(requirements.md §4)
+//   - source: カテゴリ・アセットの列挙規則(Categories / AssetTitles)、
+//     アセットの作成(CreateAsset)とアセットメタの読み書き(ReadTags /
+//     WriteTags)。source へ書き込むのはこの 2 経路のみ
+//   - cache: キャッシュのパス決定(CachePaths)、全削除(ClearCache)、
+//     孤児キャッシュの掃除(PruneCache)
 package library
 
 import (

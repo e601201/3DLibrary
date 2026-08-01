@@ -156,7 +156,7 @@ func TestRescanReflectsFilesystemChanges(t *testing.T) {
 func seedCache(t *testing.T, libDir, category, title string) library.CacheSet {
 	t.Helper()
 	paths := library.CachePaths(libDir, category, title)
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -193,14 +193,14 @@ func TestRescanRemovesOrphanCache(t *testing.T) {
 		}
 	}
 	for _, orphan := range []library.CacheSet{deletedAsset, deletedCategory} {
-		for _, p := range []string{orphan.GLB, orphan.Thumbnail, orphan.Metadata} {
+		for _, p := range orphan.All() {
 			if _, err := os.Stat(p); !os.IsNotExist(err) {
 				t.Errorf("orphan cache should be removed: %s (%v)", p, err)
 			}
 		}
 	}
 	// 生きているアセットのキャッシュは無傷
-	for _, p := range []string{kept.GLB, kept.Thumbnail, kept.Metadata} {
+	for _, p := range kept.All() {
 		if _, err := os.Stat(p); err != nil {
 			t.Errorf("cache of a live asset was removed: %v", err)
 		}

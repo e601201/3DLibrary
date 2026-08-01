@@ -6,15 +6,15 @@ import (
 	"testing"
 )
 
-// seedAssetCache は 1 アセット分のキャッシュ 3 点を作る。
+// seedAssetCache は 1 アセット分のキャッシュ 3 点(各 10 バイト)を作る。
 func seedAssetCache(t *testing.T, dir, category, title string) CacheSet {
 	t.Helper()
 	paths := CachePaths(dir, category, title)
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(p, []byte("cache"), 0o644); err != nil {
+		if err := os.WriteFile(p, []byte("0123456789"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -23,7 +23,7 @@ func seedAssetCache(t *testing.T, dir, category, title string) CacheSet {
 
 func assertGone(t *testing.T, paths CacheSet) {
 	t.Helper()
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if _, err := os.Stat(p); !os.IsNotExist(err) {
 			t.Errorf("orphan cache should be removed: %s (%v)", p, err)
 		}
@@ -32,7 +32,7 @@ func assertGone(t *testing.T, paths CacheSet) {
 
 func assertKept(t *testing.T, paths CacheSet) {
 	t.Helper()
-	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+	for _, p := range paths.All() {
 		if _, err := os.Stat(p); err != nil {
 			t.Errorf("live cache was removed: %s (%v)", p, err)
 		}
@@ -52,8 +52,8 @@ func TestPruneCacheRemovesDeletedCategory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PruneCache: %v", err)
 	}
-	if len(result.Categories) != 1 || result.Categories[0] != "Characters" {
-		t.Fatalf("Categories = %v, want [Characters]", result.Categories)
+	if len(result.RemovedCategories) != 1 || result.RemovedCategories[0] != "Characters" {
+		t.Fatalf("RemovedCategories = %v, want [Characters]", result.RemovedCategories)
 	}
 	for _, sub := range cacheSubdirs {
 		if _, err := os.Stat(filepath.Join(dir, "cache", sub, "Characters")); !os.IsNotExist(err) {
@@ -77,11 +77,11 @@ func TestPruneCacheRemovesDeletedAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PruneCache: %v", err)
 	}
-	if len(result.Categories) != 0 {
-		t.Errorf("Categories = %v, want none (Props is alive)", result.Categories)
+	if len(result.RemovedCategories) != 0 {
+		t.Errorf("RemovedCategories = %v, want none (Props is alive)", result.RemovedCategories)
 	}
-	if result.Files != 3 {
-		t.Errorf("Files = %d, want 3", result.Files)
+	if result.RemovedFileCount != 3 {
+		t.Errorf("RemovedFileCount = %d, want 3", result.RemovedFileCount)
 	}
 	assertGone(t, orphan)
 	assertKept(t, kept)
@@ -104,8 +104,8 @@ func TestPruneCacheKeepsIncompleteAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PruneCache: %v", err)
 	}
-	if result.Files != 0 {
-		t.Errorf("Files = %d, want 0", result.Files)
+	if result.RemovedFileCount != 0 {
+		t.Errorf("RemovedFileCount = %d, want 0", result.RemovedFileCount)
 	}
 	assertKept(t, paths)
 }
@@ -123,13 +123,56 @@ func TestPruneCacheKeepsEmptyCategory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PruneCache: %v", err)
 	}
-	if len(result.Categories) != 0 {
-		t.Errorf("Categories = %v, want none", result.Categories)
+	if len(result.RemovedCategories) != 0 {
+		t.Errorf("RemovedCategories = %v, want none", result.RemovedCategories)
 	}
 	assertGone(t, orphan)
 	if _, err := os.Stat(filepath.Join(dir, "cache", "glb", "Props")); err != nil {
 		t.Errorf("cache/glb/Props should stay: %v", err)
 	}
+}
+
+func TestPruneCacheIgnoresCase(t *testing.T) {
+	dir := newLibrary(t)
+	// Windows・macOS の既定 FS では大小のみ違う名前は同じ実体。
+	// 大小だけを変えたリネームの直後でも、生きているキャッシュを消さない
+	if err := CreateAsset(dir, "props", "chair", "empty.blend", nil); err != nil {
+		t.Fatal(err)
+	}
+	paths := seedAssetCache(t, dir, "Props", "Chair")
+
+	result, err := PruneCache(dir)
+	if err != nil {
+		t.Fatalf("PruneCache: %v", err)
+	}
+	if len(result.RemovedCategories) != 0 || result.RemovedFileCount != 0 {
+		t.Fatalf("result = %+v, want nothing removed", result)
+	}
+	assertKept(t, paths)
+}
+
+func TestPruneCacheMergesCaseOnlyCategories(t *testing.T) {
+	dir := newLibrary(t)
+	// 大小のみ違うカテゴリが併存する場合(大小を区別する FS のみ起こりうる)、
+	// 照合用のタイトル集合は上書きではなく合流する。大小を区別しない FS では
+	// 2 つの MkdirAll が同じカテゴリに落ちるだけで、期待結果は変わらない
+	for _, rel := range []string{"Props/Chair", "props/Table"} {
+		if err := os.MkdirAll(filepath.Join(dir, "source", rel), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	chair := seedAssetCache(t, dir, "Props", "Chair")
+	table := seedAssetCache(t, dir, "Props", "Table")
+
+	result, err := PruneCache(dir)
+	if err != nil {
+		t.Fatalf("PruneCache: %v", err)
+	}
+	if len(result.RemovedCategories) != 0 || result.RemovedFileCount != 0 {
+		t.Fatalf("result = %+v, want nothing removed", result)
+	}
+	assertKept(t, chair)
+	assertKept(t, table)
 }
 
 func TestPruneCacheKeepsStrayFiles(t *testing.T) {

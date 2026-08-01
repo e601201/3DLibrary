@@ -59,7 +59,7 @@ func CreateAsset(libDir, category, title, template string, tags []string) error 
 	}
 	defer src.Close()
 
-	assetDir := filepath.Join(libDir, "source", category, title)
+	assetDir := AssetDir(libDir, category, title)
 	if _, err := os.Stat(assetDir); err == nil {
 		return fmt.Errorf("%w: %s/%s", ErrAssetExists, category, title)
 	} else if !os.IsNotExist(err) {

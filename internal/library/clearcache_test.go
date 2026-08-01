@@ -6,26 +6,9 @@ import (
 	"testing"
 )
 
-func seedCache(t *testing.T, dir string) {
-	t.Helper()
-	for _, rel := range []string{
-		"cache/glb/Props/Chair.glb",
-		"cache/thumbnails/Props/Chair.png",
-		"cache/metadata/Props/Chair.json",
-	} {
-		path := filepath.Join(dir, rel)
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte("0123456789"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func TestCacheSize(t *testing.T) {
 	dir := newLibrary(t)
-	seedCache(t, dir)
+	seedAssetCache(t, dir, "Props", "Chair")
 
 	size, count, err := CacheSize(dir)
 	if err != nil {
@@ -49,7 +32,7 @@ func TestCacheSizeEmptyLibrary(t *testing.T) {
 
 func TestClearCache(t *testing.T) {
 	dir := newLibrary(t)
-	seedCache(t, dir)
+	seedAssetCache(t, dir, "Props", "Chair")
 	// source とインデックスは無傷であること
 	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err != nil {
 		t.Fatal(err)

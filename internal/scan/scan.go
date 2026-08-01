@@ -29,7 +29,6 @@ import (
 //
 // thumbnailSize は設定値(0 ならサイズ照合をしない)。
 func Scan(libDir string, thumbnailSize int) ([]index.Asset, error) {
-	sourceDir := filepath.Join(libDir, "source")
 	categories, err := library.Categories(libDir)
 	if err != nil {
 		return nil, err
@@ -42,16 +41,16 @@ func Scan(libDir string, thumbnailSize int) ([]index.Asset, error) {
 			return nil, err
 		}
 		for _, title := range titles {
-			assets = append(assets, readAsset(libDir, sourceDir, cat, title, thumbnailSize))
+			assets = append(assets, readAsset(libDir, cat, title, thumbnailSize))
 		}
 	}
 	return assets, nil
 }
 
-func readAsset(libDir, sourceDir, category, title string, thumbnailSize int) index.Asset {
+func readAsset(libDir, category, title string, thumbnailSize int) index.Asset {
 	asset := index.Asset{Title: title, Category: category, IsIncomplete: true}
 
-	blendPath := filepath.Join(sourceDir, category, title, "model.blend")
+	blendPath := filepath.Join(library.AssetDir(libDir, category, title), "model.blend")
 	info, err := os.Stat(blendPath)
 	if err == nil && !info.IsDir() {
 		asset.IsIncomplete = false

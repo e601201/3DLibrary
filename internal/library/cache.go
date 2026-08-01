@@ -4,7 +4,7 @@ import "path/filepath"
 
 // cacheKind はキャッシュ種別 1 つ分の置き場所。キャッシュのパスは
 // すべて cache/{dir}/{category}/{title}{ext} の形で、ここから導出する
-// (種別の追加はこの表に 1 行足すだけで済ませる)。
+// (パスの生成と掃除・骨格の作成が同じ定義を共有し、ズレないように)。
 type cacheKind struct {
 	dir string
 	ext string
@@ -40,4 +40,9 @@ func CachePaths(libDir, category, title string) CacheSet {
 		Thumbnail: thumbnailKind.path(libDir, category, title),
 		Metadata:  metadataKind.path(libDir, category, title),
 	}
+}
+
+// All はキャッシュ 3 点のパスを一括で返す(3 点まとめての作成・確認用)。
+func (s CacheSet) All() []string {
+	return []string{s.GLB, s.Thumbnail, s.Metadata}
 }

@@ -15,7 +15,7 @@ type assetMeta struct {
 }
 
 func metaPath(libDir, category, title string) string {
-	return filepath.Join(libDir, "source", category, title, "meta.json")
+	return filepath.Join(AssetDir(libDir, category, title), "meta.json")
 }
 
 // ReadTags は meta.json のタグを返す。ファイルが無ければタグ空。
@@ -37,7 +37,7 @@ func ReadTags(libDir, category, title string) ([]string, error) {
 // WriteTags はタグを正規化して meta.json に保存する。ファイルが無ければ
 // 作成する(初回タグ付け)。アプリが source へ書き込む 2 経路のうちの 1 つ。
 func WriteTags(libDir, category, title string, tags []string) error {
-	assetDir := filepath.Join(libDir, "source", category, title)
+	assetDir := AssetDir(libDir, category, title)
 	if info, err := os.Stat(assetDir); err != nil || !info.IsDir() {
 		// インデックス参照後にディレクトリが消えた場合も 404 に分類できるよう
 		// os.ErrNotExist を包む
