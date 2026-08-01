@@ -10,6 +10,7 @@ import (
 
 	"github.com/e601201/3DLibrary/internal/config"
 	"github.com/e601201/3DLibrary/internal/index"
+	"github.com/e601201/3DLibrary/internal/library"
 )
 
 // newLibraryServer は一時ライブラリ(source あり)を設定済みのサーバーを返す。
@@ -148,6 +149,61 @@ func TestRescanReflectsFilesystemChanges(t *testing.T) {
 	assets := listAssets(t, srv)
 	if len(assets) != 1 || assets[0].Title != "Hero" {
 		t.Fatalf("assets = %+v, want only Hero", assets)
+	}
+}
+
+// seedCache はアセットのキャッシュ 3 点を作る。
+func seedCache(t *testing.T, libDir, category, title string) library.CacheSet {
+	t.Helper()
+	paths := library.CachePaths(libDir, category, title)
+	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("cache"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return paths
+}
+
+func TestRescanRemovesOrphanCache(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "Chair", true)
+	addAsset(t, libDir, "Props", "Table", true)
+	addAsset(t, libDir, "Characters", "Hero", true)
+	rescan(t, srv)
+
+	kept := seedCache(t, libDir, "Props", "Chair")
+	deletedAsset := seedCache(t, libDir, "Props", "Table")
+	deletedCategory := seedCache(t, libDir, "Characters", "Hero")
+
+	// Finder でカテゴリごと / アセットだけを削除
+	for _, rel := range []string{"Characters", filepath.Join("Props", "Table")} {
+		if err := os.RemoveAll(filepath.Join(libDir, "source", rel)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rescan(t, srv)
+
+	// 消えたカテゴリはキャッシュもディレクトリごと消える
+	for _, sub := range []string{"glb", "thumbnails", "metadata"} {
+		if _, err := os.Stat(filepath.Join(libDir, "cache", sub, "Characters")); !os.IsNotExist(err) {
+			t.Errorf("cache/%s/Characters should be removed: %v", sub, err)
+		}
+	}
+	for _, orphan := range []library.CacheSet{deletedAsset, deletedCategory} {
+		for _, p := range []string{orphan.GLB, orphan.Thumbnail, orphan.Metadata} {
+			if _, err := os.Stat(p); !os.IsNotExist(err) {
+				t.Errorf("orphan cache should be removed: %s (%v)", p, err)
+			}
+		}
+	}
+	// 生きているアセットのキャッシュは無傷
+	for _, p := range []string{kept.GLB, kept.Thumbnail, kept.Metadata} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("cache of a live asset was removed: %v", err)
+		}
 	}
 }
 

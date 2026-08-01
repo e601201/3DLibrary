@@ -7,7 +7,13 @@ import (
 )
 
 // cacheSubdirs は cache 直下の骨格(requirements.md §10)。
-var cacheSubdirs = []string{"glb", "thumbnails", "metadata"}
+var cacheSubdirs = func() []string {
+	dirs := make([]string, len(cacheKinds))
+	for i, k := range cacheKinds {
+		dirs[i] = k.dir
+	}
+	return dirs
+}()
 
 // CacheSize は cache 配下の合計サイズとファイル数を実測で返す。
 // (server 側 dirSize は表示用でエラーを無視する別物。こちらは
