@@ -49,6 +49,8 @@ export interface Asset {
   path: string;
   thumbnailPath: string | null;
   glbPath: string | null;
+  // 全周スプライト(ADR-0003)。未生成なら null
+  spritePath: string | null;
   polygonCount: number | null;
   size: number;
   isIncomplete: boolean;
@@ -63,7 +65,10 @@ export interface Asset {
 export function needsGeneration(asset: Asset): boolean {
   if (asset.isIncomplete) return false;
   const missing =
-    asset.thumbnailPath === null || asset.glbPath === null || asset.polygonCount === null;
+    asset.thumbnailPath === null ||
+    asset.glbPath === null ||
+    asset.spritePath === null ||
+    asset.polygonCount === null;
   return missing || asset.isStale;
 }
 
@@ -121,6 +126,13 @@ export function postJob(ref: JobRef): Promise<JobStatus> {
 export function thumbnailUrl(asset: Asset): string | null {
   if (!asset.thumbnailPath) return null;
   return `/api/thumbnails/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.png?v=${asset.id}`;
+}
+
+// スプライト(全周レンダリングのシート)の配信 URL(未生成なら null)。
+// 一覧のホバースクラブが使う。?v= の意図はサムネイルと同じ
+export function spriteUrl(asset: Asset): string | null {
+  if (!asset.spritePath) return null;
+  return `/api/sprites/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.webp?v=${asset.id}`;
 }
 
 // GLB キャッシュの配信 URL(未生成なら null)

@@ -21,11 +21,12 @@ import (
 //     に一本化している(キャッシュの掃除が同じ規則で生死を判定できるように)
 //   - アセットより深い階層はアセットの私有物で関知しない
 //   - model.blend を持たないアセットは不完全アセットとして返す
-//   - キャッシュ(GLB・サムネイル・抽出メタデータのポリゴン数)が
-//     あれば表示用として取り込む(requirements.md §7 スキャン)
+//   - キャッシュ(GLB・サムネイル・スプライト・抽出メタデータの
+//     ポリゴン数)があれば表示用として取り込む(requirements.md §7 スキャン)
 //   - meta.json のタグをインデックスへ射影する
-//   - 陳腐化判定: model.blend の mtime > キャッシュの mtime、または
-//     サムネイルの実サイズが thumbnailSize と不一致なら IsStale
+//   - 陳腐化判定: model.blend の mtime > キャッシュの mtime、
+//     サムネイルの実サイズが thumbnailSize と不一致、または
+//     生成済みアセットのスプライトが欠落していれば IsStale
 //
 // thumbnailSize は設定値(0 ならサイズ照合をしない)。
 func Scan(libDir string, thumbnailSize int) ([]index.Asset, error) {
@@ -78,16 +79,23 @@ func readAsset(libDir, category, title string, thumbnailSize int) index.Asset {
 func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 	paths := library.CachePaths(libDir, asset.Category, asset.Title)
 
-	// 陳腐化判定(requirements.md §7): 既存キャッシュのどれかが
-	// model.blend より古ければ要更新(存在確認と同じ stat を使う)
-	staleIfOld := func(info os.FileInfo) {
+	// exists はキャッシュがあれば true を返し、ついでに陳腐化を判定する
+	// (requirements.md §7: model.blend より古いキャッシュは要更新)。
+	exists := func(path string) bool {
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			return false
+		}
 		if info.ModTime().Before(asset.UpdatedAt) {
 			asset.IsStale = true
 		}
+		return true
 	}
-	if info, err := os.Stat(paths.Thumbnail); err == nil && !info.IsDir() {
+
+	generated := false // このアセットは一度でも生成されたか
+	if exists(paths.Thumbnail) {
+		generated = true
 		asset.ThumbnailPath = &paths.Thumbnail
-		staleIfOld(info)
 		// サムネイルサイズ変更の検知: PNG の実サイズが設定と違えば要更新
 		if thumbnailSize > 0 {
 			if w, ok := pngWidth(paths.Thumbnail); ok && w != thumbnailSize {
@@ -95,12 +103,12 @@ func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 			}
 		}
 	}
-	if info, err := os.Stat(paths.GLB); err == nil && !info.IsDir() {
+	if exists(paths.GLB) {
+		generated = true
 		asset.GlbPath = &paths.GLB
-		staleIfOld(info)
 	}
-	if info, err := os.Stat(paths.Metadata); err == nil && !info.IsDir() {
-		staleIfOld(info)
+	if exists(paths.Metadata) {
+		generated = true
 		if b, err := os.ReadFile(paths.Metadata); err == nil {
 			var meta struct {
 				PolygonCount int `json:"polygonCount"`
@@ -109,6 +117,16 @@ func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 				asset.PolygonCount = &meta.PolygonCount
 			}
 		}
+	}
+	// スプライトだけは欠落も要更新として扱う(PRD hover-scrub-preview)。
+	// 他の 3 点と違い、欠けていてもカードは揃って見えるため、スプライト
+	// 導入前に生成したアセットには「要更新」バッジ以外に気づく手掛かりが
+	// ない。一度も生成していないアセットは「未生成」であって陳腐化では
+	// ないので対象外にする。
+	if exists(paths.Sprite) {
+		asset.SpritePath = &paths.Sprite
+	} else if generated {
+		asset.IsStale = true
 	}
 }
 
