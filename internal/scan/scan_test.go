@@ -151,6 +151,9 @@ func TestScanPicksUpCache(t *testing.T) {
 	if err := os.WriteFile(paths.Metadata, []byte(`{"polygonCount":1234}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(paths.Sprite, []byte("webp"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	assets, err := Scan(lib, 0)
 	if err != nil {
@@ -165,13 +168,70 @@ func TestScanPicksUpCache(t *testing.T) {
 			if a.GlbPath == nil || *a.GlbPath != paths.GLB {
 				t.Errorf("GlbPath = %v", a.GlbPath)
 			}
+			if a.SpritePath == nil || *a.SpritePath != paths.Sprite {
+				t.Errorf("SpritePath = %v", a.SpritePath)
+			}
 			if a.PolygonCount == nil || *a.PolygonCount != 1234 {
 				t.Errorf("PolygonCount = %v", a.PolygonCount)
 			}
 		case "Hero":
-			if a.ThumbnailPath != nil || a.GlbPath != nil || a.PolygonCount != nil {
+			if a.ThumbnailPath != nil || a.GlbPath != nil || a.SpritePath != nil || a.PolygonCount != nil {
 				t.Errorf("Hero should have no cache: %+v", a)
 			}
+		}
+	}
+}
+
+// TestScanTreatsMissingSpriteAsStale はスプライト導入前に生成したアセット
+// (他の 3 点だけが揃っている)が要更新として見えることを確かめる。
+func TestScanTreatsMissingSpriteAsStale(t *testing.T) {
+	lib := buildSource(t)
+	blend := filepath.Join(lib, "source", "Props", "Wooden Chair", "model.blend")
+	blendInfo, _ := os.Stat(blend)
+	paths := writeCache(t, lib, blendInfo.ModTime().Add(time.Hour))
+	if err := os.Remove(paths.Sprite); err != nil {
+		t.Fatal(err)
+	}
+
+	assets, err := Scan(lib, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range assets {
+		switch a.Title {
+		case "Wooden Chair":
+			if a.SpritePath != nil {
+				t.Errorf("SpritePath = %v, want nil", a.SpritePath)
+			}
+			if !a.IsStale {
+				t.Error("missing sprite should be stale")
+			}
+		case "Hero":
+			// 一度も生成していないアセットは「未生成」であって陳腐化ではない
+			if a.IsStale {
+				t.Error("never-generated asset must not be stale")
+			}
+		}
+	}
+}
+
+func TestScanTreatsOldSpriteAsStale(t *testing.T) {
+	lib := buildSource(t)
+	blend := filepath.Join(lib, "source", "Props", "Wooden Chair", "model.blend")
+	blendInfo, _ := os.Stat(blend)
+	paths := writeCache(t, lib, blendInfo.ModTime().Add(time.Hour))
+	old := blendInfo.ModTime().Add(-time.Hour)
+	if err := os.Chtimes(paths.Sprite, old, old); err != nil {
+		t.Fatal(err)
+	}
+
+	assets, err := Scan(lib, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range assets {
+		if a.Title == "Wooden Chair" && !a.IsStale {
+			t.Error("sprite older than model.blend should be stale")
 		}
 	}
 }

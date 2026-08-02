@@ -2,8 +2,16 @@
 // カードはサムネイル(3:2)+ 情報部(padding 12-14 / gap 8)の 2 段構成。
 
 import { ImageOff, RefreshCw, TriangleAlert, Zap } from 'lucide-react';
-import { thumbnailUrl, type Asset } from './api';
+import { useRef, useState } from 'react';
+import { spriteUrl, thumbnailUrl, type Asset } from './api';
 import { formatDate, formatDay, formatPolygons, formatSize } from './format';
+import {
+  canHoverScrub,
+  frameAtX,
+  framePosition,
+  scrubRatio,
+  SPRITE_BACKGROUND_SIZE,
+} from './sprite';
 import { Centered, cx } from './ui';
 
 export type ViewMode = 'card' | 'list';
@@ -83,6 +91,52 @@ export function StaleBadge({ onStage = false }: { onStage?: boolean }) {
   );
 }
 
+// ホバー位置スクラブ(PRD hover-scrub-preview)。ホバー中だけスプライトを
+// 取得し、デコードが済んで初めてカーソル位置のフレームを返す。それまで
+// (と非対応環境・スプライト未生成)は null で、カードは静止サムネイルのまま。
+function useSpriteScrub(url: string | null) {
+  const [position, setPosition] = useState<{ frame: number; ratio: number } | null>(null);
+  const [decoded, setDecoded] = useState(false);
+  const [hoverCapable] = useState(canHoverScrub);
+  // 取得中・取得済みのスプライト。ホバー終了で捨てる(JS 側で溜めない)
+  const sprite = useRef<HTMLImageElement | null>(null);
+
+  const track = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    setPosition({ frame: frameAtX(x, rect.width), ratio: scrubRatio(x, rect.width) });
+  };
+
+  if (url === null || !hoverCapable) {
+    return { frame: null, ratio: 0, handlers: {} };
+  }
+  return {
+    frame: decoded && position ? position.frame : null,
+    ratio: position ? position.ratio : 0,
+    handlers: {
+      onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+        track(e);
+        // 一覧の初期表示では取得しない。ここが唯一の取得点
+        const image = new Image();
+        sprite.current = image;
+        image.src = url;
+        // デコードが済むまではサムネイルを出し続ける(スピナーは出さない)。
+        // 失敗したらそのまま静止サムネイルに留まる
+        image.decode().then(
+          () => sprite.current === image && setDecoded(true),
+          () => {},
+        );
+      },
+      onMouseMove: track,
+      onMouseLeave: () => {
+        sprite.current = null;
+        setDecoded(false);
+        setPosition(null);
+      },
+    },
+  };
+}
+
 function AssetCard({
   asset,
   onGenerate,
@@ -95,6 +149,9 @@ function AssetCard({
   generating: boolean;
 }) {
   const thumb = thumbnailUrl(asset);
+  const sprite = spriteUrl(asset);
+  // スクラブはサムネイルの差し替えなので、サムネイルのあるカードだけが対象
+  const scrub = useSpriteScrub(!asset.isIncomplete && thumb ? sprite : null);
   return (
     <li
       className="group flex cursor-pointer flex-col border border-border bg-surface transition hover:border-ink-faint"
@@ -106,6 +163,7 @@ function AssetCard({
           // 画像は縁まで使う。プレースホルダだけデザインどおり内側に余白を取る
           !asset.isIncomplete && thumb ? '' : 'p-2',
         )}
+        {...scrub.handlers}
       >
         {asset.isIncomplete ? (
           <div className="flex flex-col items-center gap-2 text-center">
@@ -116,7 +174,13 @@ function AssetCard({
           <img
             src={thumb}
             alt={asset.title}
-            className="h-full w-full object-contain"
+            className={cx(
+              'h-full w-full object-contain',
+              // スプライトは背景透過なので、下にサムネイルを残すと
+              // 別角度の像が透けて二重に見える。スクラブ中は隠す
+              // (フレーム 0 = サムネイルなので切り替わりは見えない)
+              scrub.frame !== null && 'invisible',
+            )}
             loading="lazy"
           />
         ) : (
@@ -125,6 +189,30 @@ function AssetCard({
             <span className="font-mono text-[10px] text-ink-faint">サムネイル未生成</span>
             <GenerateButton asset={asset} generating={generating} onGenerate={onGenerate} />
           </div>
+        )}
+
+        {scrub.frame !== null && sprite && (
+          <>
+            {/* デコード済みシートの background-position を差し替えるだけで
+                フレームを切り替える(再デコード・再レイアウトを起こさない)。
+                正方形のフレームを高さ基準で中央に置き、サムネイルの
+                object-contain と同じ収まりにする */}
+            <div className="pointer-events-none absolute inset-0 flex justify-center">
+              <div
+                className="aspect-square h-full"
+                style={{
+                  backgroundImage: `url(${sprite})`,
+                  backgroundSize: SPRITE_BACKGROUND_SIZE,
+                  backgroundPosition: framePosition(scrub.frame),
+                  backgroundRepeat: 'no-repeat',
+                }}
+              />
+            </div>
+            {/* 操作を持たない下縁のポジションバー(カーソル位置の目印) */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-border">
+              <div className="h-full bg-accent" style={{ width: `${scrub.ratio * 100}%` }} />
+            </div>
+          </>
         )}
 
         {asset.isStale && (

@@ -11,21 +11,38 @@ import (
 	"github.com/e601201/3DLibrary/internal/library"
 )
 
-// fakeBlender は generate.py と同じ引数規約で 3 点を書き出すダミー実行ファイル。
+// fakeBlender は generate.py と同じ引数規約で 4 点を書き出すダミー実行ファイル。
 const fakeBlender = `#!/bin/sh
-# 引数から --glb/--thumb/--meta を拾って書き出す
+# 引数から --glb/--thumb/--meta/--sprite を拾って書き出す
 while [ $# -gt 0 ]; do
   case "$1" in
     --glb) GLB="$2"; shift 2 ;;
     --thumb) THUMB="$2"; shift 2 ;;
     --meta) META="$2"; shift 2 ;;
+    --sprite) SPRITE="$2"; shift 2 ;;
     --size) SIZE="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
 echo "glb" > "$GLB"
 echo "png" > "$THUMB"
+echo "webp" > "$SPRITE"
 echo '{"objectCount":1,"collectionCount":1,"materialCount":0,"polygonCount":6,"textureCount":0,"hasAnimation":false}' > "$META"
+`
+
+// noSpriteBlender は 4 点のうちスプライトだけ書き出さない(全か無かの検証用)。
+const noSpriteBlender = `#!/bin/sh
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --glb) GLB="$2"; shift 2 ;;
+    --thumb) THUMB="$2"; shift 2 ;;
+    --meta) META="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+echo "glb" > "$GLB"
+echo "png" > "$THUMB"
+echo '{"polygonCount":6}' > "$META"
 `
 
 func writeScript(t *testing.T, content string) string {
@@ -65,7 +82,7 @@ func chairJob(libDir string) Job {
 	}
 }
 
-func TestRunnerProducesAllThreeCacheFiles(t *testing.T) {
+func TestRunnerProducesAllFourCacheFiles(t *testing.T) {
 	r, libDir := newRunner(t, writeScript(t, fakeBlender))
 	if err := r.Run(chairJob(libDir)); err != nil {
 		t.Fatalf("Run: %v", err)
@@ -75,6 +92,19 @@ func TestRunnerProducesAllThreeCacheFiles(t *testing.T) {
 		if _, err := os.Stat(p); err != nil {
 			t.Errorf("missing output %s: %v", p, err)
 		}
+	}
+}
+
+// 全か無か(ADR-0003): スプライトが書き出されなければ生成は失敗。
+func TestRunnerFailsWhenSpriteMissing(t *testing.T) {
+	r, libDir := newRunner(t, writeScript(t, noSpriteBlender))
+	err := r.Run(chairJob(libDir))
+	if err == nil {
+		t.Fatal("Run should fail when the sprite is missing")
+	}
+	sprite := library.CachePaths(libDir, "Props", "Chair").Sprite
+	if !strings.Contains(err.Error(), sprite) {
+		t.Errorf("error should name the missing sprite: %v", err)
 	}
 }
 

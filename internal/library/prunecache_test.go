@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// seedAssetCache は 1 アセット分のキャッシュ 3 点(各 10 バイト)を作る。
+// seedAssetCache は 1 アセット分のキャッシュ 4 点(各 10 バイト)を作る。
 func seedAssetCache(t *testing.T, dir, category, title string) CacheSet {
 	t.Helper()
 	paths := CachePaths(dir, category, title)
@@ -80,8 +80,8 @@ func TestPruneCacheRemovesDeletedAsset(t *testing.T) {
 	if len(result.RemovedCategories) != 0 {
 		t.Errorf("RemovedCategories = %v, want none (Props is alive)", result.RemovedCategories)
 	}
-	if result.RemovedFileCount != 3 {
-		t.Errorf("RemovedFileCount = %d, want 3", result.RemovedFileCount)
+	if result.RemovedFileCount != 4 {
+		t.Errorf("RemovedFileCount = %d, want 4", result.RemovedFileCount)
 	}
 	assertGone(t, orphan)
 	assertKept(t, kept)

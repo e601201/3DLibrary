@@ -152,7 +152,7 @@ func TestRescanReflectsFilesystemChanges(t *testing.T) {
 	}
 }
 
-// seedCache はアセットのキャッシュ 3 点を作る。
+// seedCache はアセットのキャッシュ 4 点を作る。
 func seedCache(t *testing.T, libDir, category, title string) library.CacheSet {
 	t.Helper()
 	paths := library.CachePaths(libDir, category, title)
@@ -187,7 +187,7 @@ func TestRescanRemovesOrphanCache(t *testing.T) {
 	rescan(t, srv)
 
 	// 消えたカテゴリはキャッシュもディレクトリごと消える
-	for _, sub := range []string{"glb", "thumbnails", "metadata"} {
+	for _, sub := range []string{"glb", "thumbnails", "metadata", "sprites"} {
 		if _, err := os.Stat(filepath.Join(libDir, "cache", sub, "Characters")); !os.IsNotExist(err) {
 			t.Errorf("cache/%s/Characters should be removed: %v", sub, err)
 		}

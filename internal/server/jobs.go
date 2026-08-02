@@ -113,6 +113,7 @@ func needsGeneration(asset index.Asset) bool {
 	if asset.IsIncomplete {
 		return false // model.blend が無いものは生成できない
 	}
-	missing := asset.ThumbnailPath == nil || asset.GlbPath == nil || asset.PolygonCount == nil
+	missing := asset.ThumbnailPath == nil || asset.GlbPath == nil ||
+		asset.SpritePath == nil || asset.PolygonCount == nil
 	return missing || asset.IsStale
 }

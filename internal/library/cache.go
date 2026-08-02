@@ -14,10 +14,11 @@ var (
 	glbKind       = cacheKind{"glb", ".glb"}
 	thumbnailKind = cacheKind{"thumbnails", ".png"}
 	metadataKind  = cacheKind{"metadata", ".json"}
+	spriteKind    = cacheKind{"sprites", ".webp"}
 
-	// cacheKinds はキャッシュ 3 点(requirements.md §10)。
+	// cacheKinds はキャッシュ 4 点(requirements.md §10、ADR-0003)。
 	// 骨格の作成・全削除・掃除はこれを回す。
-	cacheKinds = []cacheKind{glbKind, thumbnailKind, metadataKind}
+	cacheKinds = []cacheKind{glbKind, thumbnailKind, metadataKind, spriteKind}
 )
 
 // path はアセット(category/title)のこの種別のキャッシュパスを返す。
@@ -25,11 +26,12 @@ func (k cacheKind) path(libDir, category, title string) string {
 	return filepath.Join(libDir, "cache", k.dir, category, title+k.ext)
 }
 
-// CacheSet はあるアセットのキャッシュ 3 点のパス(requirements.md §10)。
+// CacheSet はあるアセットのキャッシュ 4 点のパス(requirements.md §10)。
 type CacheSet struct {
 	GLB       string
 	Thumbnail string
 	Metadata  string
+	Sprite    string
 }
 
 // CachePaths はアセット(category/title)のキャッシュファイルパスを返す。
@@ -39,10 +41,11 @@ func CachePaths(libDir, category, title string) CacheSet {
 		GLB:       glbKind.path(libDir, category, title),
 		Thumbnail: thumbnailKind.path(libDir, category, title),
 		Metadata:  metadataKind.path(libDir, category, title),
+		Sprite:    spriteKind.path(libDir, category, title),
 	}
 }
 
-// All はキャッシュ 3 点のパスを一括で返す(3 点まとめての作成・確認用)。
+// All はキャッシュ 4 点のパスを一括で返す(4 点まとめての作成・確認用)。
 func (s CacheSet) All() []string {
-	return []string{s.GLB, s.Thumbnail, s.Metadata}
+	return []string{s.GLB, s.Thumbnail, s.Metadata, s.Sprite}
 }

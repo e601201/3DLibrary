@@ -22,11 +22,13 @@ while [ $# -gt 0 ]; do
     --glb) GLB="$2"; shift 2 ;;
     --thumb) THUMB="$2"; shift 2 ;;
     --meta) META="$2"; shift 2 ;;
+    --sprite) SPRITE="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
 echo "glb" > "$GLB"
 echo "png-bytes" > "$THUMB"
+echo "webp-bytes" > "$SPRITE"
 echo '{"objectCount":1,"collectionCount":1,"materialCount":0,"polygonCount":42,"textureCount":0,"hasAnimation":false}' > "$META"
 `
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
@@ -82,7 +84,7 @@ func TestGenerateJobProducesCacheAndUpdatesIndex(t *testing.T) {
 		t.Fatalf("lastError = %+v", s.LastError)
 	}
 
-	// キャッシュ 3 点が生成されている
+	// キャッシュ 4 点が生成されている
 	paths := library.CachePaths(libDir, "Props", "Chair")
 	for _, p := range paths.All() {
 		if _, err := os.Stat(p); err != nil {
@@ -95,7 +97,8 @@ func TestGenerateJobProducesCacheAndUpdatesIndex(t *testing.T) {
 	for {
 		assets := listAssets(t, srv)
 		a := assets[0]
-		if a.ThumbnailPath != nil && a.GlbPath != nil && a.PolygonCount != nil && *a.PolygonCount == 42 {
+		if a.ThumbnailPath != nil && a.GlbPath != nil && a.SpritePath != nil &&
+			a.PolygonCount != nil && *a.PolygonCount == 42 {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -199,6 +202,48 @@ func TestBulkGenerateTargetsMissingAndStaleOnly(t *testing.T) {
 	}
 }
 
+// TestBulkGenerateTargetsMissingSprite はスプライト導入前に生成された
+// アセット(他の 3 点は最新)が一括生成で埋まることを確かめる(ADR-0003)。
+func TestBulkGenerateTargetsMissingSprite(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	installFakeBlender(t, srv, libDir)
+	addAsset(t, libDir, "Props", "NoSprite", true)
+
+	fresh := time.Now().Add(time.Hour)
+	paths := library.CachePaths(libDir, "Props", "NoSprite")
+	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata} {
+		writeFileIn(t, libDir, p[len(libDir)+1:], `{"polygonCount":1}`)
+		if err := os.Chtimes(p, fresh, fresh); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rescan(t, srv)
+
+	for _, a := range listAssets(t, srv) {
+		if a.Title == "NoSprite" && !a.IsStale {
+			t.Error("asset without a sprite should be stale")
+		}
+	}
+
+	rec := doRequest(t, srv, http.MethodPost, "/api/jobs/bulk", "")
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Enqueued int `json:"enqueued"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Enqueued != 1 {
+		t.Fatalf("enqueued = %d, want 1", resp.Enqueued)
+	}
+	waitQueueIdle(t, srv)
+	if _, err := os.Stat(paths.Sprite); err != nil {
+		t.Errorf("sprite should be generated: %v", err)
+	}
+}
+
 func TestBulkGenerateWithNothingToDo(t *testing.T) {
 	srv, libDir := newLibraryServer(t)
 	installFakeBlender(t, srv, libDir)
@@ -243,6 +288,56 @@ func TestThumbnailServing(t *testing.T) {
 		t.Fatalf("traversal must not serve content: %d", rec.Code)
 	}
 	rec = doRequest(t, srv, http.MethodGet, "/api/thumbnails/Props/Ghost.png", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("missing = %d, want 404", rec.Code)
+	}
+}
+
+// TestAssetListExposesSpritePath は一覧 JSON でスプライトの有無が
+// 有 / null として見えることを HTTP のシームで確かめる。
+func TestAssetListExposesSpritePath(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "WithSprite", true)
+	addAsset(t, libDir, "Props", "WithoutSprite", true)
+	paths := library.CachePaths(libDir, "Props", "WithSprite")
+	writeFileIn(t, libDir, paths.Sprite[len(libDir)+1:], "webp")
+	rescan(t, srv)
+
+	got := map[string]*string{}
+	for _, a := range listAssets(t, srv) {
+		got[a.Title] = a.SpritePath
+	}
+	if got["WithSprite"] == nil || *got["WithSprite"] != paths.Sprite {
+		t.Errorf("WithSprite spritePath = %v, want %q", got["WithSprite"], paths.Sprite)
+	}
+	if got["WithoutSprite"] != nil {
+		t.Errorf("WithoutSprite spritePath = %v, want null", got["WithoutSprite"])
+	}
+}
+
+func TestSpriteServing(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	paths := library.CachePaths(libDir, "Props", "Chair")
+	if err := os.MkdirAll(filepath.Dir(paths.Sprite), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(paths.Sprite, []byte("webp-bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := doRequest(t, srv, http.MethodGet, "/api/sprites/Props/Chair.webp", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec.Body.String() != "webp-bytes" {
+		t.Fatalf("body = %q", rec.Body.String())
+	}
+
+	rec = doRequest(t, srv, http.MethodGet, "/api/sprites/../../database.db", "")
+	if rec.Code == http.StatusOK {
+		t.Fatalf("traversal must not serve content: %d", rec.Code)
+	}
+	rec = doRequest(t, srv, http.MethodGet, "/api/sprites/Props/Ghost.webp", "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("missing = %d, want 404", rec.Code)
 	}
