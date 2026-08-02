@@ -74,7 +74,8 @@ Go Backend
 ├── cache/
 │   ├── glb/
 │   ├── thumbnails/
-│   └── metadata/
+│   ├── metadata/
+│   └── sprites/
 │
 ├── templates/
 │   └── empty.blend        ← 初期化時にアプリが配置

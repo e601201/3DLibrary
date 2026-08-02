@@ -2,7 +2,7 @@
 // カードはサムネイル(3:2)+ 情報部(padding 12-14 / gap 8)の 2 段構成。
 
 import { ImageOff, RefreshCw, TriangleAlert, Zap } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { spriteUrl, thumbnailUrl, type Asset } from './api';
 import { formatDate, formatDay, formatPolygons, formatSize } from './format';
 import {
@@ -101,9 +101,6 @@ function useSpriteScrub(url: string | null) {
   // 取得中・取得済みのスプライト。ホバー終了で捨てる(JS 側で溜めない)
   const sprite = useRef<HTMLImageElement | null>(null);
 
-  // 離脱を待たずに消えたカード(絞り込み・再スキャン)の後始末
-  useEffect(() => () => void (sprite.current = null), []);
-
   const track = (e: React.MouseEvent<HTMLElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -177,7 +174,13 @@ function AssetCard({
           <img
             src={thumb}
             alt={asset.title}
-            className="h-full w-full object-contain"
+            className={cx(
+              'h-full w-full object-contain',
+              // スプライトは背景透過なので、下にサムネイルを残すと
+              // 別角度の像が透けて二重に見える。スクラブ中は隠す
+              // (フレーム 0 = サムネイルなので切り替わりは見えない)
+              scrub.frame !== null && 'invisible',
+            )}
             loading="lazy"
           />
         ) : (

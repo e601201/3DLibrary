@@ -269,8 +269,12 @@ def compose_sheet(paths):
 
 def save_webp(sheet, path):
     """合成済みの画素配列を背景透過の WebP として書き出す。
-    8bit バッファの画像に載せて保存するので、フレーム PNG の見た目
-    (AgX 適用済み)がそのまま保たれる。"""
+
+    フレーム PNG には既に AgX が焼き込まれている。save_render は
+    シーンのビュー変換をかけて保存するため、そのままだと AgX が
+    二重にかかり、サムネイルより彩度とコントラストが落ちた
+    シートになる(実測で彩度 -19%)。保存の間だけ Standard に
+    退避して、フレームの見た目をそのまま通す。"""
     scene = bpy.context.scene
     scene.render.image_settings.file_format = "WEBP"
     scene.render.image_settings.color_mode = "RGBA"
@@ -278,10 +282,13 @@ def save_webp(sheet, path):
 
     height, width, _ = sheet.shape
     image = bpy.data.images.new("3dlibrary_sprite", width=width, height=height, alpha=True)
+    view_transform = scene.view_settings.view_transform
+    scene.view_settings.view_transform = "Standard"
     try:
         image.pixels.foreach_set(sheet.ravel())
         image.save_render(filepath=path, scene=scene)
     finally:
+        scene.view_settings.view_transform = view_transform
         bpy.data.images.remove(image)
 
 

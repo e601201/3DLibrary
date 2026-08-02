@@ -79,9 +79,10 @@ func readAsset(libDir, category, title string, thumbnailSize int) index.Asset {
 func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 	paths := library.CachePaths(libDir, asset.Category, asset.Title)
 
-	// exists はキャッシュがあれば true を返し、ついでに陳腐化を判定する
-	// (requirements.md §7: model.blend より古いキャッシュは要更新)。
-	exists := func(path string) bool {
+	// takeCache はキャッシュ 1 点を取り込む。有無を返し、併せて
+	// model.blend より古ければ要更新を立てる(存在確認と陳腐化判定が
+	// 同じ stat を共有する。requirements.md §7)。
+	takeCache := func(path string) bool {
 		info, err := os.Stat(path)
 		if err != nil || info.IsDir() {
 			return false
@@ -93,7 +94,7 @@ func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 	}
 
 	generated := false // このアセットは一度でも生成されたか
-	if exists(paths.Thumbnail) {
+	if takeCache(paths.Thumbnail) {
 		generated = true
 		asset.ThumbnailPath = &paths.Thumbnail
 		// サムネイルサイズ変更の検知: PNG の実サイズが設定と違えば要更新
@@ -103,11 +104,11 @@ func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 			}
 		}
 	}
-	if exists(paths.GLB) {
+	if takeCache(paths.GLB) {
 		generated = true
 		asset.GlbPath = &paths.GLB
 	}
-	if exists(paths.Metadata) {
+	if takeCache(paths.Metadata) {
 		generated = true
 		if b, err := os.ReadFile(paths.Metadata); err == nil {
 			var meta struct {
@@ -123,7 +124,7 @@ func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 	// 導入前に生成したアセットには「要更新」バッジ以外に気づく手掛かりが
 	// ない。一度も生成していないアセットは「未生成」であって陳腐化では
 	// ないので対象外にする。
-	if exists(paths.Sprite) {
+	if takeCache(paths.Sprite) {
 		asset.SpritePath = &paths.Sprite
 	} else if generated {
 		asset.IsStale = true

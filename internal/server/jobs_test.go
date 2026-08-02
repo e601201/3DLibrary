@@ -293,6 +293,28 @@ func TestThumbnailServing(t *testing.T) {
 	}
 }
 
+// TestAssetListExposesSpritePath は一覧 JSON でスプライトの有無が
+// 有 / null として見えることを HTTP のシームで確かめる。
+func TestAssetListExposesSpritePath(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "WithSprite", true)
+	addAsset(t, libDir, "Props", "WithoutSprite", true)
+	paths := library.CachePaths(libDir, "Props", "WithSprite")
+	writeFileIn(t, libDir, paths.Sprite[len(libDir)+1:], "webp")
+	rescan(t, srv)
+
+	got := map[string]*string{}
+	for _, a := range listAssets(t, srv) {
+		got[a.Title] = a.SpritePath
+	}
+	if got["WithSprite"] == nil || *got["WithSprite"] != paths.Sprite {
+		t.Errorf("WithSprite spritePath = %v, want %q", got["WithSprite"], paths.Sprite)
+	}
+	if got["WithoutSprite"] != nil {
+		t.Errorf("WithoutSprite spritePath = %v, want null", got["WithoutSprite"])
+	}
+}
+
 func TestSpriteServing(t *testing.T) {
 	srv, libDir := newLibraryServer(t)
 	paths := library.CachePaths(libDir, "Props", "Chair")
