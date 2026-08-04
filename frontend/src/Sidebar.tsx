@@ -1,6 +1,7 @@
 // design/Design.pen 画面01・04 の左サイドバー(幅 256 / padding 20-16 / gap 20)。
 // ロゴ・全件ナビ・カテゴリ・タグ・キャッシュ情報・設定の順に積む。
 
+import { useState } from 'react';
 import {
   Armchair,
   Box,
@@ -9,6 +10,7 @@ import {
   LayoutGrid,
   Palette,
   RefreshCw,
+  Search,
   Settings as SettingsIcon,
   Sparkles,
   Sword,
@@ -126,6 +128,13 @@ export default function Sidebar({
   onOpenLibrary,
   onOpenSettings,
 }: Props) {
+  // タグが増えるとチップ雲から目で探せなくなるので、打って絞る欄を持つ。
+  // 絞るのはこのチップ一覧だけで、アセットは絞らない(アセットを探すのは上部の検索欄)。
+  const [tagQuery, setTagQuery] = useState('');
+  // 絞り込みだけ大文字小文字を無視する(タグの同一性は区別したまま。CONTEXT.md「タグ」)
+  const query = tagQuery.trim().toLowerCase();
+  const visibleTags = tags.filter((t) => t.name.toLowerCase().includes(query));
+
   return (
     <aside className="flex w-64 shrink-0 flex-col gap-5 border-r border-border bg-surface px-4 py-5">
       <div className="flex items-center gap-2.5 px-1">
@@ -180,21 +189,54 @@ export default function Sidebar({
         {tags.length > 0 && (
           <div className="flex flex-col gap-2">
             <SectionLabel>タグ</SectionLabel>
-            <div className="flex flex-wrap gap-1.5">
-              {tags.map((t) => (
-                <Chip
-                  key={t.name}
-                  active={tag === t.name}
-                  title={`${t.name}(${t.count} 件)`}
-                  onClick={() => {
-                    onTag(tag === t.name ? '' : t.name);
+            <div className="flex items-center gap-1.5 border border-border bg-surface-2 px-2.5 py-[7px] focus-within:border-accent">
+              <Search size={12} className="shrink-0 text-ink-faint" />
+              <input
+                type="search"
+                className="w-full min-w-0 bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:outline-none"
+                placeholder="タグを探す..."
+                aria-label="タグを探す"
+                value={tagQuery}
+                onChange={(e) => setTagQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter は先頭のタグを選ぶ一方向の操作。同じキーで解除もすると
+                  // 連打で状態が振れるため、選択中のタグに当たったときは何もしない
+                  // (解除はチップか見出しの × で)。IME の変換確定 Enter は拾わない
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    // 「先頭」は GET /api/tags の名前順そのもの(並べ替えない)
+                    const first = visibleTags[0];
+                    if (!first || first.name === tag) return;
+                    onTag(first.name);
                     onOpenLibrary();
-                  }}
-                >
-                  {t.name}
-                </Chip>
-              ))}
+                  }
+                  // 消すものがあった Escape は外へ伝えない(TagSuggestInput と同じ扱い)
+                  if (e.key === 'Escape' && tagQuery !== '') {
+                    e.stopPropagation();
+                    setTagQuery('');
+                  }
+                }}
+              />
             </div>
+            {visibleTags.length === 0 ? (
+              // チップ雲が丸ごと消えたとき、絞り込みの結果なのかタグが無いのかを区別する
+              <p className="text-[11px] text-ink-faint">該当するタグがありません</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {visibleTags.map((t) => (
+                  <Chip
+                    key={t.name}
+                    active={tag === t.name}
+                    title={`${t.name}(${t.count} 件)`}
+                    onClick={() => {
+                      onTag(tag === t.name ? '' : t.name);
+                      onOpenLibrary();
+                    }}
+                  >
+                    {t.name}
+                  </Chip>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
