@@ -1,5 +1,5 @@
 {
-  "version": "2.14",
+  "version": "2.15",
   "children": [
     {
       "type": "frame",
@@ -185,6 +185,7 @@
           "strokeWidth": {
             "right": 1
           },
+          "strokeLinejoin": "round",
           "layout": "vertical",
           "gap": 20,
           "padding": [
@@ -614,6 +615,7 @@
               "strokeWidth": {
                 "bottom": 1
               },
+              "strokeLinejoin": "round",
               "gap": 12,
               "padding": [
                 12,
@@ -2395,6 +2397,7 @@
           "strokeWidth": {
             "bottom": 1
           },
+          "strokeLinejoin": "round",
           "gap": 12,
           "padding": [
             12,
@@ -2583,7 +2586,7 @@
                           "id": "khUq0",
                           "name": "VP Tool grid-3x3",
                           "fill": "#0A0A0ACC",
-                          "stroke": "$border",
+                          "stroke": "$accent",
                           "strokeWidth": 1,
                           "padding": 7,
                           "children": [
@@ -2594,6 +2597,48 @@
                               "width": 14,
                               "height": 14,
                               "icon": "grid-3x3",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "BNhGf",
+                          "name": "VP Tool rotate-cw",
+                          "fill": "#0A0A0ACC",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "padding": 7,
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "M6HIe",
+                              "name": "VP Tool Icon rotate-cw",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "rotate-cw",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "LwxOE",
+                          "name": "VP Tool sliders-horizontal",
+                          "fill": "#0A0A0ACC",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "padding": 7,
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "iemji",
+                              "name": "VP Tool Icon sliders-horizontal",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "sliders-horizontal",
                               "library": "lucide",
                               "fill": "$text-secondary"
                             }
@@ -2762,6 +2807,173 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "SADDD",
+                  "layoutPosition": "absolute",
+                  "x": 954,
+                  "y": 795,
+                  "name": "VP Gizmo",
+                  "width": 140,
+                  "height": 140,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "hRVpU",
+                      "x": 70,
+                      "y": 70,
+                      "name": "Gizmo Axis X",
+                      "geometry": "M0 0l37 16",
+                      "viewBox": [
+                        0,
+                        0,
+                        37,
+                        16
+                      ],
+                      "width": 37,
+                      "height": 16,
+                      "stroke": "#ff4466",
+                      "strokeWidth": 2.5,
+                      "strokeLinecap": "round"
+                    },
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 1.25,
+                      "id": "x9SDiv",
+                      "x": 68.75,
+                      "y": 24,
+                      "name": "Gizmo Axis Y",
+                      "fill": "#88ff44",
+                      "width": 2.5,
+                      "height": 46
+                    },
+                    {
+                      "type": "path",
+                      "id": "vzxUB",
+                      "x": 33,
+                      "y": 70,
+                      "name": "Gizmo Axis Z",
+                      "geometry": "M0 16l37-16",
+                      "viewBox": [
+                        0,
+                        0,
+                        37,
+                        16
+                      ],
+                      "width": 37,
+                      "height": 16,
+                      "stroke": "#4488ff",
+                      "strokeWidth": 2.5,
+                      "strokeLinecap": "round"
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "O1OUl",
+                      "x": 24,
+                      "y": 45,
+                      "name": "Gizmo Dot -X",
+                      "fill": "#ff446659",
+                      "width": 18,
+                      "height": 18
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "Lt0tU",
+                      "x": 61,
+                      "y": 108,
+                      "name": "Gizmo Dot -Y",
+                      "fill": "#88ff4459",
+                      "width": 18,
+                      "height": 18
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "BA6kJ",
+                      "x": 98,
+                      "y": 45,
+                      "name": "Gizmo Dot -Z",
+                      "fill": "#4488ff59",
+                      "width": 18,
+                      "height": 18
+                    },
+                    {
+                      "type": "frame",
+                      "id": "u0p5lL",
+                      "x": 94,
+                      "y": 73,
+                      "name": "Gizmo Ball X",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#ff4466",
+                      "cornerRadius": 13,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "A7MvV",
+                          "name": "Gizmo Label X",
+                          "fill": "#000000",
+                          "content": "X",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XaJPx",
+                      "x": 57,
+                      "y": 11,
+                      "name": "Gizmo Ball Y",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#88ff44",
+                      "cornerRadius": 13,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "AysjA",
+                          "name": "Gizmo Label Y",
+                          "fill": "#000000",
+                          "content": "Y",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "H0AbO",
+                      "x": 20,
+                      "y": 73,
+                      "name": "Gizmo Ball Z",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#4488ff",
+                      "cornerRadius": 13,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uHXbe",
+                          "name": "Gizmo Label Z",
+                          "fill": "#000000",
+                          "content": "Z",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             },
@@ -2776,6 +2988,7 @@
               "strokeWidth": {
                 "left": 1
               },
+              "strokeLinejoin": "round",
               "layout": "vertical",
               "gap": 20,
               "padding": 20,
@@ -3530,6 +3743,7 @@
               "strokeWidth": {
                 "bottom": 1
               },
+              "strokeLinejoin": "round",
               "padding": [
                 18,
                 24
@@ -4250,6 +4464,7 @@
               "strokeWidth": {
                 "top": 1
               },
+              "strokeLinejoin": "round",
               "gap": 8,
               "padding": [
                 16,
@@ -4313,6 +4528,7 @@
           "strokeWidth": {
             "right": 1
           },
+          "strokeLinejoin": "round",
           "layout": "vertical",
           "gap": 20,
           "padding": [
@@ -5423,6 +5639,7 @@
           "strokeWidth": {
             "bottom": 1
           },
+          "strokeLinejoin": "round",
           "gap": 12,
           "padding": [
             12,
@@ -6403,6 +6620,7 @@
               "strokeWidth": {
                 "left": 1
               },
+              "strokeLinejoin": "round",
               "layout": "vertical",
               "gap": 20,
               "padding": 20,
@@ -7136,6 +7354,7 @@
           "strokeWidth": {
             "bottom": 1
           },
+          "strokeLinejoin": "round",
           "gap": 12,
           "padding": [
             12,
@@ -7791,6 +8010,7 @@
               "strokeWidth": {
                 "left": 1
               },
+              "strokeLinejoin": "round",
               "layout": "vertical",
               "gap": 20,
               "padding": 20,
@@ -8524,6 +8744,7 @@
           "strokeWidth": {
             "bottom": 1
           },
+          "strokeLinejoin": "round",
           "gap": 12,
           "padding": [
             12,
@@ -8940,6 +9161,7 @@
               "strokeWidth": {
                 "left": 1
               },
+              "strokeLinejoin": "round",
               "layout": "vertical",
               "gap": 20,
               "padding": 20,
@@ -9673,6 +9895,7 @@
           "strokeWidth": {
             "bottom": 1
           },
+          "strokeLinejoin": "round",
           "gap": 12,
           "padding": [
             12,
@@ -10290,6 +10513,7 @@
               "strokeWidth": {
                 "left": 1
               },
+              "strokeLinejoin": "round",
               "layout": "vertical",
               "gap": 20,
               "padding": 20,
@@ -11023,6 +11247,7 @@
           "strokeWidth": {
             "bottom": 1
           },
+          "strokeLinejoin": "round",
           "gap": 12,
           "padding": [
             12,
@@ -11218,6 +11443,7 @@
               "strokeWidth": {
                 "left": 1
               },
+              "strokeLinejoin": "round",
               "layout": "vertical",
               "gap": 20,
               "padding": 20,
@@ -11951,6 +12177,7 @@
           "strokeWidth": {
             "bottom": 1
           },
+          "strokeLinejoin": "round",
           "gap": 12,
           "padding": [
             12,
@@ -12139,7 +12366,7 @@
                           "id": "Onazh",
                           "name": "VP Tool grid-3x3",
                           "fill": "#0A0A0ACC",
-                          "stroke": "$border",
+                          "stroke": "$accent",
                           "strokeWidth": 1,
                           "padding": 7,
                           "children": [
@@ -12150,6 +12377,48 @@
                               "width": 14,
                               "height": 14,
                               "icon": "grid-3x3",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "DNKRH",
+                          "name": "VP Tool rotate-cw",
+                          "fill": "#0A0A0ACC",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "padding": 7,
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "pBhmN",
+                              "name": "VP Tool Icon rotate-cw",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "rotate-cw",
+                              "library": "lucide",
+                              "fill": "$text-secondary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "kEzXi",
+                          "name": "VP Tool sliders-horizontal",
+                          "fill": "#0A0A0ACC",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "padding": 7,
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "XrKFb",
+                              "name": "VP Tool Icon sliders-horizontal",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "sliders-horizontal",
                               "library": "lucide",
                               "fill": "$text-secondary"
                             }
@@ -12318,6 +12587,173 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "oVkia",
+                  "layoutPosition": "absolute",
+                  "x": 954,
+                  "y": 795,
+                  "name": "VP Gizmo",
+                  "width": 140,
+                  "height": 140,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "ia2lt",
+                      "x": 70,
+                      "y": 70,
+                      "name": "Gizmo Axis X",
+                      "geometry": "M0 0l37 16",
+                      "viewBox": [
+                        0,
+                        0,
+                        37,
+                        16
+                      ],
+                      "width": 37,
+                      "height": 16,
+                      "stroke": "#ff4466",
+                      "strokeWidth": 2.5,
+                      "strokeLinecap": "round"
+                    },
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 1.25,
+                      "id": "UR84x",
+                      "x": 68.75,
+                      "y": 24,
+                      "name": "Gizmo Axis Y",
+                      "fill": "#88ff44",
+                      "width": 2.5,
+                      "height": 46
+                    },
+                    {
+                      "type": "path",
+                      "id": "kZPDf",
+                      "x": 33,
+                      "y": 70,
+                      "name": "Gizmo Axis Z",
+                      "geometry": "M0 16l37-16",
+                      "viewBox": [
+                        0,
+                        0,
+                        37,
+                        16
+                      ],
+                      "width": 37,
+                      "height": 16,
+                      "stroke": "#4488ff",
+                      "strokeWidth": 2.5,
+                      "strokeLinecap": "round"
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "ZmNBI",
+                      "x": 24,
+                      "y": 45,
+                      "name": "Gizmo Dot -X",
+                      "fill": "#ff446659",
+                      "width": 18,
+                      "height": 18
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "Spm9W",
+                      "x": 61,
+                      "y": 108,
+                      "name": "Gizmo Dot -Y",
+                      "fill": "#88ff4459",
+                      "width": 18,
+                      "height": 18
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "s4NNwi",
+                      "x": 98,
+                      "y": 45,
+                      "name": "Gizmo Dot -Z",
+                      "fill": "#4488ff59",
+                      "width": 18,
+                      "height": 18
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wsMIf",
+                      "x": 94,
+                      "y": 73,
+                      "name": "Gizmo Ball X",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#ff4466",
+                      "cornerRadius": 13,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "g9RyPu",
+                          "name": "Gizmo Label X",
+                          "fill": "#000000",
+                          "content": "X",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wZSsG",
+                      "x": 57,
+                      "y": 11,
+                      "name": "Gizmo Ball Y",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#88ff44",
+                      "cornerRadius": 13,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "UgE9X",
+                          "name": "Gizmo Label Y",
+                          "fill": "#000000",
+                          "content": "Y",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Uizdw",
+                      "x": 20,
+                      "y": 73,
+                      "name": "Gizmo Ball Z",
+                      "width": 26,
+                      "height": 26,
+                      "fill": "#4488ff",
+                      "cornerRadius": 13,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "z40JS",
+                          "name": "Gizmo Label Z",
+                          "fill": "#000000",
+                          "content": "Z",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             },
@@ -12332,6 +12768,7 @@
               "strokeWidth": {
                 "left": 1
               },
+              "strokeLinejoin": "round",
               "layout": "vertical",
               "gap": 20,
               "padding": 20,
@@ -13260,6 +13697,7 @@
                       "strokeWidth": {
                         "top": 1
                       },
+                      "strokeLinejoin": "round",
                       "padding": [
                         6,
                         10
