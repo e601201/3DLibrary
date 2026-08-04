@@ -414,6 +414,43 @@
                 },
                 {
                   "type": "frame",
+                  "id": "V8TTS",
+                  "name": "Tag Search",
+                  "width": "fill_container",
+                  "fill": "$surface-2",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "gap": 6,
+                  "padding": [
+                    7,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "T2nxz",
+                      "name": "Tag Search Icon",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "search",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Z0n3xO",
+                      "name": "Tag Search Placeholder",
+                      "fill": "$text-muted",
+                      "content": "タグを探す...",
+                      "fontFamily": "$font-body",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "Ohx89",
                   "name": "Tag Row 1",
                   "gap": 6,
@@ -4754,6 +4791,43 @@
                   "fontSize": 10,
                   "fontWeight": "normal",
                   "letterSpacing": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "UYfiJ",
+                  "name": "Tag Search",
+                  "width": "fill_container",
+                  "fill": "$surface-2",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "gap": 6,
+                  "padding": [
+                    7,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "JWvBS",
+                      "name": "Tag Search Icon",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "search",
+                      "library": "lucide",
+                      "fill": "$text-muted"
+                    },
+                    {
+                      "type": "text",
+                      "id": "yOhOS",
+                      "name": "Tag Search Placeholder",
+                      "fill": "$text-muted",
+                      "content": "タグを探す...",
+                      "fontFamily": "$font-body",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
                 },
                 {
                   "type": "frame",
