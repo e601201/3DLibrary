@@ -56,12 +56,17 @@ function textureKind(name: string): string {
 type Props = {
   asset: Asset;
   view: FileView;
+  remoteViewing: boolean; // 読み取り専用の経路。ファイルマネージャで開く操作を出さない
   onReveal: () => void;
 };
 
-export default function FileViewer({ asset, view, onReveal }: Props) {
-  if (view === 'notes') return <NotesView asset={asset} onReveal={onReveal} />;
-  return <ImageDirView asset={asset} view={view} onReveal={onReveal} />;
+export default function FileViewer({ asset, view, remoteViewing, onReveal }: Props) {
+  if (view === 'notes') {
+    return <NotesView asset={asset} remoteViewing={remoteViewing} onReveal={onReveal} />;
+  }
+  return (
+    <ImageDirView asset={asset} view={view} remoteViewing={remoteViewing} onReveal={onReveal} />
+  );
 }
 
 // 各ビューの上部ツールバー(左: ディレクトリ名 + 集計 / 右: 操作)
@@ -111,10 +116,12 @@ function useDirEntries(asset: Asset, subdir: string) {
 function ImageDirView({
   asset,
   view,
+  remoteViewing,
   onReveal,
 }: {
   asset: Asset;
   view: 'textures' | 'references' | 'renders';
+  remoteViewing: boolean;
   onReveal: () => void;
 }) {
   const { entries, error } = useDirEntries(asset, view);
@@ -154,9 +161,11 @@ function ImageDirView({
   return (
     <Frame>
       <Toolbar title={`${view}/`} meta={meta}>
-        <Button icon={FolderOpen} onClick={onReveal}>
-          Finderで表示
-        </Button>
+        {!remoteViewing && (
+          <Button icon={FolderOpen} onClick={onReveal}>
+            Finderで表示
+          </Button>
+        )}
         {view === 'renders' && selected && (
           <a
             href={assetRawUrl(asset.category, asset.title, `${view}/${selected.name}`)}
@@ -386,7 +395,15 @@ function RenderStage({
 }
 
 // 画面08: notes.md を 760px 幅のドキュメントとして表示する
-function NotesView({ asset, onReveal }: { asset: Asset; onReveal: () => void }) {
+function NotesView({
+  asset,
+  remoteViewing,
+  onReveal,
+}: {
+  asset: Asset;
+  remoteViewing: boolean;
+  onReveal: () => void;
+}) {
   const [notes, setNotes] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [modified, setModified] = useState<string | null>(null);
@@ -432,9 +449,11 @@ function NotesView({ asset, onReveal }: { asset: Asset; onReveal: () => void }) 
   return (
     <Frame>
       <Toolbar title="notes.md" meta={meta}>
-        <Button icon={FolderOpen} onClick={onReveal}>
-          Finderで表示
-        </Button>
+        {!remoteViewing && (
+          <Button icon={FolderOpen} onClick={onReveal}>
+            Finderで表示
+          </Button>
+        )}
       </Toolbar>
 
       {error && (

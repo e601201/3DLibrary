@@ -202,27 +202,30 @@ export default function TagSuggestInput({
 
 // 付与済みタグのチップ。× で外す(何が起きるかは親の onRemove 次第で、
 // 詳細画面は即保存、新規作成フォームは送信前のローカル削除)。
+// onRemove を渡さないと × を持たない表示だけのチップになる。
 export function TagChip({
   name,
   onRemove,
   disabled = false,
 }: {
   name: string;
-  onRemove: () => void;
+  onRemove?: () => void;
   disabled?: boolean;
 }) {
   return (
     <span className="group inline-flex items-center gap-1.5 border border-border px-2.5 py-1 font-mono text-[11px] leading-none text-ink-muted">
       {name}
-      <button
-        type="button"
-        className="text-ink-faint opacity-0 transition group-hover:opacity-100 hover:text-danger focus-visible:opacity-100"
-        aria-label={`タグ ${name} を削除`}
-        disabled={disabled}
-        onClick={onRemove}
-      >
-        <X size={11} />
-      </button>
+      {onRemove && (
+        <button
+          type="button"
+          className="text-ink-faint opacity-0 transition group-hover:opacity-100 hover:text-danger focus-visible:opacity-100"
+          aria-label={`タグ ${name} を削除`}
+          disabled={disabled}
+          onClick={onRemove}
+        >
+          <X size={11} />
+        </button>
+      )}
     </span>
   );
 }

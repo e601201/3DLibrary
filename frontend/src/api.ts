@@ -14,6 +14,13 @@ export interface Config {
   theme: Theme;
 }
 
+// GET /api/config の応答。remoteViewing は保存された設定ではなく、この要求が
+// リモート閲覧(読み取り専用の口)に届いたかどうか。UI はこれで操作要素を
+// 出すかどうかを決める(サーバー側の 403 が本体で、こちらは見た目の話)。
+export interface ConfigResponse extends Config {
+  remoteViewing: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly code: string,
@@ -308,7 +315,7 @@ export function getHealth(): Promise<Health> {
   return request('/api/health');
 }
 
-export function getConfig(): Promise<Config> {
+export function getConfig(): Promise<ConfigResponse> {
   return request('/api/config');
 }
 

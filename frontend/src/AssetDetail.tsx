@@ -50,6 +50,7 @@ type Props = {
   allTags: TagCount[]; // タグサジェストの候補(ライブラリで使用中のタグ、件数付き)
   generating: boolean; // このアセットのジョブが実行中か
   jobError: string | null; // 生成キューの失敗(一覧と同じ内容をここでも出す)
+  remoteViewing: boolean; // 読み取り専用の経路。操作要素を一切出さない
   onBack: () => void;
   onGenerate: (asset: Asset) => void;
   onTagsChanged: (savedTags: string[]) => void; // タグ保存後に一覧・サイドバーを更新する
@@ -111,6 +112,7 @@ export default function AssetDetail({
   allTags,
   generating,
   jobError,
+  remoteViewing,
   onBack,
   onGenerate,
   onTagsChanged,
@@ -196,26 +198,30 @@ export default function AssetDetail({
 
         <div className="flex-1" />
 
-        <IconButton
-          icon={FolderOpen}
-          label="Finderで表示"
-          onClick={() => void handleReveal()}
-        />
-        <Button
-          icon={RefreshCw}
-          disabled={asset.isIncomplete || generating}
-          onClick={() => onGenerate(asset)}
-        >
-          {generating ? '生成中…' : glb ? '再生成' : '生成'}
-        </Button>
-        <Button
-          variant="primary"
-          icon={ExternalLink}
-          disabled={asset.isIncomplete}
-          onClick={() => void handleOpenBlender()}
-        >
-          Blenderで開く
-        </Button>
+        {!remoteViewing && (
+          <>
+            <IconButton
+              icon={FolderOpen}
+              label="Finderで表示"
+              onClick={() => void handleReveal()}
+            />
+            <Button
+              icon={RefreshCw}
+              disabled={asset.isIncomplete || generating}
+              onClick={() => onGenerate(asset)}
+            >
+              {generating ? '生成中…' : glb ? '再生成' : '生成'}
+            </Button>
+            <Button
+              variant="primary"
+              icon={ExternalLink}
+              disabled={asset.isIncomplete}
+              onClick={() => void handleOpenBlender()}
+            >
+              Blenderで開く
+            </Button>
+          </>
+        )}
       </header>
 
       {(loadError || actionError || jobError) && (
@@ -232,10 +238,20 @@ export default function AssetDetail({
             glb ? (
               <GlbViewer url={glb} sizeBytes={files?.glbSize ?? null} title={asset.title} />
             ) : (
-              <EmptyViewport asset={asset} generating={generating} onGenerate={onGenerate} />
+              <EmptyViewport
+                asset={asset}
+                generating={generating}
+                remoteViewing={remoteViewing}
+                onGenerate={onGenerate}
+              />
             )
           ) : (
-            <FileViewer asset={asset} view={view} onReveal={() => void handleReveal()} />
+            <FileViewer
+              asset={asset}
+              view={view}
+              remoteViewing={remoteViewing}
+              onReveal={() => void handleReveal()}
+            />
           )}
         </section>
 
@@ -259,6 +275,7 @@ export default function AssetDetail({
           <TagEditor
             asset={asset}
             allTags={allTags}
+            remoteViewing={remoteViewing}
             onChanged={onTagsChanged}
             onError={setActionError}
           />
@@ -295,10 +312,12 @@ export default function AssetDetail({
 function EmptyViewport({
   asset,
   generating,
+  remoteViewing,
   onGenerate,
 }: {
   asset: Asset;
   generating: boolean;
+  remoteViewing: boolean;
   onGenerate: (asset: Asset) => void;
 }) {
   return (
@@ -312,7 +331,7 @@ function EmptyViewport({
           ? 'model.blend を置いて再スキャンするとプレビューできます'
           : '生成するとThree.jsプレビューが表示されます'}
       </p>
-      {!asset.isIncomplete && (
+      {!asset.isIncomplete && !remoteViewing && (
         <div className="mt-1.5">
           <Button variant="primary" icon={Zap} disabled={generating} onClick={() => onGenerate(asset)}>
             {generating ? '生成中…' : '生成'}
@@ -395,11 +414,13 @@ function FileRow({
 function TagEditor({
   asset,
   allTags,
+  remoteViewing,
   onChanged,
   onError,
 }: {
   asset: Asset;
   allTags: TagCount[];
+  remoteViewing: boolean;
   onChanged: (savedTags: string[]) => void;
   onError: (message: string) => void;
 }) {
@@ -427,6 +448,10 @@ function TagEditor({
     }
   };
 
+  // 追加も削除もできない経路では、タグの無いアセットは節ごと出さない
+  // (見出しだけが残って壊れて見えるため)
+  if (remoteViewing && tags.length === 0) return null;
+
   return (
     <section className="flex flex-col gap-2.5">
       <SectionLabel>タグ</SectionLabel>
@@ -436,26 +461,29 @@ function TagEditor({
             key={tag}
             name={tag}
             disabled={saving}
-            onRemove={() => void save(tags.filter((t) => t !== tag))}
+            onRemove={
+              remoteViewing ? undefined : () => void save(tags.filter((t) => t !== tag))
+            }
           />
         ))}
-        {adding ? (
-          <TagSuggestInput
-            allTags={allTags}
-            exclude={tags}
-            value={input}
-            onValueChange={setInput}
-            onAdd={(tag) => void save([...tags, tag])}
-            saving={saving}
-            autoFocus
-            // 連続追加のため追加後も開いたままにし、Escape・欄外クリック・空 Enter で終える
-            onDismiss={() => setAdding(false)}
-          />
-        ) : (
-          <Chip title="タグを追加" onClick={() => setAdding(true)}>
-            <Plus size={11} />
-          </Chip>
-        )}
+        {!remoteViewing &&
+          (adding ? (
+            <TagSuggestInput
+              allTags={allTags}
+              exclude={tags}
+              value={input}
+              onValueChange={setInput}
+              onAdd={(tag) => void save([...tags, tag])}
+              saving={saving}
+              autoFocus
+              // 連続追加のため追加後も開いたままにし、Escape・欄外クリック・空 Enter で終える
+              onDismiss={() => setAdding(false)}
+            />
+          ) : (
+            <Chip title="タグを追加" onClick={() => setAdding(true)}>
+              <Plus size={11} />
+            </Chip>
+          ))}
       </div>
     </section>
   );

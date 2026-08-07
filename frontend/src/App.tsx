@@ -64,6 +64,9 @@ export default function App() {
   const [cache, setCache] = useState<CacheInfo | null>(null);
   const [missingCount, setMissingCount] = useState<number | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
+  // リモート閲覧(読み取り専用で届いた経路)か。判定が返るまでは true 側に
+  // 倒し、リモートで操作要素が一瞬でも現れないようにする
+  const [remoteViewing, setRemoteViewing] = useState(true);
   const [page, setPage] = useState<Page>('library');
   const [showCreate, setShowCreate] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -204,12 +207,15 @@ export default function App() {
       .catch(() => {});
     loadStats();
     getConfig()
-      .then((c) => {
+      .then(({ remoteViewing: remote, ...c }) => {
         setConfig(c);
+        setRemoteViewing(remote);
         applyTheme(c.theme);
       })
       .catch(() => {
-        // 設定が読めなくてもアプリ自体は動かす(テーマはデフォルトのまま)
+        // 設定が読めなくてもアプリ自体は動かす(テーマはデフォルトのまま)。
+        // 操作要素も出す — リモート閲覧ならサーバーが 403 で止める
+        setRemoteViewing(false);
       });
   }, [loadStats]);
 
@@ -269,6 +275,7 @@ export default function App() {
         allTags={tags}
         generating={runningKey === `${selectedAsset.category}/${selectedAsset.title}`}
         jobError={jobError}
+        remoteViewing={remoteViewing}
         onBack={() => setSelected(null)}
         onGenerate={(a) => void handleGenerate(a)}
         onTagsChanged={(savedTags) => {
@@ -295,6 +302,7 @@ export default function App() {
         scanning={scanning}
         jobsActive={jobsActive}
         disabled={notConfigured}
+        remoteViewing={remoteViewing}
         onCategory={setCategory}
         onTag={setTag}
         onRescan={() => void rescan()}
@@ -381,14 +389,16 @@ export default function App() {
                 />
               </div>
 
-              <Button
-                variant="primary"
-                icon={Plus}
-                disabled={notConfigured}
-                onClick={() => setShowCreate(true)}
-              >
-                新規アセット
-              </Button>
+              {!remoteViewing && (
+                <Button
+                  variant="primary"
+                  icon={Plus}
+                  disabled={notConfigured}
+                  onClick={() => setShowCreate(true)}
+                >
+                  新規アセット
+                </Button>
+              )}
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
@@ -427,9 +437,11 @@ export default function App() {
                   <p className="text-[13px] text-ink-muted">
                     ライブラリディレクトリが設定されていません。
                   </p>
-                  <Button variant="primary" onClick={() => setPage('settings')}>
-                    設定を開く
-                  </Button>
+                  {!remoteViewing && (
+                    <Button variant="primary" onClick={() => setPage('settings')}>
+                      設定を開く
+                    </Button>
+                  )}
                 </Centered>
               )}
               {assetsState.kind === 'loading' && (
@@ -447,6 +459,7 @@ export default function App() {
                   assets={assetsState.assets}
                   view={view}
                   filtered={filtered}
+                  remoteViewing={remoteViewing}
                   onGenerate={(a) => void handleGenerate(a)}
                   onSelect={(a) => setSelected({ category: a.category, title: a.title })}
                   runningKey={runningKey}
