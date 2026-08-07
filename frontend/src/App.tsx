@@ -64,8 +64,9 @@ export default function App() {
   const [cache, setCache] = useState<CacheInfo | null>(null);
   const [missingCount, setMissingCount] = useState<number | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
-  // リモート閲覧(読み取り専用で届いた経路)か。判定が返るまでは true 側に
-  // 倒し、リモートで操作要素が一瞬でも現れないようにする
+  // リモート閲覧(読み取り専用で届いた経路)か。判定が返るまでも、判定を
+  // 取れなかったときも閉じた側(true)のままにし、リモートで操作要素が
+  // 一瞬でも現れないようにする
   const [remoteViewing, setRemoteViewing] = useState(true);
   const [page, setPage] = useState<Page>('library');
   const [showCreate, setShowCreate] = useState(false);
@@ -214,8 +215,9 @@ export default function App() {
       })
       .catch(() => {
         // 設定が読めなくてもアプリ自体は動かす(テーマはデフォルトのまま)。
-        // 操作要素も出す — リモート閲覧ならサーバーが 403 で止める
-        setRemoteViewing(false);
+        // リモート閲覧かは分からないままなので閉じたままにする。設定を
+        // 読めない状態では一覧も出ない(同じ設定を読むため)ので、
+        // ここで操作要素を出しても押せるものは無い
       });
   }, [loadStats]);
 

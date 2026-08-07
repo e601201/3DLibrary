@@ -21,7 +21,8 @@ Windows 機で作ったアセットを Mac からも見たい。編集(Blender �
 
 1. 本人確認は **Tailscale のデバイス認証に全面委任**し、アプリは認証を持たない。
    tailnet に入れるのは自分のデバイスだけなので、アプリまで届いた時点で相手は本人である
-2. 公開は **`tailscale serve`** が代理する。バイナリは今後も **loopback にのみ listen** する
+2. tailnet からの到達は **`tailscale serve`** が代理する。バイナリは今後も
+   **loopback にのみ listen** する
 3. リモート閲覧(CONTEXT.md)かどうかは、**どのポートに届いたか**で決める。
    `tailscale serve` の転送先を閲覧専用ポート(`127.0.0.1:8766`)に向け、
    そこへ届いた要求は **GET と HEAD 以外を一律 403** にする

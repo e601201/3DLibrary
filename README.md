@@ -63,15 +63,16 @@ go build -o bin/3dlibrary ./cmd/3dlibrary
 ```sh
 tailscale serve --bg 8766     # https://<マシン名>.<tailnet>.ts.net → 127.0.0.1:8766
 tailscale serve status        # 転送先の確認
-tailscale serve reset         # 公開をやめる
+tailscale serve reset         # 転送をやめる
 ```
 
-- 同じ tailnet のデバイスからは `https://<マシン名>.<tailnet>.ts.net` で開ける。インターネットには公開されない(`tailscale funnel` は使わない)
+- 同じ tailnet のデバイスからは `https://<マシン名>.<tailnet>.ts.net` で開ける。インターネットからは届かない(`tailscale funnel` は使わない)
 - 事前に Tailscale の管理画面で **MagicDNS と HTTPS 証明書**を有効にしておく
 - ログインは無い。本人確認は Tailscale のデバイス認証に委任している
 - リモート閲覧では操作要素(新規作成・タグ編集・生成・一括生成・再スキャン・キャッシュ削除・Blenderで開く・Finderで表示・設定)が**表示されない**。UI から消えるだけでなく、サーバー側が経路を問わず 403 で止める
 - `.blend` を含むアセット内のファイルはダウンロードできる。「開けない」のは Blender の起動操作
 - **見せている間はアプリを動かしている PC を起動したままにする**(表示しているのは手元のライブラリそのもので、どこかに複製は置かない)
+- 8766 を別のプロセスが使っていると、アプリはそのポートを開けずに起動を続ける(手元での利用は何も変わらない)。リモート閲覧が繋がらないときは、起動ログに `リモート閲覧: 127.0.0.1:8766` が出ているかを先に確認する
 
 ## macOS
 
