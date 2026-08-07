@@ -8,6 +8,14 @@ import (
 	"github.com/e601201/3DLibrary/internal/library"
 )
 
+// configResponse は保存された設定に、この要求がリモート閲覧か(CONTEXT.md)を
+// 添えたもの。リモート閲覧かは要求ごとの性質で、設定ファイルには持たない。
+// フロントエンドはこのフラグで操作要素を出すかどうかを決める。
+type configResponse struct {
+	config.Config
+	RemoteViewing bool `json:"remoteViewing"`
+}
+
 // handleConfig は GET /api/config(取得)と PUT /api/config(保存)を処理する。
 // PUT で libraryDir が指定されていればライブラリ初期化も行う
 // (空ディレクトリのみ骨格を作成。既存ライブラリには書き込まない)。
@@ -15,7 +23,7 @@ func handleConfig(store *config.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			getConfig(w, store)
+			getConfig(w, r, store)
 		case http.MethodPut:
 			putConfig(w, r, store)
 		default:
@@ -24,13 +32,13 @@ func handleConfig(store *config.Store) http.HandlerFunc {
 	}
 }
 
-func getConfig(w http.ResponseWriter, store *config.Store) {
+func getConfig(w http.ResponseWriter, r *http.Request, store *config.Store) {
 	c, err := store.Load()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "config_load_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, c)
+	writeJSON(w, http.StatusOK, configResponse{Config: c, RemoteViewing: isRemoteViewing(r)})
 }
 
 func putConfig(w http.ResponseWriter, r *http.Request, store *config.Store) {
@@ -61,5 +69,7 @@ func putConfig(w http.ResponseWriter, r *http.Request, store *config.Store) {
 		writeError(w, http.StatusInternalServerError, "config_save_failed", err.Error())
 		return
 	}
+	// 返すのは保存した設定そのもの。リモート閲覧フラグを持たせないのは、
+	// 保存が成り立った時点でこの要求がリモート閲覧でないことが確定するため
 	writeJSON(w, http.StatusOK, c)
 }

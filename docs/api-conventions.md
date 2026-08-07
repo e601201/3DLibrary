@@ -39,6 +39,7 @@
 - `code`: プログラムが分岐に使う安定した snake_case の識別子
 - `message`: 人間向けの説明(英語)。UI 表示用の翻訳はフロント側で `code` を基に行う
 - 存在するパスへのメソッド不一致 → `405` + `code: "method_not_allowed"`
+- リモート閲覧(CONTEXT.md)に届いた GET / HEAD 以外 → `403` + `code: "remote_viewing_read_only"`。パスを問わずハンドラの手前で返すため、**副作用のある操作は必ず POST / PUT / DELETE で足す**(ADR-0004)
 
 ## ヘルス API(準拠例)
 

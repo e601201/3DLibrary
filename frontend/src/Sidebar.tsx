@@ -101,6 +101,7 @@ type Props = {
   scanning: boolean;
   jobsActive: boolean;
   disabled: boolean; // ライブラリ未設定
+  remoteViewing: boolean; // 読み取り専用の経路。操作を持つ区画を出さない
   onCategory: (category: string) => void;
   onTag: (tag: string) => void;
   onRescan: () => void;
@@ -121,6 +122,7 @@ export default function Sidebar({
   scanning,
   jobsActive,
   disabled,
+  remoteViewing,
   onCategory,
   onTag,
   onRescan,
@@ -241,33 +243,39 @@ export default function Sidebar({
         )}
       </div>
 
-      <div className="flex flex-col gap-2 border border-border bg-surface-2 p-3">
-        <div className="flex items-center justify-between">
-          <SectionLabel>キャッシュ</SectionLabel>
-          <span className="font-mono text-[11px] text-ink-muted">
-            {cache ? formatSize(cache.sizeBytes) : '—'}
-          </span>
+      {/* キャッシュ区画は容量表示ごと畳む。残る容量表示は削除・再生成の
+          判断材料でしかなく、その操作がどちらも無い経路では読む意味がない */}
+      {!remoteViewing && (
+        <div className="flex flex-col gap-2 border border-border bg-surface-2 p-3">
+          <div className="flex items-center justify-between">
+            <SectionLabel>キャッシュ</SectionLabel>
+            <span className="font-mono text-[11px] text-ink-muted">
+              {cache ? formatSize(cache.sizeBytes) : '—'}
+            </span>
+          </div>
+          <Button icon={RefreshCw} full disabled={scanning || disabled} onClick={onRescan}>
+            {scanning ? 'スキャン中…' : '再スキャン'}
+          </Button>
+          <Button
+            icon={Zap}
+            full
+            disabled={disabled || jobsActive || missingCount === 0}
+            title="キャッシュ未生成または要更新のアセットだけを順番に生成します"
+            onClick={onBulkGenerate}
+          >
+            {missingCount === null ? '不足分を一括生成' : `不足分を一括生成 (${missingCount})`}
+          </Button>
         </div>
-        <Button icon={RefreshCw} full disabled={scanning || disabled} onClick={onRescan}>
-          {scanning ? 'スキャン中…' : '再スキャン'}
-        </Button>
-        <Button
-          icon={Zap}
-          full
-          disabled={disabled || jobsActive || missingCount === 0}
-          title="キャッシュ未生成または要更新のアセットだけを順番に生成します"
-          onClick={onBulkGenerate}
-        >
-          {missingCount === null ? '不足分を一括生成' : `不足分を一括生成 (${missingCount})`}
-        </Button>
-      </div>
+      )}
 
-      <NavItem
-        icon={SettingsIcon}
-        label="設定"
-        active={page === 'settings'}
-        onClick={onOpenSettings}
-      />
+      {!remoteViewing && (
+        <NavItem
+          icon={SettingsIcon}
+          label="設定"
+          active={page === 'settings'}
+          onClick={onOpenSettings}
+        />
+      )}
     </aside>
   );
 }

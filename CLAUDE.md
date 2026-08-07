@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 3DLibrary
 
-A web application for managing Blender-authored 3D assets on a local machine. It ships as a **single binary** — a Go HTTP server with the React SPA embedded via `go:embed` — and listens on `127.0.0.1:8765` only (there is no authentication).
+A web application for managing Blender-authored 3D assets on a local machine. It ships as a **single binary** — a Go HTTP server with the React SPA embedded via `go:embed` — and binds to loopback only (there is no authentication): `127.0.0.1:8765` for normal use, plus `127.0.0.1:8766` for remote viewing, which is read-only (ADR-0004).
 
 ## Architecture
 

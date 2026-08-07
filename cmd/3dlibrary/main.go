@@ -19,8 +19,13 @@ import (
 	"github.com/e601201/3DLibrary/internal/web"
 )
 
-// 認証を持たないローカル専用アプリのため、127.0.0.1 以外にはバインドしない。
-const listenAddr = "127.0.0.1:8765"
+const (
+	// 認証を持たないローカル専用アプリのため、127.0.0.1 以外にはバインドしない。
+	listenAddr = "127.0.0.1:8765"
+	// リモート閲覧(CONTEXT.md)の口。ネットワーク越しの代理はここへ転送する。
+	// こちらも loopback のみで、届いた要求は読み取り専用として扱う(ADR-0004)。
+	remoteViewingAddr = "127.0.0.1:8766"
+)
 
 func main() {
 	noBrowser := flag.Bool("no-browser", false, "起動時にブラウザを開かない(開発用)")
@@ -46,6 +51,8 @@ func main() {
 	url := fmt.Sprintf("http://%s", listenAddr)
 	log.Printf("3DLibrary: %s で待ち受けています", url)
 
+	serveRemoteViewing(srv)
+
 	if !*noBrowser {
 		go func() {
 			time.Sleep(100 * time.Millisecond)
@@ -58,6 +65,23 @@ func main() {
 	if err := http.Serve(ln, srv); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// serveRemoteViewing はリモート閲覧の口を開く。開けなくてもアプリ本体は
+// 動かす(手元での利用は何も変わらず、リモート閲覧だけが使えなくなる)。
+func serveRemoteViewing(srv *server.Server) {
+	ln, err := net.Listen("tcp", remoteViewingAddr)
+	if err != nil {
+		log.Printf("リモート閲覧の口 %s を開けませんでした(リモート閲覧は使えません): %v",
+			remoteViewingAddr, err)
+		return
+	}
+	log.Printf("リモート閲覧: %s(読み取り専用)", remoteViewingAddr)
+	go func() {
+		if err := http.Serve(ln, srv.RemoteViewingHandler()); err != nil {
+			log.Printf("リモート閲覧の待ち受けが止まりました: %v", err)
+		}
+	}()
 }
 
 // openBrowser は OS のデフォルトブラウザで url を開く。

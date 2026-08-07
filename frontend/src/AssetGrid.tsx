@@ -20,6 +20,7 @@ type Props = {
   assets: Asset[];
   view: ViewMode;
   filtered: boolean; // 検索・フィルタが効いているか(空表示の文言用)
+  remoteViewing: boolean; // 読み取り専用の経路。生成ボタンを出さない
   onGenerate: (asset: Asset) => void;
   onSelect: (asset: Asset) => void;
   runningKey: string | null; // 生成実行中のアセット(category/title)
@@ -29,6 +30,7 @@ export default function AssetGrid({
   assets,
   view,
   filtered,
+  remoteViewing,
   onGenerate,
   onSelect,
   runningKey,
@@ -40,7 +42,8 @@ export default function AssetGrid({
         <p className="text-sm font-semibold text-ink">
           {filtered ? '条件に一致するアセットがありません' : 'アセットがありません'}
         </p>
-        {!filtered && (
+        {/* 手元でしかできない手順なので、リモート閲覧では出さない */}
+        {!filtered && !remoteViewing && (
           <p className="max-w-md text-xs text-ink-faint">
             source のカテゴリディレクトリ直下にアセットディレクトリを追加して「再スキャン」してください。
           </p>
@@ -65,6 +68,7 @@ export default function AssetGrid({
         <AssetCard
           key={asset.id}
           asset={asset}
+          remoteViewing={remoteViewing}
           onGenerate={onGenerate}
           onSelect={onSelect}
           generating={runningKey === `${asset.category}/${asset.title}`}
@@ -139,11 +143,13 @@ function useSpriteScrub(url: string | null) {
 
 function AssetCard({
   asset,
+  remoteViewing,
   onGenerate,
   onSelect,
   generating,
 }: {
   asset: Asset;
+  remoteViewing: boolean;
   onGenerate: (asset: Asset) => void;
   onSelect: (asset: Asset) => void;
   generating: boolean;
@@ -187,7 +193,9 @@ function AssetCard({
           <div className="flex flex-col items-center gap-2 text-center">
             <ImageOff size={22} className="text-ink-faint" />
             <span className="font-mono text-[10px] text-ink-faint">サムネイル未生成</span>
-            <GenerateButton asset={asset} generating={generating} onGenerate={onGenerate} />
+            {!remoteViewing && (
+              <GenerateButton asset={asset} generating={generating} onGenerate={onGenerate} />
+            )}
           </div>
         )}
 
@@ -223,7 +231,7 @@ function AssetCard({
 
         {/* サムネイルがある場合の再生成はホバーでだけ出す(デザインの
             静止状態を保ちつつ、要更新アセットを個別に直せるように) */}
-        {!asset.isIncomplete && thumb && (
+        {!asset.isIncomplete && thumb && !remoteViewing && (
           <div className="absolute right-2 bottom-2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
             <GenerateButton
               asset={asset}
