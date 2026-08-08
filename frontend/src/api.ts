@@ -62,6 +62,8 @@ export interface Asset {
   size: number;
   isIncomplete: boolean;
   isStale: boolean;
+  // 非公開(リモート閲覧にとって存在しない)。ローカルでは常に見える
+  isPrivate: boolean;
   updatedAt: string;
   createdAt: string;
   tags: string[];
@@ -254,6 +256,22 @@ export function putTags(
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tags }),
+    },
+  );
+}
+
+// 公開状態の切り替え。書き込み先はアセットの meta.json(インデックスも同時に更新)
+export function putPrivate(
+  category: string,
+  title: string,
+  isPrivate: boolean,
+): Promise<{ private: boolean }> {
+  return request(
+    `/api/assets/${encodeURIComponent(category)}/${encodeURIComponent(title)}/private`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ private: isPrivate }),
     },
   );
 }

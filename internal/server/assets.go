@@ -25,6 +25,8 @@ func handleAssets(lib *libraryState) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		// リモート閲覧にとって非公開アセットは存在しない(CONTEXT.md「非公開」)
+		opts.PublicOnly = isRemoteViewing(r)
 		idx, _, err := lib.resolve()
 		if err != nil {
 			writeLibraryError(w, err, "index_open_failed")
@@ -74,7 +76,9 @@ func handleCategories(lib *libraryState) http.HandlerFunc {
 			writeLibraryError(w, err, "index_open_failed")
 			return
 		}
-		categories, err := idx.Categories()
+		// リモート閲覧には非公開アセットの分を数えない(非公開しか
+		// 居ないカテゴリは名前ごと消える)
+		categories, err := idx.Categories(isRemoteViewing(r))
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "index_query_failed", err.Error())
 			return

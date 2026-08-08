@@ -2,10 +2,12 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -113,6 +115,11 @@ func findAsset(w http.ResponseWriter, r *http.Request, lib *libraryState) (index
 		return index.Asset{}, "", false
 	}
 	asset, err := idx.Find(r.PathValue("category"), r.PathValue("title"))
+	// リモート閲覧にとって非公開アセットは存在しない(CONTEXT.md「非公開」)。
+	// 実在しないタイトルと同じ 404 を返し、存在の有無を推測させない
+	if err == nil && asset.IsPrivate && isRemoteViewing(r) {
+		err = fmt.Errorf("%w: %s/%s", index.ErrNotFound, asset.Category, asset.Title)
+	}
 	if err != nil {
 		if errors.Is(err, index.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not_found", err.Error())
@@ -155,14 +162,35 @@ func cacheFileHandler(lib *libraryState, prefix, subdir string) http.HandlerFunc
 			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
 			return
 		}
-		_, dir, err := lib.resolve()
+		idx, dir, err := lib.resolve()
 		if err != nil {
 			writeLibraryError(w, err, "index_open_failed")
 			return
 		}
+		rel := strings.TrimPrefix(r.URL.Path, prefix)
+		// リモート閲覧にとって非公開アセットは存在しない(CONTEXT.md「非公開」)。
+		// 一覧から外すだけでは直接 URL(ブラウザ履歴・過去に開いたタブ)で
+		// 派生物が見えてしまうため、配信の入口でも 404 にする
+		if isRemoteViewing(r) && !remoteMaySeeCache(idx, rel) {
+			writeError(w, http.StatusNotFound, "not_found", "no such file")
+			return
+		}
 		root := filepath.Join(dir, "cache", subdir)
-		serveContainedFile(w, r, root, strings.TrimPrefix(r.URL.Path, prefix))
+		serveContainedFile(w, r, root, rel)
 	}
+}
+
+// remoteMaySeeCache は rel(「{カテゴリ}/{タイトル}.{拡張子}」)のキャッシュを
+// リモート閲覧に見せてよいかを返す。インデックスで引けないもの(削除済み・
+// 想定外のパス)も見せない側に倒す。
+func remoteMaySeeCache(idx *index.Index, rel string) bool {
+	category, file, ok := strings.Cut(rel, "/")
+	if !ok || strings.Contains(file, "/") {
+		return false
+	}
+	title := strings.TrimSuffix(file, path.Ext(file))
+	asset, err := idx.Find(category, title)
+	return err == nil && !asset.IsPrivate
 }
 
 // serveContainedFile は root 配下の rel を配信する。root の外に出る

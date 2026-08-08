@@ -261,6 +261,33 @@ func TestScanProjectsMetaJSONTags(t *testing.T) {
 	}
 }
 
+func TestScanProjectsMetaJSONPrivate(t *testing.T) {
+	// meta.json を手で編集しても、スキャンで公開状態が反映される(source が正)
+	lib := buildSource(t)
+	metaPath := filepath.Join(lib, "source", "Props", "Wooden Chair", "meta.json")
+	if err := os.WriteFile(metaPath, []byte(`{"tags":[],"private":true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	assets, err := Scan(lib, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range assets {
+		switch a.Title {
+		case "Wooden Chair":
+			if !a.IsPrivate {
+				t.Error("Wooden Chair should be private")
+			}
+		default:
+			// 旗のないアセットは公開のまま
+			if a.IsPrivate {
+				t.Errorf("%s should be public", a.Title)
+			}
+		}
+	}
+}
+
 // writeCache は Wooden Chair のキャッシュ 3 点を mtime 指定で作る。
 func writeCache(t *testing.T, lib string, mtime time.Time) library.CacheSet {
 	t.Helper()

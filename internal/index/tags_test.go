@@ -76,7 +76,7 @@ func TestTagCounts(t *testing.T) {
 	idx := openTest(t)
 	seedTagged(t, idx)
 
-	got, err := idx.TagCounts()
+	got, err := idx.TagCounts(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestReplaceAllRebuildsTags(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	counts, err := idx.TagCounts()
+	counts, err := idx.TagCounts(false)
 	if err != nil {
 		t.Fatal(err)
 	}

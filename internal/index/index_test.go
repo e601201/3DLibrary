@@ -197,7 +197,7 @@ func TestCategories(t *testing.T) {
 	idx := openTest(t)
 	seedForSearch(t, idx)
 
-	got, err := idx.Categories()
+	got, err := idx.Categories(false)
 	if err != nil {
 		t.Fatal(err)
 	}

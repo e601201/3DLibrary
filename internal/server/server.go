@@ -46,6 +46,7 @@ func New(static fs.FS, store *config.Store) *Server {
 	mux.HandleFunc("/api/cache", handleCache(lib))
 	mux.HandleFunc("/api/tags", handleTags(lib))
 	mux.HandleFunc("/api/assets/{category}/{title}/tags", handleAssetTags(lib))
+	mux.HandleFunc("/api/assets/{category}/{title}/private", handleAssetPrivate(lib))
 	mux.HandleFunc("/api/assets/{category}/{title}/files", handleAssetFiles(lib))
 	mux.HandleFunc("/api/assets/{category}/{title}/open", handleOpenInBlender(lib))
 	mux.HandleFunc("/api/assets/{category}/{title}/dir/{subdir}", handleAssetDir(lib))

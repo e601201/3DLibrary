@@ -1,7 +1,7 @@
 // design/Design.pen 画面01 のカードグリッドとリスト表示。
 // カードはサムネイル(3:2)+ 情報部(padding 12-14 / gap 8)の 2 段構成。
 
-import { ImageOff, RefreshCw, TriangleAlert, Zap } from 'lucide-react';
+import { EyeOff, ImageOff, RefreshCw, TriangleAlert, Zap } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { spriteUrl, thumbnailUrl, type Asset } from './api';
 import { formatDate, formatDay, formatPolygons, formatSize } from './format';
@@ -91,6 +91,26 @@ export function StaleBadge({ onStage = false }: { onStage?: boolean }) {
     >
       <RefreshCw size={10} />
       要更新
+    </span>
+  );
+}
+
+// 「非公開」バッジ。リモート閲覧にとって存在しないアセットの印
+// (ローカルでは常に表示される。CONTEXT.md「非公開」)。配色の使い分けは
+// StaleBadge と同じで、警告ではなく状態なので ink-muted 系にする。
+export function PrivateBadge({ onStage = false }: { onStage?: boolean }) {
+  return (
+    <span
+      className={cx(
+        'flex shrink-0 items-center gap-1 border px-2 py-1 font-mono text-[9px] leading-none',
+        onStage
+          ? 'border-stage-border bg-stage/80 text-stage-ink-muted'
+          : 'border-border text-ink-muted',
+      )}
+      title="リモート閲覧には表示されません(ローカルでは常に表示されます)"
+    >
+      <EyeOff size={10} />
+      非公開
     </span>
   );
 }
@@ -223,6 +243,12 @@ function AssetCard({
           </>
         )}
 
+        {asset.isPrivate && (
+          <div className="absolute top-2 left-2">
+            <PrivateBadge onStage />
+          </div>
+        )}
+
         {asset.isStale && (
           <div className="absolute top-2 right-2">
             <StaleBadge onStage />
@@ -315,6 +341,7 @@ function AssetRow({ asset, onSelect }: { asset: Asset; onSelect: (asset: Asset) 
           {asset.category}
         </p>
       </div>
+      {asset.isPrivate && <PrivateBadge />}
       {asset.isIncomplete && (
         <span
           className="flex shrink-0 items-center gap-1 border border-warn px-2 py-1 font-mono text-[9px] leading-none text-warn"

@@ -59,7 +59,9 @@ func handleTags(lib *libraryState) http.HandlerFunc {
 			writeLibraryError(w, err, "index_open_failed")
 			return
 		}
-		tags, err := idx.TagCounts()
+		// リモート閲覧には非公開アセットの分を数えない(非公開にしか
+		// 付いていないタグは名前ごと消える)
+		tags, err := idx.TagCounts(isRemoteViewing(r))
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "index_query_failed", err.Error())
 			return
