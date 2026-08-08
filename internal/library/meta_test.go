@@ -3,6 +3,7 @@ package library
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -195,5 +196,60 @@ func TestWritePrivateRejectsMissingAssetDir(t *testing.T) {
 	dir := newLibrary(t)
 	if err := WritePrivate(dir, "Props", "Ghost", true); err == nil {
 		t.Fatal("missing asset dir should error")
+	}
+}
+
+func TestUpdateMetaRewritesCorruptMetaJSON(t *testing.T) {
+	dir := newLibrary(t)
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err != nil {
+		t.Fatal(err)
+	}
+	metaPath := filepath.Join(dir, "source", "Props", "Chair", "meta.json")
+	if err := os.WriteFile(metaPath, []byte("not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 壊れた meta.json はゼロ値から書き直す
+	if err := WriteTags(dir, "Props", "Chair", []string{"wood"}); err != nil {
+		t.Fatalf("WriteTags over corrupt meta.json: %v", err)
+	}
+	meta, err := ReadMeta(dir, "Props", "Chair")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(meta.Tags) != 1 || meta.Tags[0] != "wood" || meta.Private {
+		t.Fatalf("meta = %+v", meta)
+	}
+}
+
+func TestUpdateMetaAbortsWhenMetaJSONIsUnreadable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0 では読み取りを禁止できない")
+	}
+	dir := newLibrary(t)
+	if err := CreateAsset(dir, "Props", "Chair", "empty.blend", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteTags(dir, "Props", "Chair", []string{"wood"}); err != nil {
+		t.Fatal(err)
+	}
+	metaPath := filepath.Join(dir, "source", "Props", "Chair", "meta.json")
+	if err := os.Chmod(metaPath, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(metaPath, 0o644) })
+
+	// 読めない meta.json に書き込むと、読めなかっただけのタグを消してしまう
+	if err := WritePrivate(dir, "Props", "Chair", true); err == nil {
+		t.Fatal("unreadable meta.json should abort the write")
+	}
+	if err := os.Chmod(metaPath, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	meta, err := ReadMeta(dir, "Props", "Chair")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(meta.Tags) != 1 || meta.Tags[0] != "wood" {
+		t.Fatalf("tags = %v(中断せず消してしまっている)", meta.Tags)
 	}
 }

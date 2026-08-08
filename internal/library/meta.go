@@ -2,6 +2,7 @@ package library
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,6 +23,9 @@ func metaPath(libDir, category, title string) string {
 	return filepath.Join(AssetDir(libDir, category, title), "meta.json")
 }
 
+// errParseMeta は meta.json が JSON として読めない(壊れている)エラー。
+var errParseMeta = errors.New("parse meta.json")
+
 // ReadMeta は meta.json を読む。ファイルが無ければゼロ値(タグ空・公開)。
 func ReadMeta(libDir, category, title string) (Meta, error) {
 	b, err := os.ReadFile(metaPath(libDir, category, title))
@@ -33,7 +37,7 @@ func ReadMeta(libDir, category, title string) (Meta, error) {
 	}
 	var meta Meta
 	if err := json.Unmarshal(b, &meta); err != nil {
-		return Meta{}, fmt.Errorf("parse meta.json: %w", err)
+		return Meta{}, fmt.Errorf("%w: %v", errParseMeta, err)
 	}
 	return meta, nil
 }
@@ -56,6 +60,8 @@ func WritePrivate(libDir, category, title string, private bool) error {
 // updateMeta は meta.json を読み・書き換え・保存する。アプリが source へ
 // 書き込む 2 経路のうちの 1 つ(もう 1 つはアセット作成)。壊れた meta.json は
 // ゼロ値から書き直す(読めない内容を保全のために残しても復元できない)。
+// それ以外の読み取り失敗(権限エラー等)は中断する。ゼロ値のまま書き込むと
+// 読めなかっただけの他フィールドまで消してしまう。
 func updateMeta(libDir, category, title string, modify func(*Meta)) error {
 	assetDir := AssetDir(libDir, category, title)
 	if info, err := os.Stat(assetDir); err != nil || !info.IsDir() {
@@ -63,7 +69,10 @@ func updateMeta(libDir, category, title string, modify func(*Meta)) error {
 		// os.ErrNotExist を包む
 		return fmt.Errorf("asset directory not found: %s/%s: %w", category, title, os.ErrNotExist)
 	}
-	meta, _ := ReadMeta(libDir, category, title)
+	meta, err := ReadMeta(libDir, category, title)
+	if err != nil && !errors.Is(err, errParseMeta) {
+		return err
+	}
 	modify(&meta)
 	if meta.Tags == nil {
 		meta.Tags = []string{}
