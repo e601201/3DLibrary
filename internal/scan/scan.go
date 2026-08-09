@@ -60,15 +60,16 @@ func readAsset(libDir, category, title string, thumbnailSize int) index.Asset {
 		asset.UpdatedAt = info.ModTime()
 		attachCache(&asset, libDir, thumbnailSize)
 	}
-	// タグは不完全アセットにも付きうる(meta.json はソースの一部)。
-	// 壊れた meta.json はタグ空として扱い、スキャン全体は止めない
+	// アセットメタは不完全アセットにも付きうる(meta.json はソースの一部)。
+	// 壊れた meta.json はタグ空・公開として扱い、スキャン全体は止めない
 	// (ただし黙って消えたように見えないようログには残す)
-	if tags, err := library.ReadTags(libDir, category, title); err == nil {
-		for _, name := range tags {
+	if meta, err := library.ReadMeta(libDir, category, title); err == nil {
+		for _, name := range meta.Tags {
 			asset.Tags = append(asset.Tags, index.Tag{Name: name})
 		}
+		asset.IsPrivate = meta.Private
 	} else {
-		log.Printf("meta.json を読めません(タグ空として扱います)%s/%s: %v", category, title, err)
+		log.Printf("meta.json を読めません(タグ空・公開として扱います)%s/%s: %v", category, title, err)
 	}
 	return asset
 }

@@ -40,6 +40,9 @@ type Asset struct {
 	Size         int64 `json:"size"`
 	IsIncomplete bool  `json:"isIncomplete"`
 	IsStale      bool  `json:"isStale"`
+	// IsPrivate は meta.json の公開状態の射影。非公開のアセットは
+	// リモート閲覧にとって存在しない(CONTEXT.md「非公開」)。
+	IsPrivate bool `json:"isPrivate"`
 	// UpdatedAt は model.blend の更新日時(GORM の自動更新は使わない)。
 	UpdatedAt time.Time `gorm:"autoUpdateTime:false" json:"updatedAt"`
 	CreatedAt time.Time `json:"createdAt"`

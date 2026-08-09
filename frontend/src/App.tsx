@@ -286,6 +286,7 @@ export default function App() {
           if (tag && !savedTags.includes(tag)) setTag('');
           void loadAssets();
         }}
+        onPrivateChanged={() => void loadAssets()}
       />
     );
   }

@@ -95,12 +95,12 @@ func TestCreateAssetWritesInitialTags(t *testing.T) {
 		t.Fatalf("CreateAsset: %v", err)
 	}
 	// WriteTags と同じ正規化(トリム・空除去・重複除去)を通る
-	tags, err := ReadTags(dir, "Props", "Chair")
+	meta, err := ReadMeta(dir, "Props", "Chair")
 	if err != nil {
-		t.Fatalf("ReadTags: %v", err)
+		t.Fatalf("ReadMeta: %v", err)
 	}
-	if len(tags) != 2 || tags[0] != "Wood" || tags[1] != "Seating" {
-		t.Fatalf("tags = %v, want [Wood Seating]", tags)
+	if len(meta.Tags) != 2 || meta.Tags[0] != "Wood" || meta.Tags[1] != "Seating" {
+		t.Fatalf("tags = %v, want [Wood Seating]", meta.Tags)
 	}
 }
 

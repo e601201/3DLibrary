@@ -7,6 +7,8 @@ import {
   Aperture,
   Box,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileBox,
   FileText,
   FolderOpen,
@@ -23,6 +25,7 @@ import {
   glbUrl,
   postOpenBlender,
   postReveal,
+  putPrivate,
   putTags,
   type Asset,
   type AssetFiles,
@@ -31,7 +34,7 @@ import {
   type TagCount,
 } from './api';
 import { formatDate, formatNumber, formatSize } from './format';
-import { StaleBadge } from './AssetGrid';
+import { PrivateBadge, StaleBadge } from './AssetGrid';
 import FileViewer, { type FileView } from './FileViewer';
 import GlbViewer from './GlbViewer';
 import TagSuggestInput, { TagChip } from './TagSuggestInput';
@@ -41,6 +44,7 @@ import {
   Chip,
   IconButton,
   SectionLabel,
+  Segmented,
   cx,
   type LucideIcon,
 } from './ui';
@@ -54,6 +58,7 @@ type Props = {
   onBack: () => void;
   onGenerate: (asset: Asset) => void;
   onTagsChanged: (savedTags: string[]) => void; // タグ保存後に一覧・サイドバーを更新する
+  onPrivateChanged: () => void; // 公開状態の保存後に一覧のバッジを更新する
 };
 
 type View = 'preview' | FileView;
@@ -116,6 +121,7 @@ export default function AssetDetail({
   onBack,
   onGenerate,
   onTagsChanged,
+  onPrivateChanged,
 }: Props) {
   const [metadata, setMetadata] = useState<ExtractedMetadata | null>(null);
   const [files, setFiles] = useState<AssetFiles | null>(null);
@@ -183,6 +189,7 @@ export default function AssetDetail({
             <h1 className="truncate font-heading text-lg leading-none font-bold text-ink">
               {asset.title}
             </h1>
+            {asset.isPrivate && <PrivateBadge />}
             {asset.isStale && <StaleBadge />}
             {asset.isIncomplete && (
               <span
@@ -279,6 +286,12 @@ export default function AssetDetail({
             onChanged={onTagsChanged}
             onError={setActionError}
           />
+
+          {/* リモート閲覧は非公開アセット自体を見られないうえ、切り替えは
+              操作要素なので出さない */}
+          {!remoteViewing && (
+            <PrivateToggle asset={asset} onChanged={onPrivateChanged} onError={setActionError} />
+          )}
 
           <section className="flex flex-col gap-2.5">
             <SectionLabel>ファイル</SectionLabel>
@@ -408,6 +421,59 @@ function FileRow({
     >
       {content}
     </button>
+  );
+}
+
+// 公開/非公開の切り替え(CONTEXT.md「非公開」)。切り替えは詳細画面のみに
+// 置く(一覧カードに置くと誤クリックで公開状態が変わる事故が起きるため)。
+function PrivateToggle({
+  asset,
+  onChanged,
+  onError,
+}: {
+  asset: Asset;
+  onChanged: () => void;
+  onError: (message: string) => void;
+}) {
+  // 表示はローカル state を正とし、保存レスポンスで即時更新する
+  // (プロップの asset.isPrivate は一覧の再読込まで古いままのため)
+  const [isPrivate, setIsPrivate] = useState(asset.isPrivate);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setIsPrivate(asset.isPrivate);
+  }, [asset.id, asset.isPrivate]);
+
+  const save = async (next: boolean) => {
+    if (next === isPrivate || saving) return;
+    setSaving(true);
+    try {
+      const res = await putPrivate(asset.category, asset.title, next);
+      setIsPrivate(res.private);
+      onChanged();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="flex flex-col gap-2.5">
+      <SectionLabel>公開状態</SectionLabel>
+      <Segmented
+        value={isPrivate ? 'private' : 'public'}
+        options={[
+          { value: 'public', label: '公開', icon: Eye },
+          { value: 'private', label: '非公開', icon: EyeOff },
+        ]}
+        onChange={(v) => void save(v === 'private')}
+        label="公開状態"
+      />
+      <p className="font-mono text-[10px] leading-relaxed text-ink-faint">
+        非公開のアセットはリモート閲覧に表示されません
+      </p>
+    </section>
   );
 }
 

@@ -32,6 +32,7 @@ func TestRemoteViewingRejectsEverythingButReads(t *testing.T) {
 		{http.MethodDelete, "/api/cache", ""},
 		{http.MethodPut, "/api/config", `{"thumbnailSize":512,"theme":"dark"}`},
 		{http.MethodPut, "/api/assets/Props/Chair/tags", `{"tags":["wood"]}`},
+		{http.MethodPut, "/api/assets/Props/Chair/private", `{"private":true}`},
 		{http.MethodPost, "/api/assets/Props/Chair/open", ""},
 		{http.MethodPost, "/api/assets/Props/Chair/reveal", ""},
 		// 判定はメソッドだけを見る。経路を列挙しないので、後から足した

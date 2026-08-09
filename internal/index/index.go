@@ -128,6 +128,8 @@ type ListOptions struct {
 	// Tag はタグの完全一致。空なら全タグ。
 	Tag  string
 	Sort Sort
+	// PublicOnly は非公開アセットを除外する(リモート閲覧。CONTEXT.md「非公開」)。
+	PublicOnly bool
 }
 
 // List は条件に合うアセットを返す。
@@ -151,6 +153,9 @@ func (i *Index) List(opts ListOptions) ([]Asset, error) {
 			JOIN tags ON tags.id = asset_tags.tag_id
 			WHERE asset_tags.asset_id = assets.id AND tags.name = ?
 		)`, opts.Tag)
+	}
+	if opts.PublicOnly {
+		q = q.Where("is_private = ?", false)
 	}
 	switch opts.Sort {
 	case SortUpdatedDesc:
@@ -196,23 +201,33 @@ type TagCount struct {
 	Count int    `json:"count"`
 }
 
-// TagCounts はタグ一覧(名前順)を件数付きで返す。
-func (i *Index) TagCounts() ([]TagCount, error) {
+// TagCounts はタグ一覧(名前順)を件数付きで返す。publicOnly なら非公開
+// アセットを数えず、非公開にしか付いていないタグは名前ごと消える
+// (タグ名自体が情報漏れになるため。CONTEXT.md「非公開」)。
+func (i *Index) TagCounts(publicOnly bool) ([]TagCount, error) {
 	counts := []TagCount{}
-	err := i.db.Table("tags").
+	q := i.db.Table("tags").
 		Select("tags.name AS name, COUNT(asset_tags.asset_id) AS count").
-		Joins("JOIN asset_tags ON asset_tags.tag_id = tags.id").
-		Group("tags.name").
+		Joins("JOIN asset_tags ON asset_tags.tag_id = tags.id")
+	if publicOnly {
+		q = q.Joins("JOIN assets ON assets.id = asset_tags.asset_id").
+			Where("assets.is_private = ?", false)
+	}
+	err := q.Group("tags.name").
 		Order("tags.name").
 		Find(&counts).Error
 	return counts, err
 }
 
-// Categories はカテゴリ一覧(名前順)を件数付きで返す。
-func (i *Index) Categories() ([]CategoryCount, error) {
+// Categories はカテゴリ一覧(名前順)を件数付きで返す。publicOnly なら
+// 非公開アセットを数えず、非公開しか居ないカテゴリは名前ごと消える。
+func (i *Index) Categories(publicOnly bool) ([]CategoryCount, error) {
 	categories := []CategoryCount{}
-	err := i.db.Model(&Asset{}).
-		Select("category AS name, COUNT(*) AS count").
+	q := i.db.Model(&Asset{})
+	if publicOnly {
+		q = q.Where("is_private = ?", false)
+	}
+	err := q.Select("category AS name, COUNT(*) AS count").
 		Group("category").
 		Order("category").
 		Find(&categories).Error
