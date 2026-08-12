@@ -158,16 +158,20 @@ export interface ExtractedMetadata {
   polygonCount: number;
   textureCount: number;
   hasAnimation: boolean;
+  // モーションプレビュー導入前に生成したキャッシュには無い
+  shapeKeyCount?: number;
+  frameRate?: number;
 }
 
-// 未生成(404)は null を返す
-export async function getExtractedMetadata(
-  category: string,
-  title: string,
-): Promise<ExtractedMetadata | null> {
+// 未生成(404)は null を返す。?v= の意図はサムネイル・GLB と同じで、
+// 再生成の直後にブラウザが古い JSON を返さないようにするためのもの
+// (古い JSON にはフレームレートもシェイプキー数も無く、モーション
+// プレビューが旧キャッシュ扱いに落ちてしまう)
+export async function getExtractedMetadata(asset: Asset): Promise<ExtractedMetadata | null> {
+  const { category, title, id } = asset;
   try {
     return await request(
-      `/api/extracted-metadata/${encodeURIComponent(category)}/${encodeURIComponent(title)}.json`,
+      `/api/extracted-metadata/${encodeURIComponent(category)}/${encodeURIComponent(title)}.json?v=${id}`,
     );
   } catch (err) {
     if (err instanceof ApiError && err.code === 'not_found') return null;

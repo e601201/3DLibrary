@@ -49,13 +49,40 @@ def parse_args():
 
 def extract_metadata():
     images = [i for i in bpy.data.images if i.name not in ("Render Result", "Viewer Node")]
+    scene = bpy.context.scene
     return {
         "objectCount": len(bpy.data.objects),
         "collectionCount": len(bpy.data.collections),
         "materialCount": len(bpy.data.materials),
         "textureCount": len(images),
         "hasAnimation": bool(bpy.data.actions),
+        "shapeKeyCount": shape_key_count(),
+        # glTF は時間を秒でしか持たないので、ビューワがフレーム番号を
+        # 復元できるようフレームレートを渡す。29.97 のような端数は
+        # fps / fps_base で表される
+        "frameRate": scene.render.fps / scene.render.fps_base,
     }
+
+
+def shape_key_count_of(data):
+    """Basis を除いたシェイプキーの数。Basis しか無いデータは 0
+    (GLB にモーフを 1 つも出さない)。"""
+    keys = getattr(data, "shape_keys", None)
+    return max(0, len(keys.key_blocks) - 1) if keys else 0
+
+
+def shape_key_count():
+    """表示用の総数。ビューワはオブジェクトごとにシェイプキーを並べるので、
+    メッシュを共有していてもオブジェクト単位で数える。"""
+    return sum(shape_key_count_of(obj.data) for obj in bpy.data.objects)
+
+
+def any_mesh_has_shape_keys():
+    """エクスポータの export_apply と両立しないシェイプキーがあるか
+    (ADR-0005)。表示用の shape_key_count とは目的が違うので別に数える。"""
+    return any(
+        obj.type == "MESH" and shape_key_count_of(obj.data) > 0 for obj in bpy.data.objects
+    )
 
 
 def glb_polygon_count(path):
@@ -124,6 +151,51 @@ def apply_render_modifier_settings():
             mod.show_viewport = mod.show_render
             if mod.type in {"SUBSURF", "MULTIRES"}:
                 mod.levels = mod.render_levels
+
+
+def apply_modifiers_keeping_shape_keys():
+    """シェイプキーを持たないメッシュのモディファイアーを手動で適用する
+    (ADR-0005)。エクスポータの export_apply はシェイプキー出力と排他なので、
+    シェイプキーを含む .blend ではここで適用しておき export_apply=False で
+    書き出す。Armature はエクスポータがスキンとして扱うので適用しない。"""
+    if bpy.context.mode != "OBJECT":
+        try:
+            bpy.ops.object.mode_set(mode="OBJECT")
+        except RuntimeError as e:
+            print("3dlibrary: could not switch to object mode: %s" % e)
+
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or not obj.modifiers:
+            continue
+        # 適用は 1 つ済むごとにスタックを組み替えるので、参照ではなく名前で持つ
+        names = [m.name for m in obj.modifiers if m.type != "ARMATURE" and m.show_viewport]
+        if not names:
+            continue
+        if shape_key_count_of(obj.data) > 0:
+            # Blender 自体でも両立しない組み合わせ。シェイプキーを優先する
+            print(
+                "3dlibrary: %s: has shape keys, modifiers not applied: %s"
+                % (obj.name, ", ".join(names))
+            )
+            continue
+        # 共有メッシュには適用できないため、先にこのオブジェクト専用へ複製する
+        # (複製前に手を入れると、共有している他のオブジェクトまで変わる)
+        if obj.data.users > 1:
+            obj.data = obj.data.copy()
+        # Basis だけのシェイプキーは出力に影響しないので、外して適用可能にする
+        if obj.data.shape_keys:
+            obj.shape_key_clear()
+        for name in names:
+            try:
+                with bpy.context.temp_override(
+                    object=obj,
+                    active_object=obj,
+                    selected_objects=[obj],
+                    selected_editable_objects=[obj],
+                ):
+                    bpy.ops.object.modifier_apply(modifier=name)
+            except RuntimeError as e:
+                print("3dlibrary: %s: could not apply %s: %s" % (obj.name, name, e))
 
 
 def scene_bounds(scene):
@@ -313,15 +385,23 @@ def main():
     if missing:
         print("3dlibrary: unresolved textures: %s" % ", ".join(missing))
     # モディファイアーを適用した結果を書き出す(Armature は骨として残るよう
-    # エクスポータが自動で除外する)。シェイプキーは適用結果と両立しないため
-    # 出力されない
+    # エクスポータが自動で除外する)。ただし export_apply はシェイプキー出力と
+    # 排他なので、シェイプキーのある .blend だけ手動適用の経路に入る(ADR-0005)。
+    # 無い .blend は従来どおりエクスポータに任せる(出力は変わらない)
     apply_render_modifier_settings()
-    bpy.ops.export_scene.gltf(filepath=args["glb"], export_format="GLB", export_apply=True)
+    scene = bpy.context.scene
+    # 構図はモディファイアー適用前のベースメッシュから決める。手動適用の
+    # 有無でサムネイル・スプライトの構図が変わらないようにするため
+    center, radius = scene_bounds(scene)
+    export_apply = not any_mesh_has_shape_keys()
+    if not export_apply:
+        apply_modifiers_keeping_shape_keys()
+    bpy.ops.export_scene.gltf(
+        filepath=args["glb"], export_format="GLB", export_apply=export_apply
+    )
     # ポリゴン数は書き出した GLB から数える(モディファイアー適用後の実体)
     meta["polygonCount"] = glb_polygon_count(args["glb"])
 
-    scene = bpy.context.scene
-    center, radius = scene_bounds(scene)
     cam = frame_camera(scene, center, radius)
     meta["thumbnailShading"] = render_thumbnail(args["thumb"], int(args["size"]), not missing)
     render_sprite(args["sprite"], cam, center, radius)

@@ -133,7 +133,7 @@ export default function AssetDetail({
   useEffect(() => {
     let cancelled = false;
     setLoadError(null);
-    getExtractedMetadata(asset.category, asset.title)
+    getExtractedMetadata(asset)
       .then((m) => {
         if (!cancelled) setMetadata(m);
       })
@@ -243,7 +243,12 @@ export default function AssetDetail({
         <section className="flex min-w-0 flex-1 flex-col">
           {view === 'preview' ? (
             glb ? (
-              <GlbViewer url={glb} sizeBytes={files?.glbSize ?? null} title={asset.title} />
+              <GlbViewer
+                url={glb}
+                sizeBytes={files?.glbSize ?? null}
+                title={asset.title}
+                frameRate={metadata?.frameRate ?? null}
+              />
             ) : (
               <EmptyViewport
                 asset={asset}
@@ -276,6 +281,7 @@ export default function AssetDetail({
                 label="ANIMATION"
                 value={metadata ? (metadata.hasAnimation ? 'あり' : 'なし') : undefined}
               />
+              <MetaRow index={6} label="SHAPE KEYS" value={metadata?.shapeKeyCount} />
             </div>
           </section>
 
