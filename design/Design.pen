@@ -1,5 +1,5 @@
 {
-  "version": "2.15",
+  "version": "2.17",
   "children": [
     {
       "type": "frame",
@@ -2623,7 +2623,7 @@
                           "id": "khUq0",
                           "name": "VP Tool grid-3x3",
                           "fill": "#0A0A0ACC",
-                          "stroke": "$accent",
+                          "stroke": "$border",
                           "strokeWidth": 1,
                           "padding": 7,
                           "children": [
@@ -2635,7 +2635,7 @@
                               "height": 14,
                               "icon": "grid-3x3",
                               "library": "lucide",
-                              "fill": "$accent"
+                              "fill": "$text-secondary"
                             }
                           ]
                         },
@@ -2665,7 +2665,7 @@
                           "id": "LwxOE",
                           "name": "VP Tool sliders-horizontal",
                           "fill": "#0A0A0ACC",
-                          "stroke": "$border",
+                          "stroke": "$accent",
                           "strokeWidth": 1,
                           "padding": 7,
                           "children": [
@@ -2677,7 +2677,7 @@
                               "height": 14,
                               "icon": "sliders-horizontal",
                               "library": "lucide",
-                              "fill": "$text-secondary"
+                              "fill": "$accent"
                             }
                           ]
                         },
@@ -2732,114 +2732,245 @@
                   "id": "XGN5z",
                   "name": "VP Bottom",
                   "width": "fill_container",
-                  "gap": 8,
+                  "layout": "vertical",
+                  "gap": 10,
                   "justifyContent": "center",
+                  "alignItems": "center",
                   "children": [
                     {
                       "type": "frame",
-                      "id": "H4Alv0",
-                      "name": "VP Hint rotate-3d",
-                      "fill": "#0A0A0ACC",
+                      "id": "RrmKS",
+                      "name": "VP Playback",
+                      "context": "左から: 先頭に戻す / 1 フレーム戻す / 再生・一時停止 / 1 フレーム進める、右端にループ切替。フレーム送りは抽出メタデータのフレームレートが要るので、モーションプレビュー導入前のキャッシュでは淡色の操作不可にし、カウンターは F 048 / 120 ではなく 2.00s / 5.00s の秒表示に落ちる。",
+                      "width": "fill_container",
+                      "fill": "#0A0A0AE6",
                       "stroke": "$border",
                       "strokeWidth": 1,
-                      "gap": 6,
+                      "gap": 12,
                       "padding": [
-                        6,
-                        12
+                        8,
+                        14
                       ],
                       "alignItems": "center",
                       "children": [
                         {
                           "type": "icon",
-                          "id": "D4T6M",
-                          "name": "VP Hint Icon rotate-3d",
-                          "width": 13,
-                          "height": 13,
-                          "icon": "rotate-3d",
+                          "id": "E4us2",
+                          "name": "PB Skip Back",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "skip-back",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "vL0yE",
+                          "name": "PB Step Back",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "step-back",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "PcOdK",
+                          "name": "PB Pause",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "pause",
                           "library": "lucide",
                           "fill": "$accent"
                         },
                         {
+                          "type": "icon",
+                          "id": "JqBmu",
+                          "name": "PB Step Fwd",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "step-forward",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        },
+                        {
                           "type": "text",
-                          "id": "rJPyJ",
-                          "name": "VP Hint Text rotate-3d",
-                          "fill": "$text-secondary",
-                          "content": "回転 · ドラッグ",
+                          "id": "ai6fA",
+                          "name": "PB Clip",
+                          "fill": "$text-primary",
+                          "content": "Idle",
                           "fontFamily": "$font-mono",
                           "fontSize": 10,
                           "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "a229a",
+                          "name": "PB Track",
+                          "width": "fill_container",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "id": "uxdDU",
+                              "name": "PB Progress",
+                              "fill": "$accent",
+                              "width": 288,
+                              "height": 3
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "x64PD",
+                              "name": "PB Playhead",
+                              "fill": "#FAFAFA",
+                              "width": 2,
+                              "height": 12
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "hsBcq",
+                              "name": "PB Rest",
+                              "fill": "#3F3F46",
+                              "width": "fill_container",
+                              "height": 3
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "KCuEw",
+                          "name": "PB Counter",
+                          "fill": "$text-secondary",
+                          "content": "F 048 / 120 · 24 FPS",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "WOJ8y",
+                          "name": "PB Loop",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "repeat",
+                          "library": "lucide",
+                          "fill": "$accent"
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "WKe2b",
-                      "name": "VP Hint move",
-                      "fill": "#0A0A0ACC",
-                      "stroke": "$border",
-                      "strokeWidth": 1,
-                      "gap": 6,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "alignItems": "center",
+                      "id": "qeogN",
+                      "name": "VP Hints",
+                      "gap": 8,
                       "children": [
                         {
-                          "type": "icon",
-                          "id": "VUy1a",
-                          "name": "VP Hint Icon move",
-                          "width": 13,
-                          "height": 13,
-                          "icon": "move",
-                          "library": "lucide",
-                          "fill": "$accent"
+                          "type": "frame",
+                          "id": "H4Alv0",
+                          "name": "VP Hint rotate-3d",
+                          "fill": "#0A0A0ACC",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "gap": 6,
+                          "padding": [
+                            6,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "D4T6M",
+                              "name": "VP Hint Icon rotate-3d",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "rotate-3d",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "rJPyJ",
+                              "name": "VP Hint Text rotate-3d",
+                              "fill": "$text-secondary",
+                              "content": "回転 · ドラッグ",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
                         },
                         {
-                          "type": "text",
-                          "id": "O3azD",
-                          "name": "VP Hint Text move",
-                          "fill": "$text-secondary",
-                          "content": "パン · SHIFT+ドラッグ",
-                          "fontFamily": "$font-mono",
-                          "fontSize": 10,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "rAh8r",
-                      "name": "VP Hint zoom-in",
-                      "fill": "#0A0A0ACC",
-                      "stroke": "$border",
-                      "strokeWidth": 1,
-                      "gap": 6,
-                      "padding": [
-                        6,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "CHJgu",
-                          "name": "VP Hint Icon zoom-in",
-                          "width": 13,
-                          "height": 13,
-                          "icon": "zoom-in",
-                          "library": "lucide",
-                          "fill": "$accent"
+                          "type": "frame",
+                          "id": "WKe2b",
+                          "name": "VP Hint move",
+                          "fill": "#0A0A0ACC",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "gap": 6,
+                          "padding": [
+                            6,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "VUy1a",
+                              "name": "VP Hint Icon move",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "move",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "O3azD",
+                              "name": "VP Hint Text move",
+                              "fill": "$text-secondary",
+                              "content": "パン · SHIFT+ドラッグ",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
                         },
                         {
-                          "type": "text",
-                          "id": "X4nqYf",
-                          "name": "VP Hint Text zoom-in",
-                          "fill": "$text-secondary",
-                          "content": "ズーム · スクロール",
-                          "fontFamily": "$font-mono",
-                          "fontSize": 10,
-                          "fontWeight": "normal"
+                          "type": "frame",
+                          "id": "rAh8r",
+                          "name": "VP Hint zoom-in",
+                          "fill": "#0A0A0ACC",
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "gap": 6,
+                          "padding": [
+                            6,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "CHJgu",
+                              "name": "VP Hint Icon zoom-in",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "zoom-in",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "X4nqYf",
+                              "name": "VP Hint Text zoom-in",
+                              "fill": "$text-secondary",
+                              "content": "ズーム · スクロール",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
                         }
                       ]
                     }
@@ -3007,6 +3138,665 @@
                           "fontFamily": "Inter",
                           "fontSize": 12,
                           "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "m9UHT7",
+                  "layoutPosition": "absolute",
+                  "x": 16,
+                  "y": 60,
+                  "name": "VP Motion Panel",
+                  "width": 280,
+                  "fill": "#0A0A0AE6",
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "XpSsB",
+                      "name": "Panel Header",
+                      "width": "fill_container",
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "SkUHJ",
+                          "name": "Header Left",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "bCcP5",
+                              "name": "Header Icon",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "sliders-horizontal",
+                              "library": "lucide",
+                              "fill": "$accent"
+                            },
+                            {
+                              "type": "text",
+                              "id": "rIvJB",
+                              "name": "Header Title",
+                              "fill": "$text-primary",
+                              "content": "モーションプレビュー",
+                              "fontFamily": "$font-body",
+                              "fontSize": 11,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "bwzgX",
+                          "name": "Header Close",
+                          "width": 13,
+                          "height": 13,
+                          "icon": "x",
+                          "library": "lucide",
+                          "fill": "$text-muted"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "o4vzK",
+                      "name": "Header Divider",
+                      "fill": "$border",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "F7JyMk",
+                      "name": "Shape Keys Section",
+                      "context": "シェイプキーを持つオブジェクトが 2 つ以上あるときは、オブジェクト名の見出しを挟んでグループ分けする(1 つだけならこのモックのとおり見出しなし)。値 0 のキーは名前も数値もミュート色。リセットは .blend に保存されていた値へ戻す(0 埋めではない)。再生中、そのクリップが動かすシェイプキーのスライダーは操作不可になり、値だけがクリップに追従する。",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "p3copH",
+                          "name": "SK Label Row",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "qjk8d",
+                              "name": "SK Label Left",
+                              "gap": 5,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "TsNGi",
+                                  "name": "SK Label",
+                                  "fill": "$text-muted",
+                                  "content": "SHAPE KEYS",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal",
+                                  "letterSpacing": 1
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "y5Ghbs",
+                                  "name": "SK Count",
+                                  "fill": "$accent",
+                                  "content": "4",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ZIQsD",
+                              "name": "SK Reset",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "IhhBa",
+                                  "name": "SK Reset Icon",
+                                  "width": 11,
+                                  "height": 11,
+                                  "icon": "rotate-ccw",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Ggucm",
+                                  "name": "SK Reset Label",
+                                  "fill": "$text-secondary",
+                                  "content": "リセット",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "eAdqg",
+                          "name": "SK Row mouth_open",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "y1Ao55",
+                              "name": "SK Line mouth_open",
+                              "width": "fill_container",
+                              "justifyContent": "space_between",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "l2jpw",
+                                  "name": "SK Name mouth_open",
+                                  "fill": "$text-primary",
+                                  "content": "mouth_open",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "t5tha",
+                                  "name": "SK Value mouth_open",
+                                  "fill": "$accent",
+                                  "content": "0.35",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "GMniL",
+                              "name": "SK Slider mouth_open",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "id": "a46gm",
+                                  "name": "SK Fill mouth_open",
+                                  "fill": "$accent",
+                                  "width": 82,
+                                  "height": 3
+                                },
+                                {
+                                  "type": "ellipse",
+                                  "id": "ZQ4C3",
+                                  "name": "SK Knob mouth_open",
+                                  "fill": "#FAFAFA",
+                                  "width": 10,
+                                  "height": 10
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "id": "g5f9O",
+                                  "name": "SK Rest mouth_open",
+                                  "fill": "#3F3F46",
+                                  "width": "fill_container",
+                                  "height": 3
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "w64Jr",
+                          "name": "SK Row smile",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "ktXck",
+                              "name": "SK Line smile",
+                              "width": "fill_container",
+                              "justifyContent": "space_between",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Fvcrp",
+                                  "name": "SK Name smile",
+                                  "fill": "$text-primary",
+                                  "content": "smile",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "qFY2t",
+                                  "name": "SK Value smile",
+                                  "fill": "$accent",
+                                  "content": "0.72",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Y13Ov",
+                              "name": "SK Slider smile",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "id": "NyAY0",
+                                  "name": "SK Fill smile",
+                                  "fill": "$accent",
+                                  "width": 176,
+                                  "height": 3
+                                },
+                                {
+                                  "type": "ellipse",
+                                  "id": "WDZLt",
+                                  "name": "SK Knob smile",
+                                  "fill": "#FAFAFA",
+                                  "width": 10,
+                                  "height": 10
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "id": "rK9rt",
+                                  "name": "SK Rest smile",
+                                  "fill": "#3F3F46",
+                                  "width": "fill_container",
+                                  "height": 3
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "o7JHV4",
+                          "name": "SK Row blink_L",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "dBNMW",
+                              "name": "SK Line blink_L",
+                              "width": "fill_container",
+                              "justifyContent": "space_between",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "yH9jh",
+                                  "name": "SK Name blink_L",
+                                  "fill": "$text-primary",
+                                  "content": "blink_L",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Y72aI",
+                                  "name": "SK Value blink_L",
+                                  "fill": "$text-muted",
+                                  "content": "0.00",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "S9rgX",
+                              "name": "SK Slider blink_L",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "id": "I2FBy",
+                                  "name": "SK Fill blink_L",
+                                  "fill": "$accent",
+                                  "width": 1,
+                                  "height": 3
+                                },
+                                {
+                                  "type": "ellipse",
+                                  "id": "uXs2N",
+                                  "name": "SK Knob blink_L",
+                                  "fill": "#FAFAFA",
+                                  "width": 10,
+                                  "height": 10
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "id": "iMJYh",
+                                  "name": "SK Rest blink_L",
+                                  "fill": "#3F3F46",
+                                  "width": "fill_container",
+                                  "height": 3
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "D4Tt0p",
+                          "name": "SK Row brow_up",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Si8Hg",
+                              "name": "SK Line brow_up",
+                              "width": "fill_container",
+                              "justifyContent": "space_between",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "u2OkUD",
+                                  "name": "SK Name brow_up",
+                                  "fill": "$text-primary",
+                                  "content": "brow_up",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "hutjA",
+                                  "name": "SK Value brow_up",
+                                  "fill": "$accent",
+                                  "content": "0.15",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "LXIgF",
+                              "name": "SK Slider brow_up",
+                              "width": "fill_container",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "rectangle",
+                                  "id": "TQ4d5",
+                                  "name": "SK Fill brow_up",
+                                  "fill": "$accent",
+                                  "width": 36,
+                                  "height": 3
+                                },
+                                {
+                                  "type": "ellipse",
+                                  "id": "bQ8Eb",
+                                  "name": "SK Knob brow_up",
+                                  "fill": "#FAFAFA",
+                                  "width": 10,
+                                  "height": 10
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "id": "X6G4sM",
+                                  "name": "SK Rest brow_up",
+                                  "fill": "#3F3F46",
+                                  "width": "fill_container",
+                                  "height": 3
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "PbBCr",
+                      "name": "Section Divider",
+                      "fill": "$border",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "HNxls",
+                      "name": "Animations Section",
+                      "context": "アクセント色は「いま再生中」の印。停止中の選択クリップは通常色のままで、タイムラインがどのクリップを指しているかだけが分かればよい。行をクリックすると、選択中なら再生・一時停止、別のクリップなら切り替えて再生する。",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "iTfuX",
+                          "name": "AN Label Row",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "pVoow",
+                              "name": "AN Label",
+                              "fill": "$text-muted",
+                              "content": "ANIMATION CLIPS",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 9,
+                              "fontWeight": "normal",
+                              "letterSpacing": 1
+                            },
+                            {
+                              "type": "text",
+                              "id": "Jj3vi",
+                              "name": "AN Count",
+                              "fill": "$accent",
+                              "content": "3",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 9,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "KCl4J",
+                          "name": "Clip Idle",
+                          "width": "fill_container",
+                          "fill": "$accent-soft",
+                          "stroke": "$accent",
+                          "strokeWidth": 1,
+                          "gap": 8,
+                          "padding": [
+                            6,
+                            8
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "K2vPRG",
+                              "name": "Clip Left Idle",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "KYgpX",
+                                  "name": "Clip Icon Idle",
+                                  "width": 12,
+                                  "height": 12,
+                                  "icon": "pause",
+                                  "library": "lucide",
+                                  "fill": "$accent"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "X0gvv",
+                                  "name": "Clip Name Idle",
+                                  "fill": "$text-primary",
+                                  "content": "Idle",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "tOMWW",
+                              "name": "Clip Dur Idle",
+                              "fill": "$text-muted",
+                              "content": "4.2s",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "o6fZG",
+                          "name": "Clip Walk_cycle",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "padding": [
+                            6,
+                            8
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "lNxBz",
+                              "name": "Clip Left Walk_cycle",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "TruvP",
+                                  "name": "Clip Icon Walk_cycle",
+                                  "width": 12,
+                                  "height": 12,
+                                  "icon": "play",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "r4oxr",
+                                  "name": "Clip Name Walk_cycle",
+                                  "fill": "$text-secondary",
+                                  "content": "Walk_cycle",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "jBCrb",
+                              "name": "Clip Dur Walk_cycle",
+                              "fill": "$text-muted",
+                              "content": "1.6s",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "PwTve",
+                          "name": "Clip Jump",
+                          "width": "fill_container",
+                          "gap": 8,
+                          "padding": [
+                            6,
+                            8
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "cnF4k",
+                              "name": "Clip Left Jump",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "Z5SvS",
+                                  "name": "Clip Icon Jump",
+                                  "width": 12,
+                                  "height": 12,
+                                  "icon": "play",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "sEst0",
+                                  "name": "Clip Name Jump",
+                                  "fill": "$text-secondary",
+                                  "content": "Jump",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "ODE8p",
+                              "name": "Clip Dur Jump",
+                              "fill": "$text-muted",
+                              "content": "0.9s",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
                         }
                       ]
                     }

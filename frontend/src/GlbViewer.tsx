@@ -1,9 +1,11 @@
 // design/Design.pen 画面02 のビューポート。3D 表示の上に
-// バッジ(左上)・ツール(右上)・操作ヒント(下中央)を重ねる。
+// バッジ(左上)・ツール(右上)・モーションプレビュー(左上)・
+// 再生タイムラインと操作ヒント(下中央)を重ねる。
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Camera,
+  Film,
   Grid3x3,
   Maximize,
   Move,
@@ -12,14 +14,36 @@ import {
   SlidersHorizontal,
   ZoomIn,
 } from 'lucide-react';
-import type { Material, Mesh, Side, Texture } from 'three';
+import type {
+  AnimationAction,
+  AnimationClip,
+  AnimationMixer,
+  Material,
+  Mesh,
+  Object3D,
+  Quaternion,
+  Side,
+  SkinnedMesh,
+  Texture,
+  Vector3,
+} from 'three';
 import { formatSize } from './format';
+import {
+  MotionPanel,
+  TimelineBar,
+  timebaseOf,
+  type Motion,
+  type ShapeKey,
+} from './MotionPreview';
 import { OverlayChip, cx, type LucideIcon } from './ui';
 
 type Props = {
   url: string; // GLB の配信 URL
   sizeBytes: number | null; // バッジに出す GLB のサイズ
   title: string; // スクリーンショットのファイル名に使う
+  // 抽出メタデータのフレームレート。glTF は時間を秒でしか持たないので、
+  // フレーム番号を出すにはこれが要る(旧キャッシュには無く、その場合は秒表示)
+  frameRate: number | null;
 };
 
 // three 側へ命令を送るための最小インターフェース。
@@ -36,6 +60,10 @@ type BackgroundMode = 'light' | 'dark' | 'env' | 'transparent';
 // クレイはマテリアルの差し替えで表現するので、メッシュごとに両方を控えておく
 type ShadedMesh = { mesh: Mesh; original: Material | Material[]; clay: Material | Material[] };
 
+// 再生中に three からタイムラインとスライダーへ値を返す間隔。
+// 毎フレーム React を更新すると重いので、目に足りる程度に間引く
+const MOTION_PUSH_MS = 33;
+
 type ViewerApi = {
   setGrid: (visible: boolean) => void;
   setAutoRotate: (on: boolean) => void;
@@ -43,11 +71,18 @@ type ViewerApi = {
   setBackground: (bg: BackgroundMode) => void;
   setExposure: (value: number) => void;
   snapshot: () => void;
+  selectClip: (index: number) => void;
+  setPlaying: (on: boolean) => void;
+  setLoop: (on: boolean) => void;
+  seek: (seconds: number) => void;
+  setInfluence: (index: number, value: number) => void;
+  resetInfluences: () => void;
+  syncInfluences: () => void;
 };
 
 // 回転 = 左ドラッグ、パン = SHIFT+ドラッグ / 右ドラッグ、ズーム = ホイール。
 // three は重いので動的 import で分割する。
-export default function GlbViewer({ url, sizeBytes, title }: Props) {
+export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<ViewerApi | null>(null);
@@ -60,6 +95,16 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
   const [exposure, setExposure] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fps, setFps] = useState<number | null>(null);
+
+  // モーションプレビュー。読み込んだ GLB にシェイプキーもクリップも
+  // 無ければ motion は空のまま、UI も一切出さない
+  const [motion, setMotion] = useState<Motion | null>(null);
+  const [motionOpen, setMotionOpen] = useState(false);
+  const [clipIndex, setClipIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [loop, setLoop] = useState(true);
+  const [time, setTime] = useState(0);
+  const [influences, setInfluences] = useState<number[]>([]);
 
   // スクリーンショットのファイル名にしか使わないので、
   // 変わってもシーンを作り直さないよう ref で持つ
@@ -81,9 +126,26 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
   const exposureRef = useRef(exposure);
   exposureRef.current = exposure;
 
+  // 描画ループとクリップ生成から読む(表示設定とは違い、こちらは
+  // シーンを作り直さずに毎フレーム参照される)
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  const loopRef = useRef(loop);
+  loopRef.current = loop;
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // 再生成で GLB が入れ替わるとクリップ構成もシェイプキー構成も変わり得る
+    // ので、モーションの状態は引き継がない(表示設定は上の ref で引き継ぐ)
+    setMotion(null);
+    setMotionOpen(false);
+    setClipIndex(0);
+    setPlaying(false);
+    setLoop(true);
+    setTime(0);
+    setInfluences([]);
 
     let disposed = false;
     let cleanup: (() => void) | null = null;
@@ -258,16 +320,88 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
       window.addEventListener('keydown', onShift);
       window.addEventListener('keyup', onShift);
 
+      // --- モーションプレビュー ---
+      // 実体は読み込み後に埋まる。クリップは初回の再生・シークまで適用しない
+      // ので、開いた直後はエクスポート時の姿勢のまま止まっている
+      let mixer: AnimationMixer | null = null;
+      let clips: AnimationClip[] = [];
+      let active: AnimationAction | null = null;
+      let activeIndex = -1; // 適用済みのクリップ(未適用は -1)
+      let activeDrivesShapeKeys = false;
+      let drivenByClip: boolean[][] = [];
+      let defaultValues: number[] = [];
+      let sliderValues: number[] = []; // スライダーの現在値(three 側の写し)
+      // シェイプキーを three の morphTargetInfluences 上の位置へ結びつける
+      const bindings: { mesh: Mesh; index: number }[] = [];
+      const restPose: {
+        obj: Object3D;
+        position: Vector3;
+        quaternion: Quaternion;
+        scale: Vector3;
+      }[] = [];
+
+      const readInfluences = () =>
+        bindings.map((b) => b.mesh.morphTargetInfluences?.[b.index] ?? 0);
+
+      const applySliderValues = () => {
+        for (let i = 0; i < bindings.length; i++) {
+          const { mesh, index } = bindings[i];
+          if (mesh.morphTargetInfluences) mesh.morphTargetInfluences[index] = sliderValues[i];
+        }
+      };
+
+      // 前のクリップが動かしたボーンが取り残されないよう、読み込み直後の
+      // 姿勢に戻してから差し替える
+      const restoreRestPose = () => {
+        for (const r of restPose) {
+          r.obj.position.copy(r.position);
+          r.obj.quaternion.copy(r.quaternion);
+          r.obj.scale.copy(r.scale);
+        }
+      };
+
+      // 対象を省くと、いま適用しているクリップ(まだ何も適用していなければ
+      // 先頭)を使う。再生・シークはこの既定で足りる
+      const ensureAction = (index = Math.max(activeIndex, 0)) => {
+        if (!mixer || !clips[index]) return null;
+        if (activeIndex === index && active) return active;
+        mixer.stopAllAction();
+        restoreRestPose();
+        applySliderValues();
+        active = mixer.clipAction(clips[index]);
+        active.reset();
+        active.clampWhenFinished = true; // ループ off では末尾の姿勢で止める
+        active.loop = loopRef.current ? THREE.LoopRepeat : THREE.LoopOnce;
+        active.play();
+        active.paused = true;
+        activeIndex = index;
+        activeDrivesShapeKeys = drivenByClip[index]?.some(Boolean) ?? false;
+        return active;
+      };
+
       // ギズモを本体シーンの上に重ねるため、クリアは手動で行う
       renderer.autoClear = false;
       const clock = new THREE.Clock();
       let raf = 0;
       let frames = 0;
       let lastFpsAt = performance.now();
+      let lastMotionPushAt = 0;
       const renderLoop = () => {
         raf = requestAnimationFrame(renderLoop);
         const delta = clock.getDelta();
         if (viewHelper.animating) viewHelper.update(delta);
+        // 一時停止中は mixer を回さない。回すと、ユーザーがいじった
+        // シェイプキーの値をクリップが毎フレーム上書きしてしまう
+        if (mixer && playingRef.current) {
+          mixer.update(delta);
+          const now = performance.now();
+          if (now - lastMotionPushAt >= MOTION_PUSH_MS) {
+            lastMotionPushAt = now;
+            if (active) setTime(active.time);
+            // クリップがシェイプキーを動かすときだけ、スライダーを追従させる
+            if (activeDrivesShapeKeys) setInfluences(readInfluences());
+          }
+        }
         controls.update();
         renderer.clear();
         renderer.render(scene, camera);
@@ -286,6 +420,15 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
         (gltf) => {
           if (disposed) return;
           scene.add(gltf.scene);
+          // クリップ切替時に戻す基準姿勢(ワイヤーを足す前の素の状態)
+          gltf.scene.traverse((obj) => {
+            restPose.push({
+              obj,
+              position: obj.position.clone(),
+              quaternion: obj.quaternion.clone(),
+              scale: obj.scale.clone(),
+            });
+          });
           // バウンディングボックスに合わせてカメラとグリッドを配置する
           const box = new THREE.Box3().setFromObject(gltf.scene);
           const center = box.getCenter(new THREE.Vector3());
@@ -322,11 +465,77 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
                 ? mesh.material.map((m) => clayFor(m.side))
                 : clayFor(mesh.material.side),
             });
-            const wire = new THREE.Mesh(mesh.geometry, wireMaterial);
+            // シェイプキーとスキンの変形にワイヤーも追従させる。モーフは
+            // 影響値の配列をそのまま共有し、スキンは同じスケルトンに束ねる
+            const skinned = mesh as SkinnedMesh;
+            let wire: Mesh;
+            if (skinned.isSkinnedMesh) {
+              const skinnedWire = new THREE.SkinnedMesh(mesh.geometry, wireMaterial);
+              skinnedWire.bind(skinned.skeleton, skinned.bindMatrix);
+              wire = skinnedWire;
+            } else {
+              wire = new THREE.Mesh(mesh.geometry, wireMaterial);
+            }
+            wire.morphTargetInfluences = mesh.morphTargetInfluences;
+            wire.morphTargetDictionary = mesh.morphTargetDictionary;
             mesh.add(wire);
             wireMeshes.push(wire);
           }
           applyShade(shadeModeRef.current, wireOverlayRef.current);
+
+          // シェイプキー(GLB ではモーフターゲット)を、メッシュと添字に
+          // 結びつけたうえで平らに並べる
+          const shapeKeys: ShapeKey[] = [];
+          for (const mesh of meshes) {
+            const values = mesh.morphTargetInfluences;
+            const dictionary = mesh.morphTargetDictionary;
+            if (!values || !dictionary) continue;
+            const names: string[] = [];
+            for (const [name, i] of Object.entries(dictionary)) names[i] = name;
+            for (let i = 0; i < values.length; i++) {
+              bindings.push({ mesh, index: i });
+              shapeKeys.push({
+                objectName: mesh.name || 'Mesh',
+                name: names[i] ?? `Key ${i}`,
+                defaultValue: values[i],
+              });
+            }
+          }
+          defaultValues = shapeKeys.map((k) => k.defaultValue);
+          sliderValues = [...defaultValues];
+
+          clips = gltf.animations;
+          if (clips.length > 0) {
+            mixer = new THREE.AnimationMixer(gltf.scene);
+            // ループ off でクリップが終わったら、再生ボタンを再生状態に戻す
+            mixer.addEventListener('finished', () => {
+              setPlaying(false);
+              if (active) setTime(active.time);
+            });
+          }
+          // シェイプキーを動かすトラックは "<ノード名>.morphTargetInfluences"
+          // で、1 本がそのノードのシェイプキーをまとめて駆動する
+          drivenByClip = clips.map((clip) => {
+            const nodes = new Set<string>();
+            for (const track of clip.tracks) {
+              const matched = /^(.*)\.morphTargetInfluences(\[.*\])?$/.exec(track.name);
+              if (matched) nodes.add(matched[1]);
+            }
+            if (nodes.size === 0) return bindings.map(() => false);
+            return bindings.map(({ mesh }) => {
+              for (let o: Object3D | null = mesh; o; o = o.parent) {
+                if (o.name && nodes.has(o.name)) return true;
+              }
+              return false;
+            });
+          });
+
+          setMotion({
+            clips: clips.map((c) => ({ name: c.name, duration: c.duration })),
+            shapeKeys,
+            drivenByClip,
+          });
+          setInfluences([...defaultValues]);
         },
         undefined,
         () => setError('GLB を読み込めませんでした'),
@@ -364,11 +573,52 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
           link.download = `${titleRef.current}.png`;
           link.click();
         },
+        selectClip: (index) => {
+          const action = ensureAction(index);
+          if (!action || !mixer) return;
+          action.time = 0;
+          mixer.update(0);
+          setInfluences(readInfluences());
+        },
+        setPlaying: (on) => {
+          const action = ensureAction();
+          if (!action) return;
+          // 末尾で止まっているところから再生するときは頭に戻す
+          if (on && action.time >= action.getClip().duration - 1e-4) action.time = 0;
+          action.paused = !on;
+          if (!on) setInfluences(readInfluences());
+        },
+        setLoop: (on) => {
+          if (active) active.loop = on ? THREE.LoopRepeat : THREE.LoopOnce;
+        },
+        seek: (seconds) => {
+          const action = ensureAction();
+          if (!action || !mixer) return;
+          action.time = Math.max(0, Math.min(seconds, action.getClip().duration));
+          // 再生中なら次のフレームで反映されるので、ここで回すのは停止中だけ
+          if (action.paused) {
+            mixer.update(0);
+            setInfluences(readInfluences());
+          }
+        },
+        setInfluence: (index, value) => {
+          sliderValues[index] = value;
+          const binding = bindings[index];
+          if (binding?.mesh.morphTargetInfluences) {
+            binding.mesh.morphTargetInfluences[binding.index] = value;
+          }
+        },
+        resetInfluences: () => {
+          sliderValues = [...defaultValues];
+          applySliderValues();
+        },
+        syncInfluences: () => setInfluences(readInfluences()),
       };
 
       cleanup = () => {
         apiRef.current = null;
         cancelAnimationFrame(raf);
+        mixer?.stopAllAction();
         window.removeEventListener('keydown', onShift);
         window.removeEventListener('keyup', onShift);
         renderer.domElement.removeEventListener('pointerdown', onPointerDown);
@@ -421,6 +671,64 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
     apiRef.current?.setExposure(exposure);
   }, [exposure]);
 
+  useEffect(() => {
+    apiRef.current?.setLoop(loop);
+  }, [loop]);
+
+  // 閉じている間に再生で動いたぶんを取り込んでから見せる
+  useEffect(() => {
+    if (motionOpen) apiRef.current?.syncInfluences();
+  }, [motionOpen]);
+
+  const timebase = useMemo(() => timebaseOf(frameRate), [frameRate]);
+  const activeClip = motion?.clips[clipIndex] ?? null;
+  const duration = activeClip?.duration ?? 0;
+  const hasMotion = motion !== null && (motion.clips.length > 0 || motion.shapeKeys.length > 0);
+
+  const togglePlay = () => {
+    const next = !playing;
+    setPlaying(next);
+    apiRef.current?.setPlaying(next);
+  };
+
+  const selectClip = (index: number) => {
+    if (index === clipIndex) {
+      togglePlay();
+      return;
+    }
+    setClipIndex(index);
+    setTime(0);
+    setPlaying(true);
+    apiRef.current?.selectClip(index);
+    apiRef.current?.setPlaying(true);
+  };
+
+  const seek = (seconds: number) => {
+    setTime(seconds);
+    apiRef.current?.seek(seconds);
+  };
+
+  const stepFrame = (frames: number) => {
+    setPlaying(false);
+    apiRef.current?.setPlaying(false);
+    seek(Math.max(0, Math.min(timebase.step(time, frames), duration)));
+  };
+
+  const changeInfluence = (index: number, value: number) => {
+    setInfluences((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+    apiRef.current?.setInfluence(index, value);
+  };
+
+  const resetInfluences = () => {
+    if (!motion) return;
+    setInfluences(motion.shapeKeys.map((k) => k.defaultValue));
+    apiRef.current?.resetInfluences();
+  };
+
   const toggleFullscreen = () => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
@@ -447,69 +755,109 @@ export default function GlbViewer({ url, sizeBytes, title }: Props) {
     >
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-4">
-        <div className="flex items-start justify-between gap-3">
-          <OverlayChip>
-            <span className="size-1.5 shrink-0 rounded-full bg-stage-ok" />
-            GLB PREVIEW
-            {sizeBytes !== null && ` · ${formatSize(sizeBytes)}`}
-            {fps !== null && ` · ${fps} FPS`}
-          </OverlayChip>
-          <div className="pointer-events-auto relative">
-            <div className="flex gap-1">
-              <ViewportTool
-                icon={Grid3x3}
-                label="グリッドの表示切替"
-                active={grid}
-                onClick={() => setGrid((v) => !v)}
-              />
-              <ViewportTool
-                icon={RotateCw}
-                label="自動回転の切替"
-                active={autoRotate}
-                onClick={() => setAutoRotate((v) => !v)}
-              />
-              <ViewportTool
-                icon={SlidersHorizontal}
-                label="表示設定"
-                active={settingsOpen}
-                onClick={() => setSettingsOpen((v) => !v)}
-              />
-              <ViewportTool
-                icon={Camera}
-                label="スクリーンショットを保存"
-                onClick={() => apiRef.current?.snapshot()}
-              />
-              <ViewportTool icon={Maximize} label="全画面表示" onClick={toggleFullscreen} />
+      <div className="pointer-events-none absolute inset-0 flex flex-col justify-between gap-3 p-4">
+        <div className="flex min-h-0 flex-col items-start gap-2">
+          <div className="flex w-full items-start justify-between gap-3">
+            <OverlayChip>
+              <span className="size-1.5 shrink-0 rounded-full bg-stage-ok" />
+              GLB PREVIEW
+              {sizeBytes !== null && ` · ${formatSize(sizeBytes)}`}
+              {fps !== null && ` · ${fps} FPS`}
+            </OverlayChip>
+            <div className="pointer-events-auto relative">
+              <div className="flex gap-1">
+                <ViewportTool
+                  icon={Grid3x3}
+                  label="グリッドの表示切替"
+                  active={grid}
+                  onClick={() => setGrid((v) => !v)}
+                />
+                <ViewportTool
+                  icon={RotateCw}
+                  label="自動回転の切替"
+                  active={autoRotate}
+                  onClick={() => setAutoRotate((v) => !v)}
+                />
+                {/* シェイプキーもクリップも無い GLB では出さない */}
+                {hasMotion && (
+                  <ViewportTool
+                    icon={Film}
+                    label="モーションプレビュー"
+                    active={motionOpen}
+                    onClick={() => setMotionOpen((v) => !v)}
+                  />
+                )}
+                <ViewportTool
+                  icon={SlidersHorizontal}
+                  label="表示設定"
+                  active={settingsOpen}
+                  onClick={() => setSettingsOpen((v) => !v)}
+                />
+                <ViewportTool
+                  icon={Camera}
+                  label="スクリーンショットを保存"
+                  onClick={() => apiRef.current?.snapshot()}
+                />
+                <ViewportTool icon={Maximize} label="全画面表示" onClick={toggleFullscreen} />
+              </div>
+              {settingsOpen && (
+                <ViewerSettings
+                  shadeMode={shadeMode}
+                  wireOverlay={wireOverlay}
+                  background={background}
+                  exposure={exposure}
+                  onShadeMode={setShadeMode}
+                  onWireOverlay={setWireOverlay}
+                  onBackground={setBackground}
+                  onExposure={setExposure}
+                />
+              )}
             </div>
-            {settingsOpen && (
-              <ViewerSettings
-                shadeMode={shadeMode}
-                wireOverlay={wireOverlay}
-                background={background}
-                exposure={exposure}
-                onShadeMode={setShadeMode}
-                onWireOverlay={setWireOverlay}
-                onBackground={setBackground}
-                onExposure={setExposure}
-              />
-            )}
           </div>
+          {motionOpen && motion && (
+            <MotionPanel
+              motion={motion}
+              influences={influences}
+              driven={motion.drivenByClip[clipIndex] ?? []}
+              clipIndex={clipIndex}
+              playing={playing}
+              onSelectClip={selectClip}
+              onInfluence={changeInfluence}
+              onReset={resetInfluences}
+            />
+          )}
         </div>
 
-        <div className="flex justify-center gap-2">
-          <OverlayChip>
-            <Rotate3d size={13} className="text-stage-accent" />
-            回転 · ドラッグ
-          </OverlayChip>
-          <OverlayChip>
-            <Move size={13} className="text-stage-accent" />
-            パン · SHIFT+ドラッグ
-          </OverlayChip>
-          <OverlayChip>
-            <ZoomIn size={13} className="text-stage-accent" />
-            ズーム · スクロール
-          </OverlayChip>
+        <div className="flex flex-col items-center gap-2">
+          {activeClip && (
+            <TimelineBar
+              clipName={activeClip.name}
+              time={time}
+              duration={duration}
+              playing={playing}
+              loop={loop}
+              timebase={timebase}
+              onTogglePlay={togglePlay}
+              onRewind={() => seek(0)}
+              onStep={stepFrame}
+              onSeek={seek}
+              onToggleLoop={() => setLoop((v) => !v)}
+            />
+          )}
+          <div className="flex justify-center gap-2">
+            <OverlayChip>
+              <Rotate3d size={13} className="text-stage-accent" />
+              回転 · ドラッグ
+            </OverlayChip>
+            <OverlayChip>
+              <Move size={13} className="text-stage-accent" />
+              パン · SHIFT+ドラッグ
+            </OverlayChip>
+            <OverlayChip>
+              <ZoomIn size={13} className="text-stage-accent" />
+              ズーム · スクロール
+            </OverlayChip>
+          </div>
         </div>
       </div>
 
