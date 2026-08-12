@@ -31,7 +31,6 @@ export type Timebase = {
   seekStep: number; // シークバーの刻み(秒)
   step: (time: number, frames: number) => number; // n フレーム送った時刻
   playhead: (time: number, duration: number) => string;
-  length: (duration: number) => string;
 };
 
 export function timebaseOf(frameRate: number | null): Timebase {
@@ -41,7 +40,6 @@ export function timebaseOf(frameRate: number | null): Timebase {
       seekStep: 0.01,
       step: (time) => time,
       playhead: (time, duration) => `${time.toFixed(2)}s / ${duration.toFixed(2)}s`,
-      length: (duration) => `${duration.toFixed(2)}s`,
     };
   }
   // Blender の glTF エクスポータは「フレーム番号 ÷ fps」を時刻に書くので、
@@ -59,8 +57,13 @@ export function timebaseOf(frameRate: number | null): Timebase {
       const fps = Number.isInteger(frameRate) ? String(frameRate) : frameRate.toFixed(2);
       return `F ${String(current).padStart(width, '0')} / ${total} · ${fps} FPS`;
     },
-    length: (duration) => `${frames(duration)}F`,
   };
+}
+
+// クリップの長さは「どれくらいの尺か」なので、再生位置と違って秒で見せる
+// (design/Design.pen 画面02 のクリップ一覧)
+function clipLength(duration: number) {
+  return `${duration.toFixed(1)}s`;
 }
 
 // ビューポート左上のパネル。シェイプキーのスライダーとクリップ一覧を持つ
@@ -70,7 +73,6 @@ export function MotionPanel({
   driven,
   clipIndex,
   playing,
-  timebase,
   onSelectClip,
   onInfluence,
   onReset,
@@ -80,7 +82,6 @@ export function MotionPanel({
   driven: boolean[]; // 選択中のクリップが動かすシェイプキー
   clipIndex: number;
   playing: boolean;
-  timebase: Timebase;
   onSelectClip: (index: number) => void;
   onInfluence: (index: number, value: number) => void;
   onReset: () => void;
@@ -92,7 +93,7 @@ export function MotionPanel({
         <section className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-mono text-[10px] leading-none tracking-[1px] text-stage-ink-faint">
-              SHAPE KEYS ({motion.shapeKeys.length})
+              SHAPE KEYS <span className="text-stage-accent">{motion.shapeKeys.length}</span>
             </p>
             <button
               type="button"
@@ -132,9 +133,15 @@ export function MotionPanel({
 
       {motion.clips.length > 0 && (
         <section className="flex flex-col gap-1.5">
-          <p className="font-mono text-[10px] leading-none tracking-[1px] text-stage-ink-faint">
-            ANIMATION CLIPS ({motion.clips.length})
-          </p>
+          {/* 件数はアクセント色で右端に置く(design/Design.pen 画面02) */}
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="font-mono text-[10px] leading-none tracking-[1px] text-stage-ink-faint">
+              ANIMATION CLIPS
+            </p>
+            <p className="font-mono text-[10px] leading-none text-stage-accent">
+              {motion.clips.length}
+            </p>
+          </div>
           <div className="flex flex-col">
             {motion.clips.map((clip, index) => {
               const selected = index === clipIndex;
@@ -164,7 +171,7 @@ export function MotionPanel({
                   )}
                   <span className="truncate font-mono text-[11px] leading-none">{clip.name}</span>
                   <span className="ml-auto shrink-0 font-mono text-[10px] leading-none opacity-70">
-                    {timebase.length(clip.duration)}
+                    {clipLength(clip.duration)}
                   </span>
                 </button>
               );
@@ -176,7 +183,8 @@ export function MotionPanel({
   );
 }
 
-// 値 0 のキーはミュート色にして、効いているキーを一目で拾えるようにする
+// 効いているキーは値をアクセント色に、0 のキーはミュート色にして、
+// どのキーが動いているかを値の色だけで拾えるようにする(名前は常に同じ明度)
 function ShapeKeySlider({
   name,
   value,
@@ -192,19 +200,13 @@ function ShapeKeySlider({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
-        <span
-          className={cx(
-            'truncate font-mono text-[11px] leading-none',
-            muted ? 'text-stage-ink-faint' : 'text-stage-ink',
-          )}
-          title={name}
-        >
+        <span className="truncate font-mono text-[11px] leading-none text-stage-ink" title={name}>
           {name}
         </span>
         <span
           className={cx(
             'shrink-0 font-mono text-[10px] leading-none',
-            muted ? 'text-stage-ink-faint' : 'text-stage-ink-muted',
+            muted ? 'text-stage-ink-faint' : 'text-stage-accent',
           )}
         >
           {value.toFixed(2)}
@@ -277,7 +279,6 @@ export function TimelineBar({
         disabled={!timebase.knowsFrames}
         onClick={() => onStep(1)}
       />
-      <TimelineButton icon={Repeat} label="ループ再生の切替" active={loop} onClick={onToggleLoop} />
       <span
         className="max-w-[7rem] shrink-0 truncate font-mono text-[10px] leading-none text-stage-ink-muted"
         title={clipName}
@@ -297,6 +298,9 @@ export function TimelineBar({
       <span className="shrink-0 font-mono text-[10px] leading-none text-stage-ink-faint">
         {timebase.playhead(time, duration)}
       </span>
+      {/* ループは再生位置を進める操作ではなく持続する設定なので、
+          送り・戻しの並びから離して右端に置く */}
+      <TimelineButton icon={Repeat} label="ループ再生の切替" active={loop} onClick={onToggleLoop} />
     </div>
   );
 }

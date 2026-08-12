@@ -821,7 +821,6 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
               driven={motion.drivenByClip[clipIndex] ?? []}
               clipIndex={clipIndex}
               playing={playing}
-              timebase={timebase}
               onSelectClip={selectClip}
               onInfluence={changeInfluence}
               onReset={resetInfluences}

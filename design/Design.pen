@@ -2741,6 +2741,7 @@
                       "type": "frame",
                       "id": "RrmKS",
                       "name": "VP Playback",
+                      "context": "左から: 先頭に戻す / 1 フレーム戻す / 再生・一時停止 / 1 フレーム進める、右端にループ切替。フレーム送りは抽出メタデータのフレームレートが要るので、モーションプレビュー導入前のキャッシュでは淡色の操作不可にし、カウンターは F 048 / 120 ではなく 2.00s / 5.00s の秒表示に落ちる。",
                       "width": "fill_container",
                       "fill": "#0A0A0AE6",
                       "stroke": "$border",
@@ -2764,6 +2765,16 @@
                         },
                         {
                           "type": "icon",
+                          "id": "vL0yE",
+                          "name": "PB Step Back",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "step-back",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        },
+                        {
+                          "type": "icon",
                           "id": "PcOdK",
                           "name": "PB Pause",
                           "width": 16,
@@ -2775,10 +2786,10 @@
                         {
                           "type": "icon",
                           "id": "JqBmu",
-                          "name": "PB Skip Fwd",
+                          "name": "PB Step Fwd",
                           "width": 14,
                           "height": 14,
-                          "icon": "skip-forward",
+                          "icon": "step-forward",
                           "library": "lucide",
                           "fill": "$text-secondary"
                         },
@@ -3210,6 +3221,7 @@
                       "type": "frame",
                       "id": "F7JyMk",
                       "name": "Shape Keys Section",
+                      "context": "シェイプキーを持つオブジェクトが 2 つ以上あるときは、オブジェクト名の見出しを挟んでグループ分けする(1 つだけならこのモックのとおり見出しなし)。値 0 のキーは名前も数値もミュート色。リセットは .blend に保存されていた値へ戻す(0 埋めではない)。再生中、そのクリップが動かすシェイプキーのスライダーは操作不可になり、値だけがクリップに追従する。",
                       "width": "fill_container",
                       "layout": "vertical",
                       "gap": 10,
@@ -3223,25 +3235,63 @@
                           "justifyContent": "space_between",
                           "children": [
                             {
-                              "type": "text",
-                              "id": "TsNGi",
-                              "name": "SK Label",
-                              "fill": "$text-muted",
-                              "content": "SHAPE KEYS",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 9,
-                              "fontWeight": "normal",
-                              "letterSpacing": 1
+                              "type": "frame",
+                              "id": "qjk8d",
+                              "name": "SK Label Left",
+                              "gap": 5,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "TsNGi",
+                                  "name": "SK Label",
+                                  "fill": "$text-muted",
+                                  "content": "SHAPE KEYS",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal",
+                                  "letterSpacing": 1
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "y5Ghbs",
+                                  "name": "SK Count",
+                                  "fill": "$accent",
+                                  "content": "4",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
                             },
                             {
-                              "type": "text",
-                              "id": "y5Ghbs",
-                              "name": "SK Count",
-                              "fill": "$accent",
-                              "content": "4",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 9,
-                              "fontWeight": "normal"
+                              "type": "frame",
+                              "id": "ZIQsD",
+                              "name": "SK Reset",
+                              "gap": 4,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "IhhBa",
+                                  "name": "SK Reset Icon",
+                                  "width": 11,
+                                  "height": 11,
+                                  "icon": "rotate-ccw",
+                                  "library": "lucide",
+                                  "fill": "$text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Ggucm",
+                                  "name": "SK Reset Label",
+                                  "fill": "$text-secondary",
+                                  "content": "リセット",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -3547,6 +3597,7 @@
                       "type": "frame",
                       "id": "HNxls",
                       "name": "Animations Section",
+                      "context": "アクセント色は「いま再生中」の印。停止中の選択クリップは通常色のままで、タイムラインがどのクリップを指しているかだけが分かればよい。行をクリックすると、選択中なら再生・一時停止、別のクリップなら切り替えて再生する。",
                       "width": "fill_container",
                       "layout": "vertical",
                       "gap": 8,
