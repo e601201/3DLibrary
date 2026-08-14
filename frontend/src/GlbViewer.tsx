@@ -18,6 +18,8 @@ import type {
   AnimationAction,
   AnimationClip,
   AnimationMixer,
+  BoxHelper,
+  KeyframeTrack,
   Material,
   Mesh,
   Object3D,
@@ -60,6 +62,10 @@ type BackgroundMode = 'light' | 'dark' | 'env' | 'transparent';
 // クレイはマテリアルの差し替えで表現するので、メッシュごとに両方を控えておく
 type ShadedMesh = { mesh: Mesh; original: Material | Material[]; clay: Material | Material[] };
 
+// スライダー 1 本が動かすモーフターゲット。マルチマテリアルのオブジェクトは
+// メッシュに分割され、同じシェイプキーがそれぞれに載るので、まとめて動かす
+type ShapeKeyTargets = { mesh: Mesh; index: number }[];
+
 // 再生中に three からタイムラインとスライダーへ値を返す間隔。
 // 毎フレーム React を更新すると重いので、目に足りる程度に間引く
 const MOTION_PUSH_MS = 33;
@@ -71,6 +77,7 @@ type ViewerApi = {
   setBackground: (bg: BackgroundMode) => void;
   setExposure: (value: number) => void;
   snapshot: () => void;
+  selectObject: (objectId: string | null) => void;
   selectClip: (index: number) => void;
   setPlaying: (on: boolean) => void;
   setLoop: (on: boolean) => void;
@@ -105,6 +112,8 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
   const [loop, setLoop] = useState(true);
   const [time, setTime] = useState(0);
   const [influences, setInfluences] = useState<number[]>([]);
+  // オブジェクト選択。null は絞り込みなしで、モーションプレビューは全表示になる
+  const [selectedObject, setSelectedObject] = useState<string | null>(null);
 
   // スクリーンショットのファイル名にしか使わないので、
   // 変わってもシーンを作り直さないよう ref で持つ
@@ -146,6 +155,7 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
     setLoop(true);
     setTime(0);
     setInfluences([]);
+    setSelectedObject(null);
 
     let disposed = false;
     let cleanup: (() => void) | null = null;
@@ -295,8 +305,58 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         return origHandleClick({ clientX, clientY } as PointerEvent);
       };
 
-      // 軌道ドラッグ終了の pointerup で誤スナップしないよう、
-      // ほぼ動いていないクリックだけをギズモに渡す
+      // 自身から根までの並び。「自身か、その子孫か」の判定に何度も要る
+      const ancestorsOf = (obj: Object3D) => {
+        const chain: Object3D[] = [];
+        for (let o: Object3D | null = obj; o; o = o.parent) chain.push(o);
+        return chain;
+      };
+
+      // --- オブジェクト選択 ---
+      // 選択単位は Blender のオブジェクト。glTF ではノードがそれに当たるが、
+      // マルチマテリアルのメッシュは複数の子メッシュに分かれるので、レイキャストで
+      // 当たったメッシュからノードまで遡ってから選ぶ。実体は読み込み後に埋まる
+      let isObjectNode: (obj: Object3D) => boolean = () => false;
+      const objectsById = new Map<string, Object3D>();
+      let selectionBox: BoxHelper | null = null;
+      let selectedId: string | null = null;
+
+      const objectOf = (obj: Object3D): Object3D =>
+        // ノードを辿れない GLB でも、選択そのものは成立させる
+        ancestorsOf(obj).find(isObjectNode) ?? obj;
+
+      // 選択中のオブジェクトをもう一度選ぶと解除。ビューポートの再クリックと
+      // パネル見出しの再クリックを、ここ 1 か所で同じ挙動に揃える
+      const select = (object: Object3D | null) => {
+        const next = object && object.uuid !== selectedId ? object : null;
+        selectedId = next?.uuid ?? null;
+        if (selectionBox) {
+          if (next) selectionBox.setFromObject(next);
+          selectionBox.visible = next !== null;
+        }
+        setSelectedObject(selectedId);
+      };
+
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      // 何も当たらない空クリックは解除
+      const pick = (e: PointerEvent) => {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.set(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+        raycaster.setFromCamera(pointer, camera);
+        // 子として重ねたワイヤーは選択対象ではないので、面のメッシュだけを見る
+        const hit = raycaster.intersectObjects(
+          shadedMeshes.map((s) => s.mesh),
+          false,
+        )[0];
+        select(hit ? objectOf(hit.object) : null);
+      };
+
+      // 軌道ドラッグ終了の pointerup で誤スナップ・誤選択しないよう、
+      // ほぼ動いていないクリックだけをギズモと選択に渡す
       let downX = 0;
       let downY = 0;
       const onPointerDown = (e: PointerEvent) => {
@@ -304,7 +364,10 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         downY = e.clientY;
       };
       const onPointerUp = (e: PointerEvent) => {
-        if (Math.hypot(e.clientX - downX, e.clientY - downY) < 4) viewHelper.handleClick(e);
+        if (Math.hypot(e.clientX - downX, e.clientY - downY) >= 4) return;
+        // ギズモが受け取ったクリックはカメラ操作なので、選択には回さない
+        if (viewHelper.handleClick(e)) return;
+        if (e.button === 0) pick(e);
       };
       renderer.domElement.addEventListener('pointerdown', onPointerDown);
       renderer.domElement.addEventListener('pointerup', onPointerUp);
@@ -332,7 +395,7 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       let defaultValues: number[] = [];
       let sliderValues: number[] = []; // スライダーの現在値(three 側の写し)
       // シェイプキーを three の morphTargetInfluences 上の位置へ結びつける
-      const bindings: { mesh: Mesh; index: number }[] = [];
+      const bindings: ShapeKeyTargets[] = [];
       const restPose: {
         obj: Object3D;
         position: Vector3;
@@ -340,14 +403,18 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         scale: Vector3;
       }[] = [];
 
+      // まとめた先は同じ値で動くので、読むのは代表の 1 つで足りる
       const readInfluences = () =>
-        bindings.map((b) => b.mesh.morphTargetInfluences?.[b.index] ?? 0);
+        bindings.map(([first]) => first.mesh.morphTargetInfluences?.[first.index] ?? 0);
+
+      const applyInfluence = (targets: ShapeKeyTargets, value: number) => {
+        for (const { mesh, index } of targets) {
+          if (mesh.morphTargetInfluences) mesh.morphTargetInfluences[index] = value;
+        }
+      };
 
       const applySliderValues = () => {
-        for (let i = 0; i < bindings.length; i++) {
-          const { mesh, index } = bindings[i];
-          if (mesh.morphTargetInfluences) mesh.morphTargetInfluences[index] = sliderValues[i];
-        }
+        for (let i = 0; i < bindings.length; i++) applyInfluence(bindings[i], sliderValues[i]);
       };
 
       // 前のクリップが動かしたボーンが取り残されないよう、読み込み直後の
@@ -402,6 +469,10 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
             if (activeDrivesShapeKeys) setInfluences(readInfluences());
           }
         }
+        // 選択枠は動いた先へ毎フレーム合わせる。止めていてもシークやコマ送りで
+        // 姿勢は変わるので、再生中かどうかでは絞らない(枠が元にするのは素の
+        // ジオメトリの範囲なので、スキンやモーフの変形までは追わない)
+        if (selectionBox?.visible) selectionBox.update();
         controls.update();
         renderer.clear();
         renderer.render(scene, camera);
@@ -420,6 +491,19 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         (gltf) => {
           if (disposed) return;
           scene.add(gltf.scene);
+          // GLTFLoader は生成した three のオブジェクトと glTF 要素の対応を残す。
+          // nodes を持つものが Blender のオブジェクトに当たるノード
+          const associations = gltf.parser.associations;
+          isObjectNode = (obj) => associations.get(obj)?.nodes !== undefined;
+          gltf.scene.traverse((obj) => {
+            if (isObjectNode(obj)) objectsById.set(obj.uuid, obj);
+          });
+          // 選択枠。モデルに埋もれると読めないので常に手前へ描く
+          selectionBox = new THREE.BoxHelper(gltf.scene, 0xa855f7);
+          selectionBox.visible = false;
+          selectionBox.material.depthTest = false;
+          selectionBox.renderOrder = 1;
+          scene.add(selectionBox);
           // クリップ切替時に戻す基準姿勢(ワイヤーを足す前の素の状態)
           gltf.scene.traverse((obj) => {
             restPose.push({
@@ -484,19 +568,39 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
           applyShade(shadeModeRef.current, wireOverlayRef.current);
 
           // シェイプキー(GLB ではモーフターゲット)を、メッシュと添字に
-          // 結びつけたうえで平らに並べる
+          // 結びつけたうえで平らに並べる。マルチマテリアルのオブジェクトは
+          // 分割後のメッシュそれぞれに同じキーが載るので、オブジェクトとキー名で
+          // 1 本にまとめる(でないと同名のスライダーが並び、片方しか動かない)
           const shapeKeys: ShapeKey[] = [];
+          const slots = new Map<string, number>(); // オブジェクトとキー名 -> shapeKeys 上の位置
           for (const mesh of meshes) {
             const values = mesh.morphTargetInfluences;
             const dictionary = mesh.morphTargetDictionary;
             if (!values || !dictionary) continue;
             const names: string[] = [];
             for (const [name, i] of Object.entries(dictionary)) names[i] = name;
+            // 見出しはオブジェクト単位。GLTFLoader が名前から記号を落とすので、
+            // 表示だけは Blender が付けた元の名前に戻す
+            const object = objectOf(mesh);
+            objectsById.set(object.uuid, object);
+            const objectName =
+              typeof object.userData.name === 'string'
+                ? object.userData.name
+                : object.name || 'Object';
             for (let i = 0; i < values.length; i++) {
-              bindings.push({ mesh, index: i });
+              const name = names[i] ?? `Key ${i}`;
+              const slot = `${object.uuid}\n${name}`;
+              const at = slots.get(slot);
+              if (at !== undefined) {
+                bindings[at].push({ mesh, index: i });
+                continue;
+              }
+              slots.set(slot, shapeKeys.length);
+              bindings.push([{ mesh, index: i }]);
               shapeKeys.push({
-                objectName: mesh.name || 'Mesh',
-                name: names[i] ?? `Key ${i}`,
+                objectId: object.uuid,
+                objectName,
+                name,
                 defaultValue: values[i],
               });
             }
@@ -513,27 +617,64 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
               if (active) setTime(active.time);
             });
           }
+          // トラック名は "<ノード名>.<プロパティ>" で、ノードは名前
+          // (無名なら uuid)で指される。実体を引けるようにしておく
+          const nodeByName = new Map<string, Object3D>();
+          gltf.scene.traverse((obj) => nodeByName.set(obj.name || obj.uuid, obj));
+          const parseTrack = (track: KeyframeTrack) => {
+            const parsed = THREE.PropertyBinding.parseTrackName(track.name);
+            return { node: nodeByName.get(parsed.nodeName) ?? null, property: parsed.propertyName };
+          };
+
           // シェイプキーを動かすトラックは "<ノード名>.morphTargetInfluences"
           // で、1 本がそのノードのシェイプキーをまとめて駆動する
           drivenByClip = clips.map((clip) => {
-            const nodes = new Set<string>();
+            const nodes = new Set<Object3D>();
             for (const track of clip.tracks) {
-              const matched = /^(.*)\.morphTargetInfluences(\[.*\])?$/.exec(track.name);
-              if (matched) nodes.add(matched[1]);
+              const { node, property } = parseTrack(track);
+              if (node && property === 'morphTargetInfluences') nodes.add(node);
             }
             if (nodes.size === 0) return bindings.map(() => false);
-            return bindings.map(({ mesh }) => {
-              for (let o: Object3D | null = mesh; o; o = o.parent) {
-                if (o.name && nodes.has(o.name)) return true;
+            return bindings.map((targets) =>
+              targets.some(({ mesh }) => ancestorsOf(mesh).some((o) => nodes.has(o))),
+            );
+          });
+
+          // ボーンを動かすトラックは、そのスケルトンにスキンされたメッシュにも効く
+          const skinnedByBone = new Map<Object3D, Mesh[]>();
+          for (const mesh of meshes) {
+            const skinned = mesh as SkinnedMesh;
+            if (!skinned.isSkinnedMesh) continue;
+            for (const bone of skinned.skeleton.bones) {
+              const bound = skinnedByBone.get(bone);
+              if (bound) bound.push(mesh);
+              else skinnedByBone.set(bone, [mesh]);
+            }
+          }
+
+          // オブジェクトに紐づくクリップ = そのオブジェクト自身・子孫・スキン先
+          // スケルトンのボーンのいずれかを動かすクリップ。トラックの対象から
+          // 祖先へさかのぼって印を付けると、子孫ぶんもまとめて拾える
+          const clipsByObject: Record<string, boolean[]> = {};
+          for (const id of objectsById.keys()) clipsByObject[id] = clips.map(() => false);
+          clips.forEach((clip, clipIndex) => {
+            for (const track of clip.tracks) {
+              const { node } = parseTrack(track);
+              if (!node) continue;
+              for (const moved of [node, ...(skinnedByBone.get(node) ?? [])]) {
+                for (const o of ancestorsOf(moved)) {
+                  const related = clipsByObject[o.uuid];
+                  if (related) related[clipIndex] = true;
+                }
               }
-              return false;
-            });
+            }
           });
 
           setMotion({
             clips: clips.map((c) => ({ name: c.name, duration: c.duration })),
             shapeKeys,
             drivenByClip,
+            clipsByObject,
           });
           setInfluences([...defaultValues]);
         },
@@ -565,13 +706,20 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         },
         // preserveDrawingBuffer を有効にしなくて済むよう、描画直後に読み出す。
         // ギズモ抜きで本体シーンだけを描き直してから読むので、PNG にギズモは写らない
+        // 選択枠は画面上の目印でしかないので、撮る間だけ隠す
         snapshot: () => {
+          const framed = selectionBox?.visible ?? false;
+          if (selectionBox) selectionBox.visible = false;
           renderer.clear();
           renderer.render(scene, camera);
           const link = document.createElement('a');
           link.href = renderer.domElement.toDataURL('image/png');
           link.download = `${titleRef.current}.png`;
           link.click();
+          if (selectionBox) selectionBox.visible = framed;
+        },
+        selectObject: (objectId) => {
+          select(objectId === null ? null : (objectsById.get(objectId) ?? null));
         },
         selectClip: (index) => {
           const action = ensureAction(index);
@@ -603,10 +751,7 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         },
         setInfluence: (index, value) => {
           sliderValues[index] = value;
-          const binding = bindings[index];
-          if (binding?.mesh.morphTargetInfluences) {
-            binding.mesh.morphTargetInfluences[binding.index] = value;
-          }
+          applyInfluence(bindings[index] ?? [], value);
         },
         resetInfluences: () => {
           sliderValues = [...defaultValues];
@@ -679,6 +824,17 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
   useEffect(() => {
     if (motionOpen) apiRef.current?.syncInfluences();
   }, [motionOpen]);
+
+  // ESC でも絞り込みを解除できるようにする。ただし全画面中の ESC は全画面を
+  // 閉じる操作なので、そちらに譲って選択は残す
+  useEffect(() => {
+    if (selectedObject === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.fullscreenElement) apiRef.current?.selectObject(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedObject]);
 
   const timebase = useMemo(() => timebaseOf(frameRate), [frameRate]);
   const activeClip = motion?.clips[clipIndex] ?? null;
@@ -821,6 +977,8 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
               driven={motion.drivenByClip[clipIndex] ?? []}
               clipIndex={clipIndex}
               playing={playing}
+              selectedObjectId={selectedObject}
+              onSelectObject={(objectId) => apiRef.current?.selectObject(objectId)}
               onSelectClip={selectClip}
               onInfluence={changeInfluence}
               onReset={resetInfluences}

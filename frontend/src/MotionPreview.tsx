@@ -10,7 +10,8 @@ import { cx, type LucideIcon } from './ui';
 
 // GLB から読み取ったモーション要素。構造は読み込み時に一度だけ組み立てる。
 export type ShapeKey = {
-  objectName: string; // グループ見出しに使うノード名
+  objectId: string; // 属するオブジェクト。オブジェクト選択との突き合わせに使う
+  objectName: string; // グループ見出しに使う表示名
   name: string; // シェイプキー名
   defaultValue: number; // エクスポート時の値(リセット先)
 };
@@ -21,6 +22,9 @@ export type Motion = {
   // クリップごとに「そのクリップが動かすシェイプキー」の真偽値。glTF は
   // ノードの weights をまとめて書くので、駆動はメッシュ単位で効く
   drivenByClip: boolean[][];
+  // オブジェクトごとに「そのオブジェクトに紐づくクリップ」の真偽値
+  // (自身・子孫・スキン先スケルトンのボーンのいずれかを動かすクリップ)
+  clipsByObject: Record<string, boolean[]>;
 };
 
 // フレームレートを知っているかで、刻みも表記も変わる。分岐があちこちへ
@@ -66,13 +70,16 @@ function clipLength(duration: number) {
   return `${duration.toFixed(1)}s`;
 }
 
-// ビューポート左上のパネル。シェイプキーのスライダーとクリップ一覧を持つ
+// ビューポート左上のパネル。シェイプキーのスライダーとクリップ一覧を持つ。
+// オブジェクト選択中は、そのオブジェクトに紐づくものだけに絞って見せる
 export function MotionPanel({
   motion,
   influences,
   driven,
   clipIndex,
   playing,
+  selectedObjectId,
+  onSelectObject,
   onSelectClip,
   onInfluence,
   onReset,
@@ -82,18 +89,30 @@ export function MotionPanel({
   driven: boolean[]; // 選択中のクリップが動かすシェイプキー
   clipIndex: number;
   playing: boolean;
+  selectedObjectId: string | null; // null なら絞り込みなし(全表示)
+  onSelectObject: (objectId: string) => void;
   onSelectClip: (index: number) => void;
   onInfluence: (index: number, value: number) => void;
   onReset: () => void;
 }) {
   const groups = groupByObject(motion.shapeKeys);
+  const visibleClips = motion.clips
+    .map((clip, index) => ({ clip, index }))
+    .filter(
+      ({ index }) =>
+        selectedObjectId === null || (motion.clipsByObject[selectedObjectId]?.[index] ?? false),
+    );
+  const visibleKeys =
+    selectedObjectId === null
+      ? motion.shapeKeys.length
+      : (groups.find((g) => g.objectId === selectedObjectId)?.keys.length ?? 0);
   return (
     <div className="pointer-events-auto flex max-h-[22rem] w-64 flex-col gap-3 overflow-y-auto border border-stage-border bg-stage/90 p-3 backdrop-blur-sm">
       {motion.shapeKeys.length > 0 && (
         <section className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-mono text-[10px] leading-none tracking-[1px] text-stage-ink-faint">
-              SHAPE KEYS <span className="text-stage-accent">{motion.shapeKeys.length}</span>
+              SHAPE KEYS <span className="text-stage-accent">{visibleKeys}</span>
             </p>
             <button
               type="button"
@@ -105,33 +124,42 @@ export function MotionPanel({
               リセット
             </button>
           </div>
-          {groups.map((group) => (
-            <div key={group.objectName} className="flex flex-col gap-2">
-              {/* オブジェクトが 1 つだけなら見出しは邪魔なので出さない */}
-              {groups.length > 1 && (
-                <p
-                  className="truncate font-mono text-[10px] leading-none text-stage-ink-faint"
-                  title={group.objectName}
+          {groups.map((group) => {
+            const picked = group.objectId === selectedObjectId;
+            return (
+              <div key={group.objectId} className="flex flex-col gap-2">
+                {/* 見出しはオブジェクト選択の入口も兼ねるので、1 つでも必ず出す */}
+                <button
+                  type="button"
+                  aria-pressed={picked}
+                  onClick={() => onSelectObject(group.objectId)}
+                  title={picked ? '絞り込みを解除' : `${group.objectName} で絞り込む`}
+                  className={cx(
+                    'truncate text-left font-mono text-[10px] leading-none transition',
+                    picked ? 'text-stage-accent' : 'text-stage-ink-faint hover:text-stage-ink',
+                  )}
                 >
                   {group.objectName}
-                </p>
-              )}
-              {group.keys.map(({ index, name }) => (
-                <ShapeKeySlider
-                  key={index}
-                  name={name}
-                  value={influences[index] ?? 0}
-                  // 再生中はクリップが毎フレーム上書きするので操作させない
-                  driven={playing && (driven[index] ?? false)}
-                  onChange={(value) => onInfluence(index, value)}
-                />
-              ))}
-            </div>
-          ))}
+                </button>
+                {/* 選択中はそのオブジェクトだけ開き、他はたたんで見出しだけ残す */}
+                {(selectedObjectId === null || picked) &&
+                  group.keys.map(({ index, name }) => (
+                    <ShapeKeySlider
+                      key={index}
+                      name={name}
+                      value={influences[index] ?? 0}
+                      // 再生中はクリップが毎フレーム上書きするので操作させない
+                      driven={playing && (driven[index] ?? false)}
+                      onChange={(value) => onInfluence(index, value)}
+                    />
+                  ))}
+              </div>
+            );
+          })}
         </section>
       )}
 
-      {motion.clips.length > 0 && (
+      {visibleClips.length > 0 && (
         <section className="flex flex-col gap-1.5">
           {/* 件数はアクセント色で右端に置く(design/Design.pen 画面02) */}
           <div className="flex items-baseline justify-between gap-2">
@@ -139,11 +167,11 @@ export function MotionPanel({
               ANIMATION CLIPS
             </p>
             <p className="font-mono text-[10px] leading-none text-stage-accent">
-              {motion.clips.length}
+              {visibleClips.length}
             </p>
           </div>
           <div className="flex flex-col">
-            {motion.clips.map((clip, index) => {
+            {visibleClips.map(({ clip, index }) => {
               const selected = index === clipIndex;
               const active = selected && playing;
               return (
@@ -178,6 +206,13 @@ export function MotionPanel({
             })}
           </div>
         </section>
+      )}
+
+      {/* 選択自体は成立しているので、絞り込んだ結果が空でも黙って消さない */}
+      {selectedObjectId !== null && visibleKeys === 0 && visibleClips.length === 0 && (
+        <p className="font-mono text-[11px] leading-relaxed text-stage-ink-faint">
+          このオブジェクトにシェイプキーとクリップはありません
+        </p>
       )}
     </div>
   );
@@ -338,14 +373,20 @@ function TimelineButton({
   );
 }
 
+type ShapeKeyGroup = {
+  objectId: string;
+  objectName: string;
+  keys: { index: number; name: string }[]; // index は motion.shapeKeys 上の位置
+};
+
 // シェイプキーを持つオブジェクトごとにまとめる(並び順は元のままで、
 // 同じオブジェクトのキーが 1 か所に集まる)
-function groupByObject(shapeKeys: ShapeKey[]) {
-  const groups: { objectName: string; keys: { index: number; name: string }[] }[] = [];
+function groupByObject(shapeKeys: ShapeKey[]): ShapeKeyGroup[] {
+  const groups: ShapeKeyGroup[] = [];
   shapeKeys.forEach((key, index) => {
-    let group = groups.find((g) => g.objectName === key.objectName);
+    let group = groups.find((g) => g.objectId === key.objectId);
     if (!group) {
-      group = { objectName: key.objectName, keys: [] };
+      group = { objectId: key.objectId, objectName: key.objectName, keys: [] };
       groups.push(group);
     }
     group.keys.push({ index, name: key.name });
