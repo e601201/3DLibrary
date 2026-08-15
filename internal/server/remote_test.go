@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/e601201/3DLibrary/internal/generate"
 )
 
 func remoteViewingFlag(t *testing.T, rec *httptest.ResponseRecorder) bool {
@@ -94,6 +96,34 @@ func TestAssetListHasNoLocalPaths(t *testing.T) {
 		// 有無は真偽値で伝わる(生成済みかの判定はこれで足りる)
 		if !strings.Contains(body, `"hasGlb":true`) || !strings.Contains(body, `"hasSprite":false`) {
 			t.Errorf("%s: 有無の真偽値が正しくない: %s", name, body)
+		}
+	}
+}
+
+func TestRemoteViewingSeesNoJobQueue(t *testing.T) {
+	// 生成キューはローカルの作業場の状態であり、リモート閲覧には存在しない。
+	// blenderPath 未設定なので生成は必ず失敗し、ローカルの lastError には
+	// アセット名が載る(TestGenerateJobWithoutBlenderRecordsError と同じ筋)
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "Chair", true)
+	addAsset(t, libDir, "Props", "Draft", true)
+	rescan(t, srv)
+	setPrivate(t, srv, "Props", "Draft", true)
+
+	// 伏せるのは非公開だけではない。公開アセットの生成も同じく見せない
+	for _, title := range []string{"Chair", "Draft"} {
+		rec := doRequest(t, srv, http.MethodPost, "/api/jobs",
+			`{"category":"Props","title":"`+title+`"}`)
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("POST %s = %d: %s", title, rec.Code, rec.Body.String())
+		}
+		local := waitQueueIdle(t, srv)
+		if local.LastError == nil || local.LastError.Title != title {
+			t.Fatalf("local lastError = %+v, want %s(ローカルは従来どおり報告する)",
+				local.LastError, title)
+		}
+		if remote := jobStatus(t, srv.RemoteViewingHandler()); remote != (generate.Status{}) {
+			t.Errorf("remote jobs(%s) = %+v, want ゼロ値", title, remote)
 		}
 	}
 }
