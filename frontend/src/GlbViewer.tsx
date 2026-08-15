@@ -87,7 +87,8 @@ type ViewerApi = {
   syncInfluences: () => void;
 };
 
-// 回転 = 左ドラッグ、パン = SHIFT+ドラッグ / 右ドラッグ、ズーム = ホイール。
+// 回転 = 左ドラッグ、パン = SHIFT / Ctrl / Cmd + 左ドラッグ / 右ドラッグ、
+// ズーム = ホイール / 中ドラッグ。いずれも OrbitControls の既定の割り当て。
 // three は重いので動的 import で分割する。
 export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -371,17 +372,6 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       };
       renderer.domElement.addEventListener('pointerdown', onPointerDown);
       renderer.domElement.addEventListener('pointerup', onPointerUp);
-
-      // ヒントの「パン · SHIFT+ドラッグ」を成立させる
-      const rotateButtons = { ...controls.mouseButtons };
-      const onShift = (e: KeyboardEvent) => {
-        controls.mouseButtons = {
-          ...rotateButtons,
-          LEFT: e.shiftKey ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
-        };
-      };
-      window.addEventListener('keydown', onShift);
-      window.addEventListener('keyup', onShift);
 
       // --- モーションプレビュー ---
       // 実体は読み込み後に埋まる。クリップは初回の再生・シークまで適用しない
@@ -764,8 +754,6 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         apiRef.current = null;
         cancelAnimationFrame(raf);
         mixer?.stopAllAction();
-        window.removeEventListener('keydown', onShift);
-        window.removeEventListener('keyup', onShift);
         renderer.domElement.removeEventListener('pointerdown', onPointerDown);
         renderer.domElement.removeEventListener('pointerup', onPointerUp);
         resizeObserver.disconnect();
