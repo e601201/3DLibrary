@@ -46,13 +46,30 @@ func addAsset(t *testing.T, libDir, category, title string, withBlend bool) {
 	}
 }
 
-func listAssets(t *testing.T, srv http.Handler) []index.Asset {
+// listedAsset は一覧 JSON の検査用。絶対パスのフィールドを持たないので、
+// 旧フィールドを見ているテストは黙って空振りにならずコンパイルで弾かれる。
+type listedAsset struct {
+	ID           uint        `json:"id"`
+	Title        string      `json:"title"`
+	Category     string      `json:"category"`
+	PolygonCount *int        `json:"polygonCount"`
+	Size         int64       `json:"size"`
+	IsIncomplete bool        `json:"isIncomplete"`
+	IsStale      bool        `json:"isStale"`
+	IsPrivate    bool        `json:"isPrivate"`
+	Tags         []index.Tag `json:"tags"`
+	HasThumbnail bool        `json:"hasThumbnail"`
+	HasGlb       bool        `json:"hasGlb"`
+	HasSprite    bool        `json:"hasSprite"`
+}
+
+func listAssets(t *testing.T, srv http.Handler) []listedAsset {
 	t.Helper()
 	rec := doRequest(t, srv, http.MethodGet, "/api/assets", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /api/assets = %d: %s", rec.Code, rec.Body.String())
 	}
-	var assets []index.Asset
+	var assets []listedAsset
 	if err := json.Unmarshal(rec.Body.Bytes(), &assets); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
@@ -122,7 +139,7 @@ func TestAssetsJSONUsesCamelCase(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"isIncomplete", "thumbnailPath", "polygonCount", "updatedAt"} {
+	for _, key := range []string{"isIncomplete", "hasThumbnail", "polygonCount", "updatedAt"} {
 		if _, ok := raw[0][key]; !ok {
 			t.Errorf("JSON key %q missing: %v", key, raw[0])
 		}

@@ -19,7 +19,7 @@ type privateRequest struct {
 func handleAssetPrivate(lib *libraryState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use PUT")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use PUT")
 			return
 		}
 		asset, dir, ok := findAsset(w, r, lib)
@@ -28,19 +28,19 @@ func handleAssetPrivate(lib *libraryState) http.HandlerFunc {
 		}
 		var req privateRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "validation_failed", "invalid JSON body: "+err.Error())
+			writeError(w, r, http.StatusBadRequest, "validation_failed", "invalid JSON body: "+err.Error())
 			return
 		}
 		if err := library.WritePrivate(dir, asset.Category, asset.Title, req.Private); err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				writeError(w, http.StatusNotFound, "not_found", err.Error())
+				writeError(w, r, http.StatusNotFound, "not_found", err.Error())
 				return
 			}
-			writeError(w, http.StatusInternalServerError, "private_save_failed", err.Error())
+			writeError(w, r, http.StatusInternalServerError, "private_save_failed", err.Error())
 			return
 		}
 		if _, err := lib.runScan(); err != nil {
-			writeError(w, http.StatusInternalServerError, "scan_failed",
+			writeError(w, r, http.StatusInternalServerError, "scan_failed",
 				"private flag was saved but rescan failed: "+err.Error())
 			return
 		}

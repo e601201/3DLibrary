@@ -57,7 +57,7 @@ func New(static fs.FS, store *config.Store) *Server {
 	mux.HandleFunc("/api/sprites/", cacheFileHandler(lib, "/api/sprites/", "sprites"))
 	mux.HandleFunc("/api/extracted-metadata/", cacheFileHandler(lib, "/api/extracted-metadata/", "metadata"))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
-		writeError(w, http.StatusNotFound, "not_found", "no such API endpoint")
+		writeError(w, r, http.StatusNotFound, "not_found", "no such API endpoint")
 	})
 	mux.Handle("/", spaHandler(static))
 	return &Server{Handler: mux, lib: lib, queue: queue}
@@ -89,7 +89,7 @@ type healthResponse struct {
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
+		writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
 		return
 	}
 	writeJSON(w, http.StatusOK, healthResponse{Status: "ok", OS: runtime.GOOS})
@@ -132,8 +132,23 @@ type errorDetail struct {
 	Message string `json:"message"`
 }
 
+// remoteFailureMessage はリモート閲覧へ返す唯一の失敗理由。
+const remoteFailureMessage = "remote viewing does not report failure details"
+
 // writeError は API 規約のエラー形式で応答する。
-func writeError(w http.ResponseWriter, status int, code, message string) {
+//
+// リモート閲覧には message を返さない。失敗理由の多くは err.Error() 素通しで、
+// ライブラリやキャッシュの絶対パスが乗りうるため(requirements.md §7)。
+// status で線を引かず一律にするのは、「4xx なら安全」を保ち続ける見張りを
+// 将来にわたって不要にするため。code は残すので、ライブラリ未設定の画面も
+// 404 の扱いもフロントエンド側はそのまま動く。
+//
+// r を必須の引数にしているのは、後から足したハンドラも既定で閉じるように
+// コンパイラへ強制させるためで、ADR-0004 と同じ狙いを型で担保している。
+func writeError(w http.ResponseWriter, r *http.Request, status int, code, message string) {
+	if isRemoteViewing(r) {
+		message = remoteFailureMessage
+	}
 	writeJSON(w, status, errorBody{Error: errorDetail{Code: code, Message: message}})
 }
 

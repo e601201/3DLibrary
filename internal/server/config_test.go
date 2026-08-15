@@ -55,6 +55,19 @@ func errorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 	return body.Error.Code
 }
 
+func errorMessage(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	var body struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid error JSON: %v (%s)", err, rec.Body.String())
+	}
+	return body.Error.Message
+}
+
 func TestGetConfigReturnsDefaults(t *testing.T) {
 	srv, _ := newConfigTestServer(t)
 	rec := doRequest(t, srv, http.MethodGet, "/api/config", "")

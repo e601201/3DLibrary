@@ -23,7 +23,7 @@ type browseEntry struct {
 func handleAssetDir(lib *libraryState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
 			return
 		}
 		asset, dir, ok := findAsset(w, r, lib)
@@ -32,7 +32,7 @@ func handleAssetDir(lib *libraryState) http.HandlerFunc {
 		}
 		subdir := r.PathValue("subdir")
 		if subdir == "" || subdir == "." || subdir == ".." || strings.ContainsAny(subdir, `/\`) {
-			writeError(w, http.StatusBadRequest, "validation_failed", "invalid directory name")
+			writeError(w, r, http.StatusBadRequest, "validation_failed", "invalid directory name")
 			return
 		}
 		entries, err := os.ReadDir(filepath.Join(library.AssetDir(dir, asset.Category, asset.Title), subdir))
@@ -42,7 +42,7 @@ func handleAssetDir(lib *libraryState) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "files_list_failed", err.Error())
+			writeError(w, r, http.StatusInternalServerError, "files_list_failed", err.Error())
 			return
 		}
 		// os.ReadDir は名前順を保証する
@@ -66,7 +66,7 @@ func handleAssetDir(lib *libraryState) http.HandlerFunc {
 func handleAssetRaw(lib *libraryState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
 			return
 		}
 		asset, dir, ok := findAsset(w, r, lib)
@@ -105,7 +105,7 @@ func revealCommand(goos, dir string) (string, []string) {
 func handleReveal(lib *libraryState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use POST")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use POST")
 			return
 		}
 		asset, dir, ok := findAsset(w, r, lib)
@@ -115,7 +115,7 @@ func handleReveal(lib *libraryState) http.HandlerFunc {
 		assetDir := library.AssetDir(dir, asset.Category, asset.Title)
 		name, args := revealCommand(runtime.GOOS, assetDir)
 		if err := execStart(name, args...); err != nil {
-			writeError(w, http.StatusInternalServerError, "reveal_failed", err.Error())
+			writeError(w, r, http.StatusInternalServerError, "reveal_failed", err.Error())
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

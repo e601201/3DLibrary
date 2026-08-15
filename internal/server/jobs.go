@@ -34,7 +34,7 @@ func handleJobs(lib *libraryState, queue *generate.Queue) http.HandlerFunc {
 		case http.MethodPost:
 			enqueueJob(w, r, lib, queue)
 		default:
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET or POST")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use GET or POST")
 		}
 	}
 }
@@ -42,26 +42,26 @@ func handleJobs(lib *libraryState, queue *generate.Queue) http.HandlerFunc {
 func enqueueJob(w http.ResponseWriter, r *http.Request, lib *libraryState, queue *generate.Queue) {
 	var req enqueueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_failed", "invalid JSON body: "+err.Error())
+		writeError(w, r, http.StatusBadRequest, "validation_failed", "invalid JSON body: "+err.Error())
 		return
 	}
 	idx, dir, err := lib.resolve()
 	if err != nil {
-		writeLibraryError(w, err, "index_open_failed")
+		writeLibraryError(w, r, err, "index_open_failed")
 		return
 	}
 	asset, err := idx.Find(req.Category, req.Title)
 	if err != nil {
 		if errors.Is(err, index.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "not_found", err.Error())
+			writeError(w, r, http.StatusNotFound, "not_found", err.Error())
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "index_query_failed", err.Error())
+		writeError(w, r, http.StatusInternalServerError, "index_query_failed", err.Error())
 		return
 	}
 	if asset.IsIncomplete {
 		// 不完全アセットは生成できない(model.blend が無い)
-		writeError(w, http.StatusConflict, "asset_incomplete",
+		writeError(w, r, http.StatusConflict, "asset_incomplete",
 			"asset has no model.blend and cannot be generated")
 		return
 	}
@@ -87,17 +87,17 @@ type bulkResponse struct {
 func handleBulkJobs(lib *libraryState, queue *generate.Queue) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use POST")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use POST")
 			return
 		}
 		idx, dir, err := lib.resolve()
 		if err != nil {
-			writeLibraryError(w, err, "index_open_failed")
+			writeLibraryError(w, r, err, "index_open_failed")
 			return
 		}
 		assets, err := idx.List(index.ListOptions{})
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "index_query_failed", err.Error())
+			writeError(w, r, http.StatusInternalServerError, "index_query_failed", err.Error())
 			return
 		}
 		enqueued := 0

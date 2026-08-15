@@ -17,13 +17,15 @@ type remoteViewingKey struct{}
 // RemoteViewingHandler はリモート閲覧用のハンドラを返す。
 func (s *Server) RemoteViewingHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 印はメソッド判定より先に付ける。この下の 403 もリモート閲覧への
+		// 応答であり、失敗理由を伏せる対象に含めるため(writeError)
+		r = r.WithContext(context.WithValue(r.Context(), remoteViewingKey{}, true))
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			writeError(w, http.StatusForbidden, "remote_viewing_read_only",
+			writeError(w, r, http.StatusForbidden, "remote_viewing_read_only",
 				"remote viewing is read-only")
 			return
 		}
-		ctx := context.WithValue(r.Context(), remoteViewingKey{}, true)
-		s.Handler.ServeHTTP(w, r.WithContext(ctx))
+		s.Handler.ServeHTTP(w, r)
 	})
 }
 

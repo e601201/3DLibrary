@@ -49,15 +49,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// サーバーはローカルの絶対パスを返さない(requirements.md §6)。
+// キャッシュは有無だけが分かり、配信 URL はカテゴリとタイトルから組み立てる。
 export interface Asset {
   id: number;
   title: string;
   category: string;
-  path: string;
-  thumbnailPath: string | null;
-  glbPath: string | null;
-  // 全周スプライト(ADR-0003)。未生成なら null
-  spritePath: string | null;
+  hasThumbnail: boolean;
+  hasGlb: boolean;
+  // 全周スプライト(ADR-0003)
+  hasSprite: boolean;
   polygonCount: number | null;
   size: number;
   isIncomplete: boolean;
@@ -74,10 +75,7 @@ export interface Asset {
 export function needsGeneration(asset: Asset): boolean {
   if (asset.isIncomplete) return false;
   const missing =
-    asset.thumbnailPath === null ||
-    asset.glbPath === null ||
-    asset.spritePath === null ||
-    asset.polygonCount === null;
+    !asset.hasThumbnail || !asset.hasGlb || !asset.hasSprite || asset.polygonCount === null;
   return missing || asset.isStale;
 }
 
@@ -133,20 +131,20 @@ export function postJob(ref: JobRef): Promise<JobStatus> {
 // サムネイルの配信 URL。?v= は再スキャンごとに変わる id で、
 // 再生成後にブラウザキャッシュへ残った古い画像を避けるため
 export function thumbnailUrl(asset: Asset): string | null {
-  if (!asset.thumbnailPath) return null;
+  if (!asset.hasThumbnail) return null;
   return `/api/thumbnails/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.png?v=${asset.id}`;
 }
 
 // スプライト(全周レンダリングのシート)の配信 URL(未生成なら null)。
 // 一覧のホバースクラブが使う。?v= の意図はサムネイルと同じ
 export function spriteUrl(asset: Asset): string | null {
-  if (!asset.spritePath) return null;
+  if (!asset.hasSprite) return null;
   return `/api/sprites/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.webp?v=${asset.id}`;
 }
 
 // GLB キャッシュの配信 URL(未生成なら null)
 export function glbUrl(asset: Asset): string | null {
-  if (!asset.glbPath) return null;
+  if (!asset.hasGlb) return null;
   return `/api/glb/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.glb?v=${asset.id}`;
 }
 
