@@ -20,6 +20,16 @@ func handleJobs(lib *libraryState, queue *generate.Queue) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
+			if isRemoteViewing(r) {
+				// 生成キューはローカルの作業場の状態であり、リモート閲覧には
+				// 存在しない(CONTEXT.md「リモート閲覧」)。非公開だけを伏せる
+				// のではなく丸ごとアイドルを返すのは、Status がアセット名を
+				// running・lastError の 2 か所で持ち、lastError.message には
+				// Blender の失敗理由としてローカルの絶対パスまで載るため。
+				// キューを読み出す経路はここだけなので、1 か所で閉じ切れる
+				writeJSON(w, http.StatusOK, generate.Status{})
+				return
+			}
 			writeJSON(w, http.StatusOK, queue.Status())
 		case http.MethodPost:
 			enqueueJob(w, r, lib, queue)
