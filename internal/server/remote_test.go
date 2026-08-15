@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -64,6 +65,64 @@ func TestRemoteViewingScanDoesNotRun(t *testing.T) {
 	}
 	if assets := listAssets(t, srv); len(assets) != 1 {
 		t.Errorf("assets = %d, want 1(スキャンが走ってしまっている)", len(assets))
+	}
+}
+
+// TestAssetListHasNoLocalPaths はローカル・リモートのどちらの口でも、
+// 一覧 JSON にローカルの絶対パスが 1 つも出ないことを確かめる。
+// ブラウザは配信 URL をカテゴリとタイトルから組み立てるので、パスは要らない。
+func TestAssetListHasNoLocalPaths(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "Chair", true)
+	writeFileIn(t, libDir, "cache/glb/Props/Chair.glb", "glb-bytes")
+	rescan(t, srv)
+
+	for name, h := range map[string]http.Handler{
+		"local":  srv,
+		"remote": srv.RemoteViewingHandler(),
+	} {
+		rec := doRequest(t, h, http.MethodGet, "/api/assets", "")
+		body := rec.Body.String()
+		if strings.Contains(body, libDir) {
+			t.Errorf("%s: 一覧にライブラリの絶対パスが載っている: %s", name, body)
+		}
+		for _, field := range []string{`"path"`, `"thumbnailPath"`, `"glbPath"`, `"spritePath"`} {
+			if strings.Contains(body, field) {
+				t.Errorf("%s: %s が応答に残っている: %s", name, field, body)
+			}
+		}
+		// 有無は真偽値で伝わる(生成済みかの判定はこれで足りる)
+		if !strings.Contains(body, `"hasGlb":true`) || !strings.Contains(body, `"hasSprite":false`) {
+			t.Errorf("%s: 有無の真偽値が正しくない: %s", name, body)
+		}
+	}
+}
+
+// TestRemoteViewingHidesFailureReason はリモート閲覧への失敗応答が
+// code だけを返し、理由(ローカルの絶対パスが乗りうる)を伏せることを確かめる。
+func TestRemoteViewingHidesFailureReason(t *testing.T) {
+	srv, _ := newLibraryServer(t)
+	remote := srv.RemoteViewingHandler()
+
+	for _, req := range []struct{ method, path, wantCode string }{
+		// 読み取りの 404(存在しないアセット)
+		{http.MethodGet, "/api/assets/Props/Nope/files", "not_found"},
+		// 書き込みを弾く 403。印はメソッド判定より先に付くのでここも伏せる
+		{http.MethodPost, "/api/scan", "remote_viewing_read_only"},
+	} {
+		rec := doRequest(t, remote, req.method, req.path, "")
+		if code := errorCode(t, rec); code != req.wantCode {
+			t.Errorf("%s %s error.code = %q, want %q", req.method, req.path, code, req.wantCode)
+		}
+		if msg := errorMessage(t, rec); msg != remoteFailureMessage {
+			t.Errorf("%s %s error.message = %q, want 伏せられた文言", req.method, req.path, msg)
+		}
+	}
+
+	// ローカルの口は従来どおり理由を返す
+	rec := doRequest(t, srv, http.MethodGet, "/api/assets/Props/Nope/files", "")
+	if msg := errorMessage(t, rec); msg == remoteFailureMessage || msg == "" {
+		t.Errorf("local error.message = %q(ローカルでは理由を返すべき)", msg)
 	}
 }
 
@@ -132,8 +191,23 @@ func TestConfigReportsWhichPortTheRequestArrivedOn(t *testing.T) {
 	if !remoteViewingFlag(t, remote) {
 		t.Error("閲覧専用の口は remoteViewing=true であるべき")
 	}
-	// 設定そのものは同じものが返る
-	if got := decodeConfig(t, remote); got != decodeConfig(t, local) {
-		t.Errorf("config = %+v, want %+v", got, decodeConfig(t, local))
+}
+
+func TestRemoteViewingConfigOmitsLocalPaths(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+
+	// ローカルには設定がそのまま返る
+	got := decodeConfig(t, doRequest(t, srv, http.MethodGet, "/api/config", ""))
+	if got.LibraryDir != libDir {
+		t.Fatalf("local libraryDir = %q, want %q", got.LibraryDir, libDir)
+	}
+
+	// リモートには表示に要るものだけ。ローカルの絶対パスは出さない
+	got = decodeConfig(t, doRequest(t, srv.RemoteViewingHandler(), http.MethodGet, "/api/config", ""))
+	if got.LibraryDir != "" || got.BlenderPath != "" {
+		t.Errorf("remote config = %+v(ローカルの絶対パスが漏れている)", got)
+	}
+	if got.Theme == "" || got.ThumbnailSize == 0 {
+		t.Errorf("remote config = %+v(表示に要る項目まで落ちている)", got)
 	}
 }

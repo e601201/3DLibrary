@@ -34,7 +34,7 @@ type filesResponse struct {
 func handleAssetFiles(lib *libraryState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
 			return
 		}
 		asset, dir, ok := findAsset(w, r, lib)
@@ -44,7 +44,7 @@ func handleAssetFiles(lib *libraryState) http.HandlerFunc {
 		assetDir := library.AssetDir(dir, asset.Category, asset.Title)
 		dirEntries, err := os.ReadDir(assetDir)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "files_list_failed", err.Error())
+			writeError(w, r, http.StatusInternalServerError, "files_list_failed", err.Error())
 			return
 		}
 		resp := filesResponse{Entries: []fileEntry{}}
@@ -73,7 +73,7 @@ func handleAssetFiles(lib *libraryState) http.HandlerFunc {
 func handleOpenInBlender(lib *libraryState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use POST")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use POST")
 			return
 		}
 		asset, _, ok := findAsset(w, r, lib)
@@ -81,23 +81,23 @@ func handleOpenInBlender(lib *libraryState) http.HandlerFunc {
 			return
 		}
 		if asset.IsIncomplete {
-			writeError(w, http.StatusConflict, "asset_incomplete",
+			writeError(w, r, http.StatusConflict, "asset_incomplete",
 				"asset has no model.blend")
 			return
 		}
 		cfg, err := lib.store.Load()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "config_load_failed", err.Error())
+			writeError(w, r, http.StatusInternalServerError, "config_load_failed", err.Error())
 			return
 		}
 		if cfg.BlenderPath == "" {
-			writeError(w, http.StatusConflict, "blender_not_configured",
+			writeError(w, r, http.StatusConflict, "blender_not_configured",
 				"set blenderPath in settings first")
 			return
 		}
 		cmd := exec.Command(cfg.BlenderPath, asset.Path)
 		if err := cmd.Start(); err != nil {
-			writeError(w, http.StatusInternalServerError, "blender_launch_failed", err.Error())
+			writeError(w, r, http.StatusInternalServerError, "blender_launch_failed", err.Error())
 			return
 		}
 		// 終了は待たないが、ゾンビプロセスにしないため回収だけはする
@@ -111,7 +111,7 @@ func handleOpenInBlender(lib *libraryState) http.HandlerFunc {
 func findAsset(w http.ResponseWriter, r *http.Request, lib *libraryState) (index.Asset, string, bool) {
 	idx, dir, err := lib.resolve()
 	if err != nil {
-		writeLibraryError(w, err, "index_open_failed")
+		writeLibraryError(w, r, err, "index_open_failed")
 		return index.Asset{}, "", false
 	}
 	asset, err := idx.Find(r.PathValue("category"), r.PathValue("title"))
@@ -122,9 +122,9 @@ func findAsset(w http.ResponseWriter, r *http.Request, lib *libraryState) (index
 	}
 	if err != nil {
 		if errors.Is(err, index.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "not_found", err.Error())
+			writeError(w, r, http.StatusNotFound, "not_found", err.Error())
 		} else {
-			writeError(w, http.StatusInternalServerError, "index_query_failed", err.Error())
+			writeError(w, r, http.StatusInternalServerError, "index_query_failed", err.Error())
 		}
 		return index.Asset{}, "", false
 	}
@@ -159,12 +159,12 @@ func dirSize(root string) (int64, int) {
 func cacheFileHandler(lib *libraryState, prefix, subdir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
+			writeError(w, r, http.StatusMethodNotAllowed, "method_not_allowed", "use GET")
 			return
 		}
 		idx, dir, err := lib.resolve()
 		if err != nil {
-			writeLibraryError(w, err, "index_open_failed")
+			writeLibraryError(w, r, err, "index_open_failed")
 			return
 		}
 		rel := strings.TrimPrefix(r.URL.Path, prefix)
@@ -172,7 +172,7 @@ func cacheFileHandler(lib *libraryState, prefix, subdir string) http.HandlerFunc
 		// 一覧から外すだけでは直接 URL(ブラウザ履歴・過去に開いたタブ)で
 		// 派生物が見えてしまうため、配信の入口でも 404 にする
 		if isRemoteViewing(r) && !remoteMaySeeCache(idx, rel) {
-			writeError(w, http.StatusNotFound, "not_found", "no such file")
+			writeError(w, r, http.StatusNotFound, "not_found", "no such file")
 			return
 		}
 		root := filepath.Join(dir, "cache", subdir)
@@ -198,11 +198,11 @@ func remoteMaySeeCache(idx *index.Index, rel string) bool {
 func serveContainedFile(w http.ResponseWriter, r *http.Request, root, rel string) {
 	path := filepath.Join(root, filepath.FromSlash(rel))
 	if rel == "" || !strings.HasPrefix(path, root+string(filepath.Separator)) {
-		writeError(w, http.StatusNotFound, "not_found", "no such file")
+		writeError(w, r, http.StatusNotFound, "not_found", "no such file")
 		return
 	}
 	if info, err := os.Stat(path); err != nil || info.IsDir() {
-		writeError(w, http.StatusNotFound, "not_found", "no such file")
+		writeError(w, r, http.StatusNotFound, "not_found", "no such file")
 		return
 	}
 	http.ServeFile(w, r, path)

@@ -97,7 +97,7 @@ func TestGenerateJobProducesCacheAndUpdatesIndex(t *testing.T) {
 	for {
 		assets := listAssets(t, srv)
 		a := assets[0]
-		if a.ThumbnailPath != nil && a.GlbPath != nil && a.SpritePath != nil &&
+		if a.HasThumbnail && a.HasGlb && a.HasSprite &&
 			a.PolygonCount != nil && *a.PolygonCount == 42 {
 			break
 		}
@@ -196,7 +196,7 @@ func TestBulkGenerateTargetsMissingAndStaleOnly(t *testing.T) {
 		if a.Title == "Stale" && a.IsStale {
 			t.Error("Stale should be regenerated and no longer stale")
 		}
-		if a.Title == "Missing" && a.ThumbnailPath == nil {
+		if a.Title == "Missing" && !a.HasThumbnail {
 			t.Error("Missing should be generated")
 		}
 	}
@@ -293,9 +293,9 @@ func TestThumbnailServing(t *testing.T) {
 	}
 }
 
-// TestAssetListExposesSpritePath は一覧 JSON でスプライトの有無が
-// 有 / null として見えることを HTTP のシームで確かめる。
-func TestAssetListExposesSpritePath(t *testing.T) {
+// TestAssetListExposesSpritePresence は一覧 JSON でスプライトの有無が
+// 真偽値として見えることを HTTP のシームで確かめる。
+func TestAssetListExposesSpritePresence(t *testing.T) {
 	srv, libDir := newLibraryServer(t)
 	addAsset(t, libDir, "Props", "WithSprite", true)
 	addAsset(t, libDir, "Props", "WithoutSprite", true)
@@ -303,15 +303,15 @@ func TestAssetListExposesSpritePath(t *testing.T) {
 	writeFileIn(t, libDir, paths.Sprite[len(libDir)+1:], "webp")
 	rescan(t, srv)
 
-	got := map[string]*string{}
+	got := map[string]bool{}
 	for _, a := range listAssets(t, srv) {
-		got[a.Title] = a.SpritePath
+		got[a.Title] = a.HasSprite
 	}
-	if got["WithSprite"] == nil || *got["WithSprite"] != paths.Sprite {
-		t.Errorf("WithSprite spritePath = %v, want %q", got["WithSprite"], paths.Sprite)
+	if !got["WithSprite"] {
+		t.Error("WithSprite hasSprite = false, want true")
 	}
-	if got["WithoutSprite"] != nil {
-		t.Errorf("WithoutSprite spritePath = %v, want null", got["WithoutSprite"])
+	if got["WithoutSprite"] {
+		t.Error("WithoutSprite hasSprite = true, want false")
 	}
 }
 

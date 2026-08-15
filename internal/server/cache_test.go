@@ -40,7 +40,7 @@ func TestCacheDeleteClearsAndResyncsIndex(t *testing.T) {
 	// 生成してキャッシュとインデックス参照を作る
 	doRequest(t, srv, http.MethodPost, "/api/jobs", `{"category":"Props","title":"Chair"}`)
 	waitQueueIdle(t, srv)
-	if a := listAssets(t, srv)[0]; a.ThumbnailPath == nil {
+	if a := listAssets(t, srv)[0]; !a.HasThumbnail {
 		t.Fatal("precondition: cache should exist")
 	}
 
@@ -51,7 +51,7 @@ func TestCacheDeleteClearsAndResyncsIndex(t *testing.T) {
 
 	// インデックスのキャッシュ参照が消えている(プレースホルダー状態)
 	a := listAssets(t, srv)[0]
-	if a.ThumbnailPath != nil || a.GlbPath != nil || a.PolygonCount != nil {
+	if a.HasThumbnail || a.HasGlb || a.HasSprite || a.PolygonCount != nil {
 		t.Fatalf("cache refs should be cleared: %+v", a)
 	}
 	if a.IsStale {
@@ -73,7 +73,7 @@ func TestCacheDeleteClearsAndResyncsIndex(t *testing.T) {
 		t.Fatalf("bulk = %d", rec.Code)
 	}
 	waitQueueIdle(t, srv)
-	if a := listAssets(t, srv)[0]; a.ThumbnailPath == nil || a.PolygonCount == nil {
+	if a := listAssets(t, srv)[0]; !a.HasThumbnail || a.PolygonCount == nil {
 		t.Fatalf("bulk generate should restore cache: %+v", a)
 	}
 }
