@@ -148,8 +148,13 @@ export function glbUrl(asset: Asset): string | null {
   return `/api/glb/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.glb?v=${asset.id}`;
 }
 
-// 抽出メタデータ(生成時に Blender が .blend から読み取る統計情報)
+// 抽出メタデータ(生成のたびに一緒に書き出される統計情報)。オブジェクト数・
+// ポリゴン数・シェイプキー数は書き出した GLB を数えた値で、残りは .blend 側の
+// 統計(ADR-0006)
 export interface ExtractedMetadata {
+  // 世代印。無いのは オブジェクト数・シェイプキー数 が .blend の統計だった頃の
+  // キャッシュで、その 2 つは意味が違うので出さない(ADR-0006)
+  metadataVersion?: number;
   objectCount: number;
   collectionCount: number;
   materialCount: number;
@@ -159,6 +164,12 @@ export interface ExtractedMetadata {
   // モーションプレビュー導入前に生成したキャッシュには無い
   shapeKeyCount?: number;
   frameRate?: number;
+}
+
+// GLB を数えた値を持つ世代のキャッシュか。古いキャッシュの数は .blend 側の
+// 統計で、GLB ビューワに写っているものとは食い違う(ADR-0006)
+export function hasGlbCounts(metadata: ExtractedMetadata | null): boolean {
+  return (metadata?.metadataVersion ?? 0) >= 1;
 }
 
 // 未生成(404)は null を返す。?v= の意図はサムネイル・GLB と同じで、

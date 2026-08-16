@@ -23,6 +23,7 @@ import {
   getAssetFiles,
   getExtractedMetadata,
   glbUrl,
+  hasGlbCounts,
   postOpenBlender,
   postReveal,
   putPrivate,
@@ -271,7 +272,15 @@ export default function AssetDetail({
           <section className="flex flex-col gap-2.5">
             <SectionLabel>メタデータ</SectionLabel>
             <div className="flex flex-col border border-border">
-              <MetaRow index={0} label="OBJECTS" value={metadata?.objectCount} />
+              {/* オブジェクト数とシェイプキー数は GLB を数えた値。古いキャッシュの
+                  同名の値は .blend の統計で、GLB ビューワの中身と食い違うので
+                  出さない(ADR-0006) */}
+              <MetaRow
+                index={0}
+                label="OBJECTS"
+                value={hasGlbCounts(metadata) ? metadata?.objectCount : undefined}
+                hint={OLD_CACHE_HINT}
+              />
               <MetaRow index={1} label="COLLECTIONS" value={metadata?.collectionCount} />
               <MetaRow index={2} label="MATERIALS" value={metadata?.materialCount} />
               <MetaRow index={3} label="POLYGONS" value={metadata?.polygonCount} />
@@ -281,7 +290,12 @@ export default function AssetDetail({
                 label="ANIMATION"
                 value={metadata ? (metadata.hasAnimation ? 'あり' : 'なし') : undefined}
               />
-              <MetaRow index={6} label="SHAPE KEYS" value={metadata?.shapeKeyCount} />
+              <MetaRow
+                index={6}
+                label="SHAPE KEYS"
+                value={hasGlbCounts(metadata) ? metadata?.shapeKeyCount : undefined}
+                hint={OLD_CACHE_HINT}
+              />
             </div>
           </section>
 
@@ -361,15 +375,20 @@ function EmptyViewport({
   );
 }
 
-// メタデータ表の 1 行(奇数行 surface-2 / 偶数行 surface のストライプ)
+const OLD_CACHE_HINT = '再生成すると表示されます';
+
+// メタデータ表の 1 行(奇数行 surface-2 / 偶数行 surface のストライプ)。
+// hint は値が出せない理由を添えるためのもの(ADR-0006 の古いキャッシュ)
 function MetaRow({
   index,
   label,
   value,
+  hint,
 }: {
   index: number;
   label: string;
   value: number | string | undefined;
+  hint?: string;
 }) {
   return (
     <div
@@ -377,6 +396,7 @@ function MetaRow({
         'flex items-center justify-between gap-3 px-3 py-2',
         index % 2 === 0 ? 'bg-surface-2' : 'bg-surface',
       )}
+      title={value === undefined ? hint : undefined}
     >
       <span className="font-mono text-[10px] tracking-[0.5px] text-ink-faint">{label}</span>
       <span className="font-mono text-[11px] text-ink">
