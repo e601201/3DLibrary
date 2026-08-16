@@ -49,11 +49,14 @@ export function ObjectPanel({
       onPointerLeave={() => onHover(null)}
     >
       <div className="flex items-baseline justify-between gap-2">
-        {/* 総数は出さない。サイドバーの OBJECTS は .blend の全オブジェクト数
-            (カメラやライトも含む)で、GLB の中身とは数が合わないため */}
+        {/* 総数はここが読み込んだ GLB そのものの数なので常に正しい。サイドバーの
+            OBJECTS も同じ数を指す(ADR-0006)が、あちらは古いキャッシュだと空に
+            なるため、総数はこちらにも出す */}
         <p className="font-mono text-[10px] leading-none tracking-[1px] text-stage-ink-faint">
-          OBJECTS{' '}
-          {hidden.length > 0 && <span className="text-stage-accent">{hidden.length} 非表示</span>}
+          OBJECTS {objects.length}
+          {hidden.length > 0 && (
+            <span className="text-stage-accent"> ・ {hidden.length} 非表示</span>
+          )}
         </p>
         {/* 押しても何も起きないボタンを常設しないよう、隠れているときだけ出す */}
         {hidden.length > 0 && (

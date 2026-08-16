@@ -38,6 +38,11 @@ SPRITE_ROWS = 6
 SPRITE_FRAME_PX = 512
 SPRITE_QUALITY = 80
 
+# 抽出メタデータの世代印(ADR-0006)。オブジェクト数とシェイプキー数の意味が
+# 「.blend の統計」から「書き出した GLB の実測」に変わった境目で、この印を
+# 持たない JSON は旧い意味の値を持つ。読む側はそれを見分けて出さない。
+METADATA_VERSION = 1
+
 
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1 :]
@@ -48,15 +53,17 @@ def parse_args():
 
 
 def extract_metadata():
+    """.blend 側の統計。GLB の中身とは一致しないことがある(ADR-0006)。
+    オブジェクト数・ポリゴン数・シェイプキー数はここでは採らず、
+    書き出した GLB から数える(glb_counts)。"""
     images = [i for i in bpy.data.images if i.name not in ("Render Result", "Viewer Node")]
     scene = bpy.context.scene
     return {
-        "objectCount": len(bpy.data.objects),
+        "metadataVersion": METADATA_VERSION,
         "collectionCount": len(bpy.data.collections),
         "materialCount": len(bpy.data.materials),
         "textureCount": len(images),
         "hasAnimation": bool(bpy.data.actions),
-        "shapeKeyCount": shape_key_count(),
         # glTF は時間を秒でしか持たないので、ビューワがフレーム番号を
         # 復元できるようフレームレートを渡す。29.97 のような端数は
         # fps / fps_base で表される
@@ -71,43 +78,52 @@ def shape_key_count_of(data):
     return max(0, len(keys.key_blocks) - 1) if keys else 0
 
 
-def shape_key_count():
-    """表示用の総数。ビューワはオブジェクトごとにシェイプキーを並べるので、
-    メッシュを共有していてもオブジェクト単位で数える。"""
-    return sum(shape_key_count_of(obj.data) for obj in bpy.data.objects)
-
-
 def any_mesh_has_shape_keys():
     """エクスポータの export_apply と両立しないシェイプキーがあるか
-    (ADR-0005)。表示用の shape_key_count とは目的が違うので別に数える。"""
+    (ADR-0005)。表示するシェイプキー数とは目的が違い、こちらは
+    エクスポート前の .blend を見て経路を選ぶための判定。"""
     return any(
         obj.type == "MESH" and shape_key_count_of(obj.data) > 0 for obj in bpy.data.objects
     )
 
 
-def glb_polygon_count(path):
-    """書き出した GLB に入っている三角形の数。.blend のベースメッシュでは
+def glb_counts(path):
+    """書き出した GLB を数えた統計(ADR-0006)。.blend のベースメッシュでは
     なくエクスポート結果を数えるので、モディファイアーの適用・三角形分割・
-    インスタンスの展開まで含めてビューワーの表示内容と一致する。"""
+    インスタンスの展開・エクスポート対象外の除外まで含めて、GLB ビューワの
+    表示内容と一致する。"""
     with open(path, "rb") as f:
-        data = f.read()
-    # GLB ヘッダ 12 バイトの直後が JSON チャンク(長さ 4 + 種別 4 + 本体)
-    json_length = struct.unpack("<I", data[12:16])[0]
-    gltf = json.loads(data[20 : 20 + json_length])
+        # GLB ヘッダ 12 バイトの直後が JSON チャンク(長さ 4 + 種別 4 + 本体)。
+        # 後続のバイナリチャンクは数百 MB になるので読まない
+        header = f.read(20)
+        json_length = struct.unpack("<I", header[12:16])[0]
+        gltf = json.loads(f.read(json_length))
     accessors = gltf.get("accessors", [])
 
-    per_mesh = []
+    triangles = []
+    morphs = []
     for mesh in gltf.get("meshes", []):
-        triangles = 0
+        count = 0
         for prim in mesh.get("primitives", []):
             if prim.get("mode", 4) != 4:  # 4 = TRIANGLES(省略時の既定値)
                 continue
             index = prim.get("indices")
-            count = accessors[index]["count"] if index is not None else accessors[prim["attributes"]["POSITION"]]["count"]
-            triangles += count // 3
-        per_mesh.append(triangles)
-    # 同じメッシュを複数ノードが参照している(インスタンス)ぶんも数える
-    return sum(per_mesh[n["mesh"]] for n in gltf.get("nodes", []) if "mesh" in n)
+            n = accessors[index]["count"] if index is not None else accessors[prim["attributes"]["POSITION"]]["count"]
+            count += n // 3
+        triangles.append(count)
+        # マルチマテリアルで分かれたプリミティブには同じモーフが載るので、
+        # 足さずに最大を採る(ビューワもオブジェクトとキー名で 1 本にまとめる)
+        morphs.append(max((len(p.get("targets", [])) for p in mesh.get("primitives", [])), default=0))
+
+    # メッシュを持つノード 1 つがオブジェクト 1 つ。ボーンや Empty はノードでは
+    # あってもメッシュを持たないので数に入らない。同じメッシュを複数のノードが
+    # 参照している(インスタンス)ぶんは、それぞれ 1 つと数える
+    with_mesh = [n["mesh"] for n in gltf.get("nodes", []) if "mesh" in n]
+    return {
+        "objectCount": len(with_mesh),
+        "polygonCount": sum(triangles[m] for m in with_mesh),
+        "shapeKeyCount": sum(morphs[m] for m in with_mesh),
+    }
 
 
 def unresolved_images():
@@ -399,8 +415,9 @@ def main():
     bpy.ops.export_scene.gltf(
         filepath=args["glb"], export_format="GLB", export_apply=export_apply
     )
-    # ポリゴン数は書き出した GLB から数える(モディファイアー適用後の実体)
-    meta["polygonCount"] = glb_polygon_count(args["glb"])
+    # オブジェクト数・ポリゴン数・シェイプキー数は書き出した GLB から数える
+    # (モディファイアー適用後の実体。ADR-0006)
+    meta.update(glb_counts(args["glb"]))
 
     cam = frame_camera(scene, center, radius)
     meta["thumbnailShading"] = render_thumbnail(args["thumb"], int(args["size"]), not missing)
