@@ -5,6 +5,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Camera,
+  Eye,
+  EyeOff,
   Film,
   Grid3x3,
   Maximize,
@@ -37,6 +39,7 @@ import {
   type Motion,
   type ShapeKey,
 } from './MotionPreview';
+import { ObjectPanel, type ViewerObject } from './ObjectPanel';
 import { OverlayChip, cx, type LucideIcon } from './ui';
 
 type Props = {
@@ -78,6 +81,10 @@ type ViewerApi = {
   setExposure: (value: number) => void;
   snapshot: () => void;
   selectObject: (objectId: string | null) => void;
+  setObjectVisible: (objectId: string, visible: boolean) => void;
+  isolateObject: (objectId: string) => void;
+  showAllObjects: () => void;
+  hoverObject: (objectId: string | null) => void;
   selectClip: (index: number) => void;
   setPlaying: (on: boolean) => void;
   setLoop: (on: boolean) => void;
@@ -115,6 +122,12 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
   const [influences, setInfluences] = useState<number[]>([]);
   // オブジェクト選択。null は絞り込みなしで、モーションプレビューは全表示になる
   const [selectedObject, setSelectedObject] = useState<string | null>(null);
+
+  // オブジェクト非表示。objects は描画されるオブジェクトを GLB の出現順に並べた
+  // もので、hidden はそのうち隠しているものの id。表示だけの状態なので保存しない
+  const [objects, setObjects] = useState<ViewerObject[]>([]);
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [objectsOpen, setObjectsOpen] = useState(false);
 
   // スクリーンショットのファイル名にしか使わないので、
   // 変わってもシーンを作り直さないよう ref で持つ
@@ -157,6 +170,10 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
     setTime(0);
     setInfluences([]);
     setSelectedObject(null);
+    // 再生成でオブジェクト構成も変わり得るので、非表示も引き継がない
+    setObjects([]);
+    setHidden([]);
+    setObjectsOpen(false);
 
     let disposed = false;
     let cleanup: (() => void) | null = null;
@@ -313,6 +330,12 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         return chain;
       };
 
+      // GLTFLoader が名前から記号を落とすので、表示だけは Blender が付けた
+      // 元の名前に戻す。オブジェクト一覧とモーションパネルで名前が食い違わない
+      // よう、両方ここを通す
+      const displayNameOf = (obj: Object3D) =>
+        typeof obj.userData.name === 'string' ? obj.userData.name : obj.name || 'Object';
+
       // --- オブジェクト選択 ---
       // 選択単位は Blender のオブジェクト。glTF ではノードがそれに当たるが、
       // マルチマテリアルのメッシュは複数の子メッシュに分かれるので、レイキャストで
@@ -326,6 +349,16 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         // ノードを辿れない GLB でも、選択そのものは成立させる
         ancestorsOf(obj).find(isObjectNode) ?? obj;
 
+      // --- オブジェクト非表示 ---
+      // 隠せるのは描画されるオブジェクトだけ。ボーンや Empty を隠しても何も
+      // 消えないので、一覧にも一括操作の対象にも入れない。実体は読み込み後に埋まる
+      const renderables: { id: string; object: Object3D }[] = [];
+      let hoverBox: BoxHelper | null = null;
+
+      // three の visible は親から継がれるので、祖先まで見て初めて
+      // 「いま画面に出ているか」が決まる
+      const isRendered = (obj: Object3D) => ancestorsOf(obj).every((o) => o.visible);
+
       // 選択中のオブジェクトをもう一度選ぶと解除。ビューポートの再クリックと
       // パネル見出しの再クリックを、ここ 1 か所で同じ挙動に揃える
       const select = (object: Object3D | null) => {
@@ -338,6 +371,12 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         setSelectedObject(selectedId);
       };
 
+      // 隠したものは「いないもの」として扱うので、選択したまま消えたら外す
+      const dropSelectionIfHidden = () => {
+        const selected = selectedId ? objectsById.get(selectedId) : null;
+        if (selected && !isRendered(selected)) select(null);
+      };
+
       const raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2();
       // 何も当たらない空クリックは解除
@@ -348,9 +387,11 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
           -((e.clientY - rect.top) / rect.height) * 2 + 1,
         );
         raycaster.setFromCamera(pointer, camera);
-        // 子として重ねたワイヤーは選択対象ではないので、面のメッシュだけを見る
+        // 子として重ねたワイヤーは選択対象ではないので、面のメッシュだけを見る。
+        // three の Raycaster は visible を見ないため、隠したオブジェクトは
+        // ここで外さないと、消えた外装を掴んで中身をクリックできなくなる
         const hit = raycaster.intersectObjects(
-          shadedMeshes.map((s) => s.mesh),
+          shadedMeshes.filter((s) => isRendered(s.mesh)).map((s) => s.mesh),
           false,
         )[0];
         select(hit ? objectOf(hit.object) : null);
@@ -463,6 +504,7 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         // 姿勢は変わるので、再生中かどうかでは絞らない(枠が元にするのは素の
         // ジオメトリの範囲なので、スキンやモーフの変形までは追わない)
         if (selectionBox?.visible) selectionBox.update();
+        if (hoverBox?.visible) hoverBox.update();
         controls.update();
         renderer.clear();
         renderer.render(scene, camera);
@@ -494,6 +536,15 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
           selectionBox.material.depthTest = false;
           selectionBox.renderOrder = 1;
           scene.add(selectionBox);
+          // 一覧の行をホバーしている間の枠。選択枠と同時に出るので、
+          // どちらが選択かを色で分ける(選択 = 紫 / ホバー = 白の細線)
+          hoverBox = new THREE.BoxHelper(gltf.scene, 0xffffff);
+          hoverBox.visible = false;
+          hoverBox.material.depthTest = false;
+          hoverBox.material.transparent = true;
+          hoverBox.material.opacity = 0.5;
+          hoverBox.renderOrder = 1;
+          scene.add(hoverBox);
           // クリップ切替時に戻す基準姿勢(ワイヤーを足す前の素の状態)
           gltf.scene.traverse((obj) => {
             restPose.push({
@@ -557,6 +608,16 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
           }
           applyShade(shadeModeRef.current, wireOverlayRef.current);
 
+          // 隠せるオブジェクトを GLB の出現順に並べる。名前順にすると
+          // tripo_part_10 が tripo_part_2 より前に来てしまう
+          for (const mesh of meshes) {
+            const object = objectOf(mesh);
+            if (renderables.some((r) => r.id === object.uuid)) continue;
+            objectsById.set(object.uuid, object);
+            renderables.push({ id: object.uuid, object });
+          }
+          setObjects(renderables.map((r) => ({ id: r.id, name: displayNameOf(r.object) })));
+
           // シェイプキー(GLB ではモーフターゲット)を、メッシュと添字に
           // 結びつけたうえで平らに並べる。マルチマテリアルのオブジェクトは
           // 分割後のメッシュそれぞれに同じキーが載るので、オブジェクトとキー名で
@@ -569,14 +630,10 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
             if (!values || !dictionary) continue;
             const names: string[] = [];
             for (const [name, i] of Object.entries(dictionary)) names[i] = name;
-            // 見出しはオブジェクト単位。GLTFLoader が名前から記号を落とすので、
-            // 表示だけは Blender が付けた元の名前に戻す
+            // 見出しはオブジェクト単位
             const object = objectOf(mesh);
             objectsById.set(object.uuid, object);
-            const objectName =
-              typeof object.userData.name === 'string'
-                ? object.userData.name
-                : object.name || 'Object';
+            const objectName = displayNameOf(object);
             for (let i = 0; i < values.length; i++) {
               const name = names[i] ?? `Key ${i}`;
               const slot = `${object.uuid}\n${name}`;
@@ -696,10 +753,12 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         },
         // preserveDrawingBuffer を有効にしなくて済むよう、描画直後に読み出す。
         // ギズモ抜きで本体シーンだけを描き直してから読むので、PNG にギズモは写らない
-        // 選択枠は画面上の目印でしかないので、撮る間だけ隠す
+        // 選択枠とホバー枠は画面上の目印でしかないので、撮る間だけ隠す
         snapshot: () => {
           const framed = selectionBox?.visible ?? false;
+          const hovered = hoverBox?.visible ?? false;
           if (selectionBox) selectionBox.visible = false;
+          if (hoverBox) hoverBox.visible = false;
           renderer.clear();
           renderer.render(scene, camera);
           const link = document.createElement('a');
@@ -707,9 +766,30 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
           link.download = `${titleRef.current}.png`;
           link.click();
           if (selectionBox) selectionBox.visible = framed;
+          if (hoverBox) hoverBox.visible = hovered;
         },
         selectObject: (objectId) => {
           select(objectId === null ? null : (objectsById.get(objectId) ?? null));
+        },
+        setObjectVisible: (objectId, visible) => {
+          const object = objectsById.get(objectId);
+          if (object) object.visible = visible;
+          dropSelectionIfHidden();
+        },
+        isolateObject: (objectId) => {
+          for (const r of renderables) r.object.visible = r.id === objectId;
+          dropSelectionIfHidden();
+        },
+        showAllObjects: () => {
+          for (const r of renderables) r.object.visible = true;
+        },
+        // 隠れているオブジェクトにも枠を出す。名前だけでは戻すべき対象か
+        // 判断できないので、位置と大きさを手がかりにできるようにする
+        hoverObject: (objectId) => {
+          if (!hoverBox) return;
+          const object = objectId === null ? null : (objectsById.get(objectId) ?? null);
+          if (object) hoverBox.setFromObject(object);
+          hoverBox.visible = object !== null;
         },
         selectClip: (index) => {
           const action = ensureAction(index);
@@ -873,6 +953,72 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
     apiRef.current?.resetInfluences();
   };
 
+  // --- オブジェクト非表示 ---
+  // 「単独表示中」というモードは持たない。状態は各オブジェクトの表示・非表示
+  // だけで、単独表示はそれを一括で書き換える操作にすぎない
+  const hideObject = (objectId: string) => {
+    if (hidden.includes(objectId)) return;
+    setHidden([...hidden, objectId]);
+    apiRef.current?.setObjectVisible(objectId, false);
+  };
+
+  const toggleObject = (objectId: string) => {
+    if (hidden.includes(objectId)) {
+      setHidden(hidden.filter((id) => id !== objectId));
+      apiRef.current?.setObjectVisible(objectId, true);
+    } else {
+      hideObject(objectId);
+    }
+  };
+
+  const showAllObjects = () => {
+    setHidden([]);
+    apiRef.current?.showAllObjects();
+  };
+
+  const isolateObject = (objectId: string) => {
+    // 既にこれだけになっているなら、もう一度で全表示へ戻す(Blender と同じ)
+    if (!hidden.includes(objectId) && hidden.length === objects.length - 1) {
+      showAllObjects();
+      return;
+    }
+    setHidden(objects.filter((o) => o.id !== objectId).map((o) => o.id));
+    apiRef.current?.isolateObject(objectId);
+  };
+
+  // H で選択中を隠し、Alt+H ですべて戻す(Blender と同じ割り当て)。ビューワと
+  // 同じ画面にタグ入力欄があるので、入力中は必ず素通しする(「ハロウィン」と
+  // 打っただけでオブジェクトが消えないように)
+  useEffect(() => {
+    if (objects.length < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyH' || e.ctrlKey || e.metaKey) return;
+      const focused = document.activeElement;
+      if (
+        focused instanceof HTMLInputElement ||
+        focused instanceof HTMLTextAreaElement ||
+        (focused instanceof HTMLElement && focused.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.altKey) {
+        e.preventDefault();
+        showAllObjects();
+      } else if (selectedObject !== null) {
+        e.preventDefault();
+        hideObject(selectedObject);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [objects.length, selectedObject, hidden]);
+
+  // パネルを閉じるときは行から外れる pointerleave が来ないことがあるので、
+  // ホバー枠を明示的に消す
+  useEffect(() => {
+    if (!objectsOpen) apiRef.current?.hoverObject(null);
+  }, [objectsOpen]);
+
   const toggleFullscreen = () => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
@@ -899,6 +1045,13 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
     >
       <div ref={containerRef} className="h-full w-full" />
 
+      {/* 空のビューポートは読み込み失敗の見た目でもあるので、黙って消さない */}
+      {objects.length > 0 && hidden.length === objects.length && !error && (
+        <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-[13px] text-stage-ink-muted">
+          すべてのオブジェクトを非表示にしています
+        </p>
+      )}
+
       <div className="pointer-events-none absolute inset-0 flex flex-col justify-between gap-3 p-4">
         <div className="flex min-h-0 flex-col items-start gap-2">
           <div className="flex w-full items-start justify-between gap-3">
@@ -922,6 +1075,21 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
                   active={autoRotate}
                   onClick={() => setAutoRotate((v) => !v)}
                 />
+                {/* 1 オブジェクトの GLB では、隠せる先が画面を空にすることしか
+                    ないので出さない。アイコンは隠しているものがあるかを表し、
+                    枠のアクセント色は従来どおりパネルの開閉を表す */}
+                {objects.length >= 2 && (
+                  <ViewportTool
+                    icon={hidden.length > 0 ? EyeOff : Eye}
+                    label={
+                      hidden.length > 0
+                        ? `オブジェクト(${hidden.length} 個を非表示中)`
+                        : 'オブジェクト'
+                    }
+                    active={objectsOpen}
+                    onClick={() => setObjectsOpen((v) => !v)}
+                  />
+                )}
                 {/* シェイプキーもクリップも無い GLB では出さない */}
                 {hasMotion && (
                   <ViewportTool
@@ -958,6 +1126,18 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
               )}
             </div>
           </div>
+          {objectsOpen && objects.length >= 2 && (
+            <ObjectPanel
+              objects={objects}
+              hidden={hidden}
+              selectedObjectId={selectedObject}
+              onSelect={(objectId) => apiRef.current?.selectObject(objectId)}
+              onToggle={toggleObject}
+              onIsolate={isolateObject}
+              onHover={(objectId) => apiRef.current?.hoverObject(objectId)}
+              onShowAll={showAllObjects}
+            />
+          )}
           {motionOpen && motion && (
             <MotionPanel
               motion={motion}
