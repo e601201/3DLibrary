@@ -1,6 +1,6 @@
 module github.com/e601201/3DLibrary
 
-go 1.26.5
+go 1.27.0
 
 require (
 	github.com/glebarez/sqlite v1.11.0
