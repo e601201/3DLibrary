@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   Film,
+  Glasses,
   Grid3x3,
   Maximize,
   Move,
@@ -20,6 +21,7 @@ import type {
   AnimationAction,
   AnimationClip,
   AnimationMixer,
+  Box3,
   BoxHelper,
   KeyframeTrack,
   Material,
@@ -41,6 +43,7 @@ import {
 } from './MotionPreview';
 import { ObjectPanel, type ViewerObject } from './ObjectPanel';
 import { OverlayChip, cx, type LucideIcon } from './ui';
+import { VR_REACH, vrPlacementFor } from './vrPlacement';
 
 type Props = {
   url: string; // GLB の配信 URL
@@ -92,6 +95,7 @@ type ViewerApi = {
   setInfluence: (index: number, value: number) => void;
   resetInfluences: () => void;
   syncInfluences: () => void;
+  enterVr: () => void;
 };
 
 // 回転 = 左ドラッグ、パン = SHIFT / Ctrl / Cmd + 左ドラッグ / 右ドラッグ、
@@ -110,6 +114,10 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
   const [exposure, setExposure] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fps, setFps] = useState<number | null>(null);
+  // WebXR はセキュアコンテキスト(https か localhost)でしか使えない。
+  // Quest からは adb reverse 経由の http://localhost で開くので条件を満たす
+  const [vrSupported, setVrSupported] = useState(false);
+  const [inVr, setInVr] = useState(false);
 
   // モーションプレビュー。読み込んだ GLB にシェイプキーもクリップも
   // 無ければ motion は空のまま、UI も一切出さない
@@ -196,12 +204,18 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         0.01,
         1000,
       );
+      // VR で歩き回るための台車。XR は頭の姿勢をカメラの親から見た位置として
+      // 書き込むので、親ごと動かせば視点が移動する。VR の外では原点に置いたまま
+      const rig = new THREE.Group();
+      rig.add(camera);
+      scene.add(rig);
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(container.clientWidth, container.clientHeight);
       // 明るさは露出(トーンマッピング)で変える。Neutral はアセットの色を保つ
       renderer.toneMapping = THREE.NeutralToneMapping;
       renderer.toneMappingExposure = exposureRef.current;
+      renderer.xr.enabled = true;
       container.appendChild(renderer.domElement);
 
       const hemi = new THREE.HemisphereLight(0xffffff, 0x555566, 2.5);
@@ -282,7 +296,15 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       // デザインのビューポートはアクセント色のグリッド床が敷かれている
       const gridHelper = new THREE.GridHelper(10, 20, 0xa855f7, 0x3b2a4d);
       gridHelper.visible = gridRef.current;
-      scene.add(gridHelper);
+
+      // モデルとグリッドを載せる台。VR ではこれを動かして目の前へ置き、
+      // コントローラーで掴む。GLB のルートを直接動かすと、クリップ切替で
+      // 基準姿勢に戻す処理(restPose)に位置ごと巻き戻されてしまう。
+      // 選択枠・ホバー枠はワールド座標で枠を取るので、台には載せずシーン直下に置く
+      const stage = new THREE.Group();
+      stage.add(gridHelper);
+      scene.add(stage);
+      let modelBox: Box3 | null = null; // 台が原点にあるときのモデルの範囲
 
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
@@ -480,14 +502,15 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       // ギズモを本体シーンの上に重ねるため、クリアは手動で行う
       renderer.autoClear = false;
       const clock = new THREE.Clock();
-      let raf = 0;
       let frames = 0;
       let lastFpsAt = performance.now();
       let lastMotionPushAt = 0;
+      // XR セッション中は requestAnimationFrame がヘッドセットの描画に同期しない
+      // ので、ループは setAnimationLoop で回す(通常時は rAF と同じに動く)
       const renderLoop = () => {
-        raf = requestAnimationFrame(renderLoop);
         const delta = clock.getDelta();
-        if (viewHelper.animating) viewHelper.update(delta);
+        const presenting = renderer.xr.isPresenting;
+        if (!presenting && viewHelper.animating) viewHelper.update(delta);
         // 一時停止中は mixer を回さない。回すと、ユーザーがいじった
         // シェイプキーの値をクリップが毎フレーム上書きしてしまう
         if (mixer && playingRef.current) {
@@ -505,10 +528,16 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         // ジオメトリの範囲なので、スキンやモーフの変形までは追わない)
         if (selectionBox?.visible) selectionBox.update();
         if (hoverBox?.visible) hoverBox.update();
-        controls.update();
-        renderer.clear();
-        renderer.render(scene, camera);
-        viewHelper.render(renderer);
+        if (presenting) {
+          // VR ではカメラ = 頭の動きそのもの。軌道操作とギズモは効かせない
+          locomote(delta);
+          renderer.render(scene, camera);
+        } else {
+          controls.update();
+          renderer.clear();
+          renderer.render(scene, camera);
+          viewHelper.render(renderer);
+        }
         frames++;
         const now = performance.now();
         if (now - lastFpsAt >= 500) {
@@ -522,7 +551,7 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         url,
         (gltf) => {
           if (disposed) return;
-          scene.add(gltf.scene);
+          stage.add(gltf.scene);
           // GLTFLoader は生成した three のオブジェクトと glTF 要素の対応を残す。
           // nodes を持つものが Blender のオブジェクトに当たるノード
           const associations = gltf.parser.associations;
@@ -558,6 +587,7 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
           const box = new THREE.Box3().setFromObject(gltf.scene);
           const center = box.getCenter(new THREE.Vector3());
           const size = box.getSize(new THREE.Vector3());
+          modelBox = box.clone();
           const radius = Math.max(size.length() / 2, 0.5);
           camera.position.copy(
             center.clone().add(new THREE.Vector3(1, 0.7, 1).normalize().multiplyScalar(radius * 2.5)),
@@ -730,6 +760,8 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       );
 
       const onResize = () => {
+        // VR 中の描画サイズはヘッドセットが決める(three も変更を拒む)
+        if (renderer.xr.isPresenting) return;
         camera.aspect = container.clientWidth / container.clientHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(container.clientWidth, container.clientHeight);
@@ -737,7 +769,140 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       const resizeObserver = new ResizeObserver(onResize);
       resizeObserver.observe(container);
 
-      renderLoop();
+      // --- VR ---
+      // 台を目の前に置く。VR を抜けたら原点へ戻すので、画面側の表示には響かない
+      const placeStage = () => {
+        stage.position.set(0, 0, 0);
+        stage.quaternion.identity();
+        stage.scale.setScalar(1);
+        if (!modelBox) return;
+        const size = modelBox.getSize(new THREE.Vector3());
+        const center = modelBox.getCenter(new THREE.Vector3());
+        const { scale, lift } = vrPlacementFor(size);
+        // 手前の縁が VR_REACH に来るよう、奥行きの半分だけさらに奥へ
+        const distance = VR_REACH + (size.z * scale) / 2;
+        stage.scale.setScalar(scale);
+        stage.position.set(
+          -center.x * scale,
+          lift - modelBox.min.y * scale,
+          -distance - center.z * scale,
+        );
+      };
+
+      // グリップ(中指のボタン)を握っている間、台がコントローラーについてくる。
+      // attach はワールド上の見た目を保ったまま親を付け替えるので、握った瞬間に
+      // モデルが跳ばない。両手で握ったときは先に握った方だけが持つ
+      let grabbedBy: Object3D | null = null;
+      const controllers = [0, 1].map((i) => {
+        const controller = renderer.xr.getController(i);
+        // コントローラーのモデルは外部 CDN から取るので使わず、向きを示す短い線で代える
+        const ray = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, -0.15),
+          ]),
+          new THREE.LineBasicMaterial({ color: 0xa855f7 }),
+        );
+        controller.add(ray);
+        const onSqueezeStart = () => {
+          if (grabbedBy) return;
+          grabbedBy = controller;
+          controller.attach(stage);
+        };
+        const onSqueezeEnd = () => {
+          if (grabbedBy !== controller) return;
+          grabbedBy = null;
+          scene.attach(stage);
+        };
+        controller.addEventListener('squeezestart', onSqueezeStart);
+        controller.addEventListener('squeezeend', onSqueezeEnd);
+        rig.add(controller);
+        return { controller, ray, onSqueezeStart, onSqueezeEnd };
+      });
+
+      // スティックで視点を動かす。左 = 頭の向きを基準に水平移動、
+      // 右の左右 = スナップ回転(なめらかに回すと酔いやすい)、右の上下 = 上昇・下降。
+      // 回転は台車の原点ではなく頭の位置を軸にする(でないと体が振り回される)
+      const MOVE_SPEED = 1.5; // m/s
+      const SNAP_ANGLE = Math.PI / 4;
+      const DEAD_ZONE = 0.15;
+      const UP = new THREE.Vector3(0, 1, 0);
+      const forward = new THREE.Vector3();
+      const right = new THREE.Vector3();
+      const head = new THREE.Vector3();
+      let snapped = false; // 右スティックを倒したまま連続で回らないよう、戻すまで待つ
+      const locomote = (delta: number) => {
+        const session = renderer.xr.getSession();
+        if (!session) return;
+        for (const source of session.inputSources) {
+          // xr-standard の割り当てでは axes[2], axes[3] がサムスティック
+          const x = source.gamepad?.axes[2] ?? 0;
+          const y = source.gamepad?.axes[3] ?? 0;
+          if (source.handedness === 'left') {
+            if (Math.hypot(x, y) < DEAD_ZONE) continue;
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            if (forward.lengthSq() === 0) continue; // 真上・真下を向いている
+            forward.normalize();
+            right.crossVectors(forward, UP);
+            const step = MOVE_SPEED * delta;
+            rig.position.addScaledVector(forward, -y * step).addScaledVector(right, x * step);
+          } else if (source.handedness === 'right') {
+            if (Math.abs(y) >= DEAD_ZONE) rig.position.y -= y * MOVE_SPEED * delta;
+            if (Math.abs(x) < 0.5) {
+              snapped = false;
+            } else if (!snapped) {
+              snapped = true;
+              const angle = x > 0 ? -SNAP_ANGLE : SNAP_ANGLE;
+              camera.getWorldPosition(head);
+              rig.position.sub(head).applyAxisAngle(UP, angle).add(head);
+              rig.rotateOnWorldAxis(UP, angle);
+            }
+          }
+        }
+      };
+
+      const resetRig = () => {
+        rig.position.set(0, 0, 0);
+        rig.quaternion.identity();
+        snapped = false;
+      };
+
+      // XR は頭の姿勢と視野角を画面用のカメラへ書き込むので、抜けたら戻す
+      const savedView = {
+        position: new THREE.Vector3(),
+        quaternion: new THREE.Quaternion(),
+        fov: camera.fov,
+      };
+      const onSessionStart = () => {
+        savedView.position.copy(camera.position);
+        savedView.quaternion.copy(camera.quaternion);
+        savedView.fov = camera.fov;
+        // ギズモを重ねないので、通常の自動クリアに任せる
+        renderer.autoClear = true;
+        resetRig();
+        placeStage();
+        setInVr(true);
+      };
+      const onSessionEnd = () => {
+        if (grabbedBy) scene.attach(stage);
+        grabbedBy = null;
+        resetRig();
+        stage.position.set(0, 0, 0);
+        stage.quaternion.identity();
+        stage.scale.setScalar(1);
+        camera.position.copy(savedView.position);
+        camera.quaternion.copy(savedView.quaternion);
+        camera.fov = savedView.fov;
+        renderer.autoClear = false;
+        onResize();
+        controls.update();
+        setInVr(false);
+      };
+      renderer.xr.addEventListener('sessionstart', onSessionStart);
+      renderer.xr.addEventListener('sessionend', onSessionEnd);
+
+      renderer.setAnimationLoop(renderLoop);
 
       apiRef.current = {
         setGrid: (visible) => {
@@ -828,11 +993,30 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
           applySliderValues();
         },
         syncInfluences: () => setInfluences(readInfluences()),
+        // requestSession はユーザー操作の中で呼ぶ必要がある。クリックから
+        // ここまで await を挟まないこと
+        enterVr: () => {
+          if (!navigator.xr || renderer.xr.isPresenting) return;
+          renderer.xr.setReferenceSpaceType('local-floor');
+          navigator.xr
+            .requestSession('immersive-vr', { optionalFeatures: ['local-floor'] })
+            .then((session) => renderer.xr.setSession(session))
+            .catch((e) => console.error('VR を開始できませんでした', e));
+        },
       };
 
       cleanup = () => {
         apiRef.current = null;
-        cancelAnimationFrame(raf);
+        renderer.setAnimationLoop(null);
+        void renderer.xr.getSession()?.end();
+        renderer.xr.removeEventListener('sessionstart', onSessionStart);
+        renderer.xr.removeEventListener('sessionend', onSessionEnd);
+        for (const c of controllers) {
+          c.controller.removeEventListener('squeezestart', c.onSqueezeStart);
+          c.controller.removeEventListener('squeezeend', c.onSqueezeEnd);
+          c.ray.geometry.dispose();
+          c.ray.material.dispose();
+        }
         mixer?.stopAllAction();
         renderer.domElement.removeEventListener('pointerdown', onPointerDown);
         renderer.domElement.removeEventListener('pointerup', onPointerUp);
@@ -863,6 +1047,20 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       cleanup?.();
     };
   }, [url]);
+
+  // 対応していなければボタン自体を出さない(PC のブラウザでは通常こちら)
+  useEffect(() => {
+    let cancelled = false;
+    navigator.xr
+      ?.isSessionSupported('immersive-vr')
+      .then((ok) => {
+        if (!cancelled) setVrSupported(ok);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     apiRef.current?.setGrid(grid);
@@ -1111,6 +1309,14 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
                   onClick={() => apiRef.current?.snapshot()}
                 />
                 <ViewportTool icon={Maximize} label="全画面表示" onClick={toggleFullscreen} />
+                {vrSupported && (
+                  <ViewportTool
+                    icon={Glasses}
+                    label="VR で見る"
+                    active={inVr}
+                    onClick={() => apiRef.current?.enterVr()}
+                  />
+                )}
               </div>
               {settingsOpen && (
                 <ViewerSettings
