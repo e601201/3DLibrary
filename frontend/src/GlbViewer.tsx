@@ -831,10 +831,19 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       const right = new THREE.Vector3();
       const head = new THREE.Vector3();
       let snapped = false; // 右スティックを倒したまま連続で回らないよう、戻すまで待つ
+      // end() は終了まで数フレームかかるので、その間に押されっぱなしの B で
+      // 何度も呼ばないようにする
+      let ending = false;
       const locomote = (delta: number) => {
         const session = renderer.xr.getSession();
         if (!session) return;
         for (const source of session.inputSources) {
+          // 右の B ボタン(xr-standard の buttons[5])で VR を抜ける
+          if (source.handedness === 'right' && source.gamepad?.buttons[5]?.pressed && !ending) {
+            ending = true;
+            void session.end();
+            return;
+          }
           // xr-standard の割り当てでは axes[2], axes[3] がサムスティック
           const x = source.gamepad?.axes[2] ?? 0;
           const y = source.gamepad?.axes[3] ?? 0;
@@ -866,6 +875,7 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
         rig.position.set(0, 0, 0);
         rig.quaternion.identity();
         snapped = false;
+        ending = false;
       };
 
       // XR は頭の姿勢と視野角を画面用のカメラへ書き込むので、抜けたら戻す
