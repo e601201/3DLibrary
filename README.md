@@ -7,7 +7,7 @@ UI は [design/Design.pen](./design/Design.pen)(Pencil)を正とする。配色�
 
 ## 必要環境
 
-- Go 1.26+
+- Go 1.27+
 - Node.js 24+ / npm
 - Blender 5.2 LTS 以上(生成機能に必須)
 
