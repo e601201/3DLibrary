@@ -501,14 +501,14 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
 
       // ギズモを本体シーンの上に重ねるため、クリアは手動で行う
       renderer.autoClear = false;
-      const clock = new THREE.Clock();
+      const timer = new THREE.Timer();
       let frames = 0;
       let lastFpsAt = performance.now();
       let lastMotionPushAt = 0;
       // XR セッション中は requestAnimationFrame がヘッドセットの描画に同期しない
       // ので、ループは setAnimationLoop で回す(通常時は rAF と同じに動く)
       const renderLoop = () => {
-        const delta = clock.getDelta();
+        const delta = timer.update().getDelta();
         const presenting = renderer.xr.isPresenting;
         if (!presenting && viewHelper.animating) viewHelper.update(delta);
         // 一時停止中は mixer を回さない。回すと、ユーザーがいじった
