@@ -479,14 +479,14 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
 
       // ギズモを本体シーンの上に重ねるため、クリアは手動で行う
       renderer.autoClear = false;
-      const clock = new THREE.Clock();
+      const timer = new THREE.Timer();
       let raf = 0;
       let frames = 0;
       let lastFpsAt = performance.now();
       let lastMotionPushAt = 0;
       const renderLoop = () => {
         raf = requestAnimationFrame(renderLoop);
-        const delta = clock.getDelta();
+        const delta = timer.update().getDelta();
         if (viewHelper.animating) viewHelper.update(delta);
         // 一時停止中は mixer を回さない。回すと、ユーザーがいじった
         // シェイプキーの値をクリップが毎フレーム上書きしてしまう
