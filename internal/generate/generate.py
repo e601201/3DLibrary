@@ -214,10 +214,42 @@ def apply_modifiers_keeping_shape_keys():
                 print("3dlibrary: %s: could not apply %s: %s" % (obj.name, name, e))
 
 
+def disable_hidden_objects_for_render(scene):
+    """「ビューポートで無効」(モニター)のオブジェクト・コレクションを
+    「レンダーで無効」(カメラ)にも揃え、親コレクションのレンダー無効を
+    子コレクションへ伝える。以降はレンダー無効だけを見れば、GLB
+    (エクスポータの use_renderable)・サムネイル・スプライト・構図の
+    すべてから同じオブジェクトが外れる。目(一時的に隠す)は対象外。
+    削除ではなくフラグで外すのは、Boolean のカッターのように他の
+    モディファイアーから参照されるオブジェクトを壊さないため。"""
+    def walk(coll, inherited):
+        disabled = inherited or coll.hide_viewport or coll.hide_render
+        coll.hide_render = disabled
+        for child in coll.children:
+            walk(child, disabled)
+
+    for child in scene.collection.children:
+        walk(child, False)
+    for obj in scene.objects:
+        if obj.hide_viewport:
+            obj.hide_render = True
+
+
+def is_render_disabled(obj):
+    """エクスポータの use_renderable と同じ判定(オブジェクト自身か、
+    属するコレクションすべてがレンダー無効)。"""
+    if obj.hide_render:
+        return True
+    colls = obj.users_collection
+    return bool(colls) and all(c.hide_render for c in colls)
+
+
 def scene_bounds(scene):
-    """全ジオメトリを包む球(バウンディング中心と半径)。"""
+    """レンダー対象の全ジオメトリを包む球(バウンディング中心と半径)。"""
     corners = []
     for obj in scene.objects:
+        if is_render_disabled(obj):
+            continue
         if obj.type in {"MESH", "CURVE", "SURFACE", "META", "FONT"}:
             corners.extend(obj.matrix_world @ mathutils.Vector(c) for c in obj.bound_box)
     if not corners:
@@ -406,6 +438,7 @@ def main():
     # 無い .blend は従来どおりエクスポータに任せる(出力は変わらない)
     apply_render_modifier_settings()
     scene = bpy.context.scene
+    disable_hidden_objects_for_render(scene)
     # 構図はモディファイアー適用前のベースメッシュから決める。手動適用の
     # 有無でサムネイル・スプライトの構図が変わらないようにするため
     center, radius = scene_bounds(scene)
@@ -413,7 +446,10 @@ def main():
     if not export_apply:
         apply_modifiers_keeping_shape_keys()
     bpy.ops.export_scene.gltf(
-        filepath=args["glb"], export_format="GLB", export_apply=export_apply
+        filepath=args["glb"],
+        export_format="GLB",
+        export_apply=export_apply,
+        use_renderable=True,
     )
     # オブジェクト数・ポリゴン数・シェイプキー数は書き出した GLB から数える
     # (モディファイアー適用後の実体。ADR-0006)
