@@ -216,20 +216,25 @@ def apply_modifiers_keeping_shape_keys():
 
 
 def disable_hidden_objects_for_render(scene):
-    """「ビューポートで無効」(モニター)のオブジェクト・コレクションを
+    """「ビューポートで無効」(モニター)のオブジェクト・コレクションと、
+    ビューレイヤーから除外した(チェックボックスを外した)コレクションを
     「レンダーで無効」(カメラ)にも揃え、親コレクションのレンダー無効を
     子コレクションへ伝える。以降はレンダー無効だけを見れば、GLB
-    (エクスポータの use_renderable)・サムネイル・スプライト・構図の
+    (エクスポータの use_renderable)・USDZ・サムネイル・スプライト・構図の
     すべてから同じオブジェクトが外れる。目(一時的に隠す)は対象外。
+    除外を揃えるのは、glTF エクスポータの use_renderable が除外を見ず、
+    USD エクスポータは見るため(揃えないと GLB ビューワと AR 表示で
+    中身が食い違う)。
     削除ではなくフラグで外すのは、Boolean のカッターのように他の
     モディファイアーから参照されるオブジェクトを壊さないため。"""
-    def walk(coll, inherited):
-        disabled = inherited or coll.hide_viewport or coll.hide_render
+    def walk(layer_coll, inherited):
+        coll = layer_coll.collection
+        disabled = inherited or layer_coll.exclude or coll.hide_viewport or coll.hide_render
         coll.hide_render = disabled
-        for child in coll.children:
+        for child in layer_coll.children:
             walk(child, disabled)
 
-    for child in scene.collection.children:
+    for child in bpy.context.view_layer.layer_collection.children:
         walk(child, False)
     for obj in scene.objects:
         if obj.hide_viewport:
