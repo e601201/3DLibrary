@@ -22,6 +22,19 @@ go build -o bin/3dlibrary ./cmd/3dlibrary
 
 > `npm run build` を飛ばして `go build` だけ実行しても**ビルドは通る**が、UI が入っていないバイナリができる(`internal/web/static/.gitkeep` があるため `go:embed` が空にならず、エラーにならない)。`scripts/build.sh` は必ず両方を順に実行する。
 
+### バージョン
+
+バージョンの正は git タグ(`v0.1.0` など)。`go build` がタグとコミットからモジュールのバージョンを自動でバイナリに書き込むので、`-ldflags` は使わない。どのビルド方法でも同じように入り、`./bin/3dlibrary --version` で確かめられる。
+
+- タグの付いたコミット: `v0.1.0`
+- タグの無いコミット: `v0.1.1-0.20261112110442-a222302eb186` のような疑似バージョン
+- 作業ツリーに変更がある: 末尾に `+dirty`
+- `go run`: `dev`
+
+リリースするときは、main のコミットにタグを付けて push する。
+
+> Go の決まりで、`v2.0.0` 以上のタグは `go.mod` のモジュールパスが `/v2` で終わっていないと無視され、疑似バージョンになる。v2 に上げるときはモジュールパスも合わせて変える。
+
 ## Windows 向けビルド(WSL でビルド → Windows で実行)
 
 Blender を Windows 側で使う環境では、WSL 上の Linux バイナリではなく **Windows ネイティブの `.exe`** として動かすと、WSL↔Windows のパス変換が不要になる。SQLite ドライバは pure-Go(CGO 不要)のため、WSL からそのままクロスコンパイルできる。

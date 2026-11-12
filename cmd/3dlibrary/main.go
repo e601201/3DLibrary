@@ -29,7 +29,14 @@ const (
 
 func main() {
 	noBrowser := flag.Bool("no-browser", false, "起動時にブラウザを開かない(開発用)")
+	showVersion := flag.Bool("version", false, "バージョンを表示して終了する")
 	flag.Parse()
+
+	version := appVersion()
+	if *showVersion {
+		fmt.Printf("3DLibrary %s\n", version)
+		return
+	}
 
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -49,7 +56,7 @@ func main() {
 		log.Fatalf("listen %s: %v", listenAddr, err)
 	}
 	url := fmt.Sprintf("http://%s", listenAddr)
-	log.Printf("3DLibrary: %s で待ち受けています", url)
+	log.Printf("3DLibrary %s: %s で待ち受けています", version, url)
 
 	serveRemoteViewing(srv)
 
