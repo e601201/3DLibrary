@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Aperture,
+  Axis3d,
   Box,
   ExternalLink,
   Eye,
@@ -24,10 +25,13 @@ import {
   getExtractedMetadata,
   glbUrl,
   hasGlbCounts,
+  openArQuickLook,
   postOpenBlender,
   postReveal,
   putPrivate,
   putTags,
+  supportsArQuickLook,
+  usdzUrl,
   type Asset,
   type AssetFiles,
   type ExtractedMetadata,
@@ -206,6 +210,8 @@ export default function AssetDetail({
 
         <div className="flex-1" />
 
+        <ArViewButton asset={asset} />
+
         {!remoteViewing && (
           <>
             <IconButton
@@ -337,6 +343,35 @@ export default function AssetDetail({
           </section>
         </aside>
       </div>
+    </div>
+  );
+}
+
+// 「AR で見る」(CONTEXT.md「AR 表示」、ADR-0008)。AR Quick Look が使える
+// 端末(iPhone の Safari など)でだけ出す。読み取りだけの操作なので
+// リモート閲覧でも出す。USDZ が未生成なら押せない状態で理由を添える
+// (隠すと「AR で見られないアセット」と区別がつかないため)。
+// 不完全アセットはそもそも生成できないので出さない
+function ArViewButton({ asset }: { asset: Asset }) {
+  const [supported] = useState(supportsArQuickLook);
+  if (!supported || asset.isIncomplete) return null;
+  const url = usdzUrl(asset);
+  return (
+    <div className="flex items-center gap-2">
+      {!url && (
+        <span className="max-w-[9rem] font-mono text-[10px] leading-tight text-ink-faint">
+          PC で生成し直すと AR で見られます
+        </span>
+      )}
+      <Button
+        icon={Axis3d}
+        disabled={!url}
+        onClick={() => {
+          if (url) openArQuickLook(url);
+        }}
+      >
+        AR で見る
+      </Button>
     </div>
   );
 }

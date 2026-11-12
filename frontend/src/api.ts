@@ -59,6 +59,8 @@ export interface Asset {
   hasGlb: boolean;
   // 全周スプライト(ADR-0003)
   hasSprite: boolean;
+  // AR 表示用の USDZ(ADR-0008)
+  hasUsdz: boolean;
   polygonCount: number | null;
   size: number;
   isIncomplete: boolean;
@@ -75,7 +77,11 @@ export interface Asset {
 export function needsGeneration(asset: Asset): boolean {
   if (asset.isIncomplete) return false;
   const missing =
-    !asset.hasThumbnail || !asset.hasGlb || !asset.hasSprite || asset.polygonCount === null;
+    !asset.hasThumbnail ||
+    !asset.hasGlb ||
+    !asset.hasSprite ||
+    !asset.hasUsdz ||
+    asset.polygonCount === null;
   return missing || asset.isStale;
 }
 
@@ -146,6 +152,30 @@ export function spriteUrl(asset: Asset): string | null {
 export function glbUrl(asset: Asset): string | null {
   if (!asset.hasGlb) return null;
   return `/api/glb/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.glb?v=${asset.id}`;
+}
+
+// AR 表示用 USDZ の配信 URL(未生成なら null)。?v= の意図はサムネイルと同じ
+export function usdzUrl(asset: Asset): string | null {
+  if (!asset.hasUsdz) return null;
+  return `/api/usdz/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.usdz?v=${asset.id}`;
+}
+
+// この端末で AR Quick Look が使えるか(iPhone・iPad の Safari など)。
+// PC のブラウザや Quest では false になる
+export function supportsArQuickLook(): boolean {
+  const a = document.createElement('a');
+  return a.relList?.supports?.('ar') ?? false;
+}
+
+// USDZ を AR Quick Look で開く(CONTEXT.md「AR 表示」)。AR Quick Look は
+// rel="ar" のアンカーが <img> を子に持つときだけ発動するので、その形の
+// アンカーをその場で組んでクリックする
+export function openArQuickLook(url: string): void {
+  const a = document.createElement('a');
+  a.rel = 'ar';
+  a.href = url;
+  a.appendChild(document.createElement('img'));
+  a.click();
 }
 
 // 抽出メタデータ(生成のたびに一緒に書き出される統計情報)。オブジェクト数・
