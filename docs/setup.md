@@ -12,6 +12,7 @@
 - 併せて `http://127.0.0.1:8766` でも待ち受ける(リモート閲覧の入口。下記)
 - `127.0.0.1` のみにバインドし、LAN には露出しない
 - `--no-browser` でブラウザの自動起動を抑止できる(開発用)
+- `--version` でバージョンを表示して終了する(起動はしない)。起動ログの先頭行にも同じバージョンが出る
 - 設定は OS 標準の設定ディレクトリ(`os.UserConfigDir()`)に保存される
   - macOS: `~/Library/Application Support/3DLibrary/config.json`
   - Windows: `%AppData%\3DLibrary\config.json`
