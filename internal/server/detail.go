@@ -205,5 +205,15 @@ func serveContainedFile(w http.ResponseWriter, r *http.Request, root, rel string
 		writeError(w, r, http.StatusNotFound, "not_found", "no such file")
 		return
 	}
+	if ct, ok := contentTypeOverrides[strings.ToLower(filepath.Ext(path))]; ok {
+		w.Header().Set("Content-Type", ct)
+	}
 	http.ServeFile(w, r, path)
+}
+
+// contentTypeOverrides は mime パッケージ(OS の MIME 表に依存)が
+// 知らないことがある拡張子の Content-Type。USDZ は AR Quick Look が
+// この型を見て AR で開くかを決める(ADR-0008)。
+var contentTypeOverrides = map[string]string{
+	".usdz": "model/vnd.usdz+zip",
 }

@@ -124,6 +124,6 @@ func needsGeneration(asset index.Asset) bool {
 		return false // model.blend が無いものは生成できない
 	}
 	missing := asset.ThumbnailPath == nil || asset.GlbPath == nil ||
-		asset.SpritePath == nil || asset.PolygonCount == nil
+		asset.SpritePath == nil || asset.UsdzPath == nil || asset.PolygonCount == nil
 	return missing || asset.IsStale
 }

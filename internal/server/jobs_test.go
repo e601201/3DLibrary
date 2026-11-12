@@ -23,12 +23,14 @@ while [ $# -gt 0 ]; do
     --thumb) THUMB="$2"; shift 2 ;;
     --meta) META="$2"; shift 2 ;;
     --sprite) SPRITE="$2"; shift 2 ;;
+    --usdz) USDZ="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
 echo "glb" > "$GLB"
 echo "png-bytes" > "$THUMB"
 echo "webp-bytes" > "$SPRITE"
+echo "usdz-bytes" > "$USDZ"
 echo '{"objectCount":1,"collectionCount":1,"materialCount":0,"polygonCount":42,"textureCount":0,"hasAnimation":false}' > "$META"
 `
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
@@ -84,7 +86,7 @@ func TestGenerateJobProducesCacheAndUpdatesIndex(t *testing.T) {
 		t.Fatalf("lastError = %+v", s.LastError)
 	}
 
-	// キャッシュ 4 点が生成されている
+	// キャッシュ 5 点が生成されている
 	paths := library.CachePaths(libDir, "Props", "Chair")
 	for _, p := range paths.All() {
 		if _, err := os.Stat(p); err != nil {
@@ -338,6 +340,71 @@ func TestSpriteServing(t *testing.T) {
 		t.Fatalf("traversal must not serve content: %d", rec.Code)
 	}
 	rec = doRequest(t, srv, http.MethodGet, "/api/sprites/Props/Ghost.webp", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("missing = %d, want 404", rec.Code)
+	}
+}
+
+// TestBulkGenerateTargetsMissingUsdz は USDZ 導入前に生成された
+// アセット(他の 4 点は最新)が一括生成で埋まることを確かめる(ADR-0008)。
+func TestBulkGenerateTargetsMissingUsdz(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	installFakeBlender(t, srv, libDir)
+	addAsset(t, libDir, "Props", "NoUsdz", true)
+
+	fresh := time.Now().Add(time.Hour)
+	paths := library.CachePaths(libDir, "Props", "NoUsdz")
+	for _, p := range []string{paths.GLB, paths.Thumbnail, paths.Metadata, paths.Sprite} {
+		writeFileIn(t, libDir, p[len(libDir)+1:], `{"polygonCount":1}`)
+		if err := os.Chtimes(p, fresh, fresh); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rescan(t, srv)
+
+	for _, a := range listAssets(t, srv) {
+		if a.Title == "NoUsdz" && !a.IsStale {
+			t.Error("asset without a USDZ should be stale")
+		}
+	}
+
+	rec := doRequest(t, srv, http.MethodPost, "/api/jobs/bulk", "")
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	waitQueueIdle(t, srv)
+	if _, err := os.Stat(paths.Usdz); err != nil {
+		t.Errorf("USDZ should be generated: %v", err)
+	}
+	for _, a := range listAssets(t, srv) {
+		if a.Title == "NoUsdz" && !a.HasUsdz {
+			t.Error("hasUsdz should be true after generation")
+		}
+	}
+}
+
+// TestUsdzServing は USDZ が AR Quick Look の要求する Content-Type で
+// 配信されることを確かめる(ADR-0008)。
+func TestUsdzServing(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "Chair", true)
+	writeFileIn(t, libDir, "cache/usdz/Props/Chair.usdz", "usdz-bytes")
+	rescan(t, srv)
+
+	for _, h := range []http.Handler{srv, srv.RemoteViewingHandler()} {
+		rec := doRequest(t, h, http.MethodGet, "/api/usdz/Props/Chair.usdz", "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+		}
+		if ct := rec.Header().Get("Content-Type"); ct != "model/vnd.usdz+zip" {
+			t.Errorf("Content-Type = %q, want model/vnd.usdz+zip", ct)
+		}
+		if rec.Body.String() != "usdz-bytes" {
+			t.Errorf("body = %q", rec.Body.String())
+		}
+	}
+
+	rec := doRequest(t, srv, http.MethodGet, "/api/usdz/Props/Ghost.usdz", "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("missing = %d, want 404", rec.Code)
 	}

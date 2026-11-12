@@ -42,7 +42,7 @@ import {
   type ShapeKey,
 } from './MotionPreview';
 import { ObjectPanel, type ViewerObject } from './ObjectPanel';
-import { OverlayChip, cx, type LucideIcon } from './ui';
+import { OverlayChip, cx, useNarrow, type LucideIcon } from './ui';
 import { VR_REACH, vrPlacementFor } from './vrPlacement';
 
 type Props = {
@@ -1227,6 +1227,26 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
     if (!objectsOpen) apiRef.current?.hoverObject(null);
   }, [objectsOpen]);
 
+  // 狭い画面ではパネルが重なり合わないよう、同時に開くのは 1 つだけにする
+  const narrow = useNarrow();
+  const panels = {
+    objects: [objectsOpen, setObjectsOpen],
+    motion: [motionOpen, setMotionOpen],
+    settings: [settingsOpen, setSettingsOpen],
+  } as const;
+  const togglePanel = (which: keyof typeof panels) => {
+    const [open, setOpen] = panels[which];
+    if (narrow && !open) {
+      for (const [key, [, setOther]] of Object.entries(panels)) {
+        if (key !== which) setOther(false);
+      }
+    }
+    setOpen(!open);
+  };
+
+  // iPhone の Safari は要素の全画面表示に対応していないので、ボタンを出さない
+  const [fullscreenCapable] = useState(() => document.fullscreenEnabled === true);
+
   const toggleFullscreen = () => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
@@ -1263,13 +1283,15 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
       <div className="pointer-events-none absolute inset-0 flex flex-col justify-between gap-3 p-4">
         <div className="flex min-h-0 flex-col items-start gap-2">
           <div className="flex w-full items-start justify-between gap-3">
-            <OverlayChip>
-              <span className="size-1.5 shrink-0 rounded-full bg-stage-ok" />
-              GLB PREVIEW
-              {sizeBytes !== null && ` · ${formatSize(sizeBytes)}`}
-              {fps !== null && ` · ${fps} FPS`}
-            </OverlayChip>
-            <div className="pointer-events-auto relative">
+            <div className="hidden md:flex">
+              <OverlayChip>
+                <span className="size-1.5 shrink-0 rounded-full bg-stage-ok" />
+                GLB PREVIEW
+                {sizeBytes !== null && ` · ${formatSize(sizeBytes)}`}
+                {fps !== null && ` · ${fps} FPS`}
+              </OverlayChip>
+            </div>
+            <div className="pointer-events-auto relative ml-auto">
               <div className="flex gap-1">
                 <ViewportTool
                   icon={Grid3x3}
@@ -1295,7 +1317,7 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
                         : 'オブジェクト'
                     }
                     active={objectsOpen}
-                    onClick={() => setObjectsOpen((v) => !v)}
+                    onClick={() => togglePanel('objects')}
                   />
                 )}
                 {/* シェイプキーもクリップも無い GLB では出さない */}
@@ -1304,21 +1326,23 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
                     icon={Film}
                     label="モーションプレビュー"
                     active={motionOpen}
-                    onClick={() => setMotionOpen((v) => !v)}
+                    onClick={() => togglePanel('motion')}
                   />
                 )}
                 <ViewportTool
                   icon={SlidersHorizontal}
                   label="表示設定"
                   active={settingsOpen}
-                  onClick={() => setSettingsOpen((v) => !v)}
+                  onClick={() => togglePanel('settings')}
                 />
                 <ViewportTool
                   icon={Camera}
                   label="スクリーンショットを保存"
                   onClick={() => apiRef.current?.snapshot()}
                 />
-                <ViewportTool icon={Maximize} label="全画面表示" onClick={toggleFullscreen} />
+                {fullscreenCapable && (
+                  <ViewportTool icon={Maximize} label="全画面表示" onClick={toggleFullscreen} />
+                )}
                 {vrSupported && (
                   <ViewportTool
                     icon={Glasses}
@@ -1386,7 +1410,8 @@ export default function GlbViewer({ url, sizeBytes, title, frameRate }: Props) {
               onToggleLoop={() => setLoop((v) => !v)}
             />
           )}
-          <div className="flex justify-center gap-2">
+          {/* マウス操作の案内なので、タッチの狭い画面では出さない */}
+          <div className="hidden justify-center gap-2 md:flex">
             <OverlayChip>
               <Rotate3d size={13} className="text-stage-accent" />
               回転 · ドラッグ
@@ -1464,7 +1489,7 @@ function ViewerSettings({
   onExposure: (value: number) => void;
 }) {
   return (
-    <div className="absolute right-0 top-full mt-1 flex w-64 flex-col gap-3 border border-stage-border bg-stage/90 p-3 backdrop-blur-sm">
+    <div className="absolute right-0 top-full mt-1 flex max-h-[40dvh] w-[calc(100vw-2rem)] flex-col gap-3 overflow-y-auto border md:max-h-none md:w-64 md:overflow-visible border-stage-border bg-stage/90 p-3 backdrop-blur-sm">
       <div className="flex flex-col gap-1.5">
         <p className="font-mono text-[10px] leading-none tracking-[1px] text-stage-ink-faint">
           表示モード

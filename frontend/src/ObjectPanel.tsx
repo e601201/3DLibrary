@@ -44,7 +44,7 @@ export function ObjectPanel({
 
   return (
     <div
-      className="pointer-events-auto flex max-h-[22rem] w-64 flex-col gap-2 overflow-y-auto border border-stage-border bg-stage/90 p-3 backdrop-blur-sm"
+      className="pointer-events-auto flex max-h-[40dvh] w-full flex-col md:max-h-[22rem] md:w-64 gap-2 overflow-y-auto border border-stage-border bg-stage/90 p-3 backdrop-blur-sm"
       // 行から行へ移る隙間でホバー枠が点滅しないよう、外れる判定はパネル単位で行う
       onPointerLeave={() => onHover(null)}
     >

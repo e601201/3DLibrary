@@ -67,6 +67,7 @@ type assetResponse struct {
 	HasThumbnail bool `json:"hasThumbnail"`
 	HasGlb       bool `json:"hasGlb"`
 	HasSprite    bool `json:"hasSprite"`
+	HasUsdz      bool `json:"hasUsdz"`
 }
 
 func newAssetResponse(a index.Asset) assetResponse {
@@ -85,6 +86,7 @@ func newAssetResponse(a index.Asset) assetResponse {
 		HasThumbnail: a.ThumbnailPath != nil,
 		HasGlb:       a.GlbPath != nil,
 		HasSprite:    a.SpritePath != nil,
+		HasUsdz:      a.UsdzPath != nil,
 	}
 }
 

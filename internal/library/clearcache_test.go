@@ -14,8 +14,8 @@ func TestCacheSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CacheSize: %v", err)
 	}
-	if size != 40 || count != 4 {
-		t.Fatalf("size = %d, count = %d, want 40, 4", size, count)
+	if size != 50 || count != 5 {
+		t.Fatalf("size = %d, count = %d, want 50, 5", size, count)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestClearCache(t *testing.T) {
 		t.Fatalf("after clear: size = %d, count = %d", size, count)
 	}
 	// 骨格(空の cache サブディレクトリ)は残る
-	for _, sub := range []string{"glb", "thumbnails", "metadata", "sprites"} {
+	for _, sub := range []string{"glb", "thumbnails", "metadata", "sprites", "usdz"} {
 		if info, err := os.Stat(filepath.Join(dir, "cache", sub)); err != nil || !info.IsDir() {
 			t.Errorf("cache/%s should be recreated: %v", sub, err)
 		}

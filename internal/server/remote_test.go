@@ -88,7 +88,7 @@ func TestAssetListHasNoLocalPaths(t *testing.T) {
 		if strings.Contains(body, libDir) {
 			t.Errorf("%s: 一覧にライブラリの絶対パスが載っている: %s", name, body)
 		}
-		for _, field := range []string{`"path"`, `"thumbnailPath"`, `"glbPath"`, `"spritePath"`} {
+		for _, field := range []string{`"path"`, `"thumbnailPath"`, `"glbPath"`, `"spritePath"`, `"usdzPath"`} {
 			if strings.Contains(body, field) {
 				t.Errorf("%s: %s が応答に残っている: %s", name, field, body)
 			}

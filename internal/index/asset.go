@@ -33,7 +33,9 @@ type Asset struct {
 	ThumbnailPath *string `json:"thumbnailPath"`
 	GlbPath       *string `json:"glbPath"`
 	// SpritePath は全周スプライト(ADR-0003)。未生成なら nil。
-	SpritePath   *string `json:"spritePath"`
+	SpritePath *string `json:"spritePath"`
+	// UsdzPath は AR 表示用の USDZ(ADR-0008)。未生成なら nil。
+	UsdzPath     *string `json:"usdzPath"`
 	PolygonCount *int    `json:"polygonCount"`
 	// Size は model.blend のバイト数。不完全アセットでは 0。
 	Size         int64 `json:"size"`

@@ -93,7 +93,7 @@ func TestPrivateRouteWrongMethodReturns405(t *testing.T) {
 	}
 }
 
-// newPrivateFixture は公開 Chair / 非公開 Draft(キャッシュ 4 点あり)/
+// newPrivateFixture は公開 Chair / 非公開 Draft(キャッシュ 5 点あり)/
 // 非公開だけのカテゴリ Experiments を持つライブラリを組む。
 func newPrivateFixture(t *testing.T) (*Server, string) {
 	t.Helper()
@@ -104,6 +104,7 @@ func newPrivateFixture(t *testing.T) (*Server, string) {
 	writeFileIn(t, libDir, "cache/glb/Props/Draft.glb", "glb-bytes")
 	writeFileIn(t, libDir, "cache/thumbnails/Props/Draft.png", "png-bytes")
 	writeFileIn(t, libDir, "cache/sprites/Props/Draft.webp", "webp-bytes")
+	writeFileIn(t, libDir, "cache/usdz/Props/Draft.usdz", "usdz-bytes")
 	writeFileIn(t, libDir, "cache/metadata/Props/Draft.json", `{"polygonCount":1}`)
 	rescan(t, srv)
 	doRequest(t, srv, http.MethodPut, "/api/assets/Props/Chair/tags", `{"tags":["wood"]}`)
@@ -166,7 +167,7 @@ func TestRemoteViewingPrivateAssetDoesNotExist(t *testing.T) {
 	srv, _ := newPrivateFixture(t)
 	remote := srv.RemoteViewingHandler()
 
-	// 詳細・ファイル一覧・raw・キャッシュ 4 点の直接 GET まで一貫して 404
+	// 詳細・ファイル一覧・raw・キャッシュ 5 点の直接 GET まで一貫して 404
 	// (直接 URL・ブラウザ履歴からの半端な漏れを残さない)
 	for _, path := range []string{
 		"/api/assets/Props/Draft/files",
@@ -175,6 +176,7 @@ func TestRemoteViewingPrivateAssetDoesNotExist(t *testing.T) {
 		"/api/glb/Props/Draft.glb",
 		"/api/thumbnails/Props/Draft.png",
 		"/api/sprites/Props/Draft.webp",
+		"/api/usdz/Props/Draft.usdz",
 		"/api/extracted-metadata/Props/Draft.json",
 	} {
 		rec := doRequest(t, remote, http.MethodGet, path, "")
@@ -194,6 +196,7 @@ func TestRemoteViewingPrivateAssetDoesNotExist(t *testing.T) {
 		"/api/glb/Props/Draft.glb",
 		"/api/thumbnails/Props/Draft.png",
 		"/api/sprites/Props/Draft.webp",
+		"/api/usdz/Props/Draft.usdz",
 		"/api/extracted-metadata/Props/Draft.json",
 	} {
 		if rec := doRequest(t, srv, http.MethodGet, path, ""); rec.Code != http.StatusOK {

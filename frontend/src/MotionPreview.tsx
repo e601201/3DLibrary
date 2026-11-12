@@ -107,7 +107,7 @@ export function MotionPanel({
       ? motion.shapeKeys.length
       : (groups.find((g) => g.objectId === selectedObjectId)?.keys.length ?? 0);
   return (
-    <div className="pointer-events-auto flex max-h-[22rem] w-64 flex-col gap-3 overflow-y-auto border border-stage-border bg-stage/90 p-3 backdrop-blur-sm">
+    <div className="pointer-events-auto flex max-h-[40dvh] w-full flex-col md:max-h-[22rem] md:w-64 gap-3 overflow-y-auto border border-stage-border bg-stage/90 p-3 backdrop-blur-sm">
       {motion.shapeKeys.length > 0 && (
         <section className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-2">

@@ -2,10 +2,26 @@
 // Nav Item / Tag Chip)と、各画面で繰り返し現れる素片をまとめたプリミティブ。
 // 寸法・配色はすべてデザインの実測値をそのまま使っている。
 
-import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
+}
+
+// スマホ向けの並びに切り替える幅(Tailwind の md 未満)。見た目の出し分けは
+// md: クラスで書き、状態を変える必要がある所(タブ・強制カード表示など)だけ
+// これを使う。両者の境目を揃えるため、値は md(48rem = 768px)と同じにする
+const NARROW_QUERY = '(max-width: 767.98px)';
+
+export function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_QUERY);
+    const onChange = () => setNarrow(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return narrow;
 }
 
 export type LucideIcon = ComponentType<{ size?: number | string; className?: string; strokeWidth?: number }>;

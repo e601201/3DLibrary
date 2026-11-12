@@ -13,10 +13,10 @@ A web application for managing Blender-authored 3D assets on a local machine. It
 ```
 source/ (source of truth) --[scan: read-only]--> index (in-memory) --> /api/assets --> React SPA
         |                                        ^
-        +--[generate: one Blender CLI run]--> cache/ (4 artifacts) --(picked up by next scan)--+
+        +--[generate: one Blender CLI run]--> cache/ (5 artifacts) --(picked up by next scan)--+
 ```
 
-**`source/` is the single source of truth.** `cache/` (GLB, thumbnail, extracted metadata, sprite) can be deleted at any time and rebuilt from it, and the in-memory index is rebuilt by every scan (there is no database, ADR-0007). This invariant shapes the whole design — don't break it.
+**`source/` is the single source of truth.** `cache/` (GLB, thumbnail, extracted metadata, sprite, USDZ) can be deleted at any time and rebuilt from it, and the in-memory index is rebuilt by every scan (there is no database, ADR-0007). This invariant shapes the whole design — don't break it.
 
 ## Agent skills
 
