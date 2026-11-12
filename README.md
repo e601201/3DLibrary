@@ -3,7 +3,7 @@
 Blender で制作した 3D アセットをローカル PC 上で一元管理する Web アプリケーション。
 Go の HTTP サーバーに React の画面を埋め込んだ単一バイナリで動き、`127.0.0.1` でだけ待ち受ける。
 
-- バージョン: **v0.1.0**(git タグを正とする)
+- バージョン: [![version](https://img.shields.io/github/v/tag/e601201/3DLibrary?sort=semver&label=version)](https://github.com/e601201/3DLibrary/tags)(最新の git タグを表示。手元のバイナリは `--version` で確かめる)
 - 対応 OS: Windows / macOS(Apple Silicon / Intel)
 
 ## 必要環境
