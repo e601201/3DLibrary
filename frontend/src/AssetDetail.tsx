@@ -51,6 +51,7 @@ import {
   SectionLabel,
   Segmented,
   cx,
+  useNarrow,
   type LucideIcon,
 } from './ui';
 
@@ -67,6 +68,9 @@ type Props = {
 };
 
 type View = 'preview' | FileView;
+
+// 狭い画面のタブ。ビューワと情報(サイドパネルの中身)を切り替える
+type NarrowTab = '3d' | 'info';
 
 // パンくずの末尾(デザイン: SOURCE / PROPS / WOODEN CHAIR / TEXTURES)
 const VIEW_CRUMB: Record<FileView, string> = {
@@ -132,7 +136,11 @@ export default function AssetDetail({
   const [files, setFiles] = useState<AssetFiles | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [view, setView] = useState<View>('preview');
+  const [selectedView, setView] = useState<View>('preview');
+  const narrow = useNarrow();
+  const [tab, setTab] = useState<NarrowTab>('3d');
+  // ファイルビューアはスマホ対応の対象外なので、狭い画面では常にビューワを出す
+  const view: View = narrow ? 'preview' : selectedView;
 
   // asset.id は再スキャンごとに変わるので、生成完了後に自動で取り直される
   useEffect(() => {
@@ -185,11 +193,13 @@ export default function AssetDetail({
   ].join(' / ');
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-bg font-sans text-ink">
-      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-5 py-3">
+    <div className="flex h-dvh flex-col overflow-hidden bg-bg font-sans text-ink">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border bg-surface px-3 py-3 md:px-5">
         <IconButton icon={ArrowLeft} label="一覧へ戻る" onClick={onBack} />
         <div className="flex min-w-0 flex-col gap-[3px]">
-          <p className="truncate font-mono text-[10px] leading-none text-ink-faint">{crumb}</p>
+          <p className="hidden truncate font-mono text-[10px] leading-none text-ink-faint md:block">
+            {crumb}
+          </p>
           <div className="flex min-w-0 items-center gap-2">
             <h1 className="truncate font-heading text-lg leading-none font-bold text-ink">
               {asset.title}
@@ -212,8 +222,9 @@ export default function AssetDetail({
 
         <ArViewButton asset={asset} />
 
+        {/* 狭い画面はリモート閲覧で見るためのもので、操作要素は出さない */}
         {!remoteViewing && (
-          <>
+          <div className="hidden items-center gap-3 md:flex">
             <IconButton
               icon={FolderOpen}
               label="Finderで表示"
@@ -234,9 +245,36 @@ export default function AssetDetail({
             >
               Blenderで開く
             </Button>
-          </>
+          </div>
         )}
       </header>
+
+      {narrow && (
+        <div className="flex shrink-0 border-b border-border bg-surface" role="tablist">
+          {(
+            [
+              ['3d', '3D'],
+              ['info', '情報'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
+              className={cx(
+                'flex-1 border-b-2 py-2.5 text-[13px] leading-none transition',
+                tab === value
+                  ? 'border-accent font-semibold text-accent'
+                  : 'border-transparent text-ink-muted',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {(loadError || actionError || jobError) && (
         <div className="flex shrink-0 flex-col gap-2 border-b border-border px-5 py-2">
@@ -247,7 +285,9 @@ export default function AssetDetail({
       )}
 
       <div className="flex min-h-0 flex-1">
-        <section className="flex min-w-0 flex-1 flex-col">
+        {/* 狭い画面では隠すだけで外さない(タブを戻したときにビューワの
+            視点や再生状態が残るように) */}
+        <section className={cx('flex min-w-0 flex-1 flex-col', narrow && tab !== '3d' && 'hidden')}>
           {view === 'preview' ? (
             glb ? (
               <GlbViewer
@@ -274,7 +314,12 @@ export default function AssetDetail({
           )}
         </section>
 
-        <aside className="flex w-80 shrink-0 flex-col gap-5 overflow-y-auto border-l border-border bg-surface p-5">
+        <aside
+          className={cx(
+            'flex w-full shrink-0 flex-col gap-5 overflow-y-auto bg-surface p-4 md:w-80 md:border-l md:border-border md:p-5',
+            narrow && tab !== 'info' && 'hidden',
+          )}
+        >
           <section className="flex flex-col gap-2.5">
             <SectionLabel>メタデータ</SectionLabel>
             <div className="flex flex-col border border-border">
@@ -331,7 +376,9 @@ export default function AssetDetail({
                     entry={entry}
                     icon={icon}
                     active={rowView !== undefined && rowView === view}
-                    onOpen={rowView === undefined ? undefined : () => setView(rowView)}
+                    onOpen={
+                      rowView === undefined || narrow ? undefined : () => setView(rowView)
+                    }
                   />
                 ))}
               </div>

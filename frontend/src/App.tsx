@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, LayoutGrid, List, Loader, Plus, Search } from 'lucide-react';
+import { ChevronDown, LayoutGrid, List, Loader, Menu, Plus, Search } from 'lucide-react';
 import {
   ApiError,
   getAssets,
@@ -26,7 +26,7 @@ import AssetGrid, { type ViewMode } from './AssetGrid';
 import NewAssetModal from './NewAssetModal';
 import Settings from './Settings';
 import Sidebar from './Sidebar';
-import { Banner, Button, Centered, cx } from './ui';
+import { Banner, Button, Centered, IconButton, cx, useNarrow } from './ui';
 
 type AssetsState =
   | { kind: 'loading' }
@@ -84,6 +84,9 @@ export default function App() {
   const [tag, setTag] = useState(''); // '' = すべて
   const [sort, setSort] = useState<AssetSort>('title');
   const [view, setView] = useState<ViewMode>('card');
+  // 狭い画面ではサイドバーをドロワーにする(閉じているのが既定)
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const narrow = useNarrow();
 
   // 入力から 200ms 落ち着いたら検索する
   useEffect(() => {
@@ -292,27 +295,55 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg font-sans text-ink">
-      <Sidebar
-        page={page}
-        categories={categories}
-        tags={tags}
-        category={category}
-        tag={tag}
-        totalCount={totalCount}
-        cache={cache}
-        missingCount={missingCount}
-        scanning={scanning}
-        jobsActive={jobsActive}
-        disabled={notConfigured}
-        remoteViewing={remoteViewing}
-        onCategory={setCategory}
-        onTag={setTag}
-        onRescan={() => void rescan()}
-        onBulkGenerate={() => void handleBulkGenerate()}
-        onOpenLibrary={() => setPage('library')}
-        onOpenSettings={() => setPage('settings')}
-      />
+    <div className="flex h-dvh overflow-hidden bg-bg font-sans text-ink">
+      {/* md 以上では常設のサイドバー。狭い画面では ☰ で開くドロワーになり、
+          カテゴリ・タグ・画面を選ぶと閉じる */}
+      <div
+        className={cx(
+          'fixed inset-0 z-40 md:static md:z-auto md:flex',
+          drawerOpen ? 'flex' : 'hidden',
+        )}
+      >
+        <div
+          className="absolute inset-0 bg-black/50 md:hidden"
+          aria-hidden
+          onClick={() => setDrawerOpen(false)}
+        />
+        <div className="relative flex h-full">
+          <Sidebar
+            page={page}
+            categories={categories}
+            tags={tags}
+            category={category}
+            tag={tag}
+            totalCount={totalCount}
+            cache={cache}
+            missingCount={missingCount}
+            scanning={scanning}
+            jobsActive={jobsActive}
+            disabled={notConfigured}
+            remoteViewing={remoteViewing}
+            onCategory={(c) => {
+              setCategory(c);
+              setDrawerOpen(false);
+            }}
+            onTag={(t) => {
+              setTag(t);
+              setDrawerOpen(false);
+            }}
+            onRescan={() => void rescan()}
+            onBulkGenerate={() => void handleBulkGenerate()}
+            onOpenLibrary={() => {
+              setPage('library');
+              setDrawerOpen(false);
+            }}
+            onOpenSettings={() => {
+              setPage('settings');
+              setDrawerOpen(false);
+            }}
+          />
+        </div>
+      </div>
 
       <main className="flex min-w-0 flex-1 flex-col">
         {page === 'settings' ? (
@@ -333,8 +364,11 @@ export default function App() {
           )
         ) : (
           <>
-            <div className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-3">
-              <div className="flex w-80 shrink-0 items-center gap-2 border border-border bg-surface-2 px-3 py-[9px] focus-within:border-accent">
+            <div className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-3 md:px-6">
+              <div className="md:hidden">
+                <IconButton icon={Menu} label="カテゴリ・タグ" onClick={() => setDrawerOpen(true)} />
+              </div>
+              <div className="flex min-w-0 flex-1 items-center gap-2 border border-border bg-surface-2 px-3 py-[9px] focus-within:border-accent md:w-80 md:flex-none md:shrink-0">
                 <Search size={14} className="shrink-0 text-ink-faint" />
                 <input
                   type="search"
@@ -346,7 +380,10 @@ export default function App() {
                 />
               </div>
 
+              {/* 狭い画面ではカテゴリはドロワーで選び、並び順・表示切替は出さない
+                  (検索欄に幅を譲る) */}
               <FilterSelect
+                className="hidden md:block"
                 label="カテゴリ"
                 value={category}
                 onChange={setCategory}
@@ -356,6 +393,7 @@ export default function App() {
                 ]}
               />
               <FilterSelect
+                className="hidden md:block"
                 label="並び順"
                 value={sort}
                 onChange={(v) => setSort(v as AssetSort)}
@@ -365,10 +403,10 @@ export default function App() {
                 }))}
               />
 
-              <div className="flex-1" />
+              <div className="hidden flex-1 md:block" />
 
               {jobsActive && jobs && (
-                <div className="flex shrink-0 items-center gap-1.5 border border-border bg-surface-2 px-3 py-2">
+                <div className="hidden shrink-0 items-center md:flex gap-1.5 border border-border bg-surface-2 px-3 py-2">
                   <Loader size={13} className="animate-spin text-accent" />
                   <span className="font-mono text-[11px] whitespace-nowrap text-ink-muted">
                     {jobs.running ? '生成中' : '生成準備中'}{' '}
@@ -377,7 +415,7 @@ export default function App() {
                 </div>
               )}
 
-              <div className="flex shrink-0 border border-border">
+              <div className="hidden shrink-0 border border-border md:flex">
                 <ViewButton
                   icon={LayoutGrid}
                   label="カード表示"
@@ -393,18 +431,20 @@ export default function App() {
               </div>
 
               {!remoteViewing && (
-                <Button
-                  variant="primary"
-                  icon={Plus}
-                  disabled={notConfigured}
-                  onClick={() => setShowCreate(true)}
-                >
-                  新規アセット
-                </Button>
+                <div className="hidden md:block">
+                  <Button
+                    variant="primary"
+                    icon={Plus}
+                    disabled={notConfigured}
+                    onClick={() => setShowCreate(true)}
+                  >
+                    新規アセット
+                  </Button>
+                </div>
               )}
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3 md:p-6">
               <div className="flex items-end justify-between gap-4">
                 <div className="flex min-w-0 items-end gap-2.5">
                   <h1 className="font-heading text-xl leading-none font-bold text-ink">
@@ -460,7 +500,7 @@ export default function App() {
               {ready && (
                 <AssetGrid
                   assets={assetsState.assets}
-                  view={view}
+                  view={narrow ? 'card' : view}
                   filtered={filtered}
                   remoteViewing={remoteViewing}
                   onGenerate={(a) => void handleGenerate(a)}
@@ -490,18 +530,20 @@ export default function App() {
 
 // デザイン 01 のトップバーのフィルタ(枠 + ラベル + chevron)
 function FilterSelect({
+  className,
   label,
   value,
   options,
   onChange,
 }: {
+  className?: string;
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="relative shrink-0">
+    <div className={cx('relative shrink-0', className)}>
       <select
         aria-label={label}
         value={value}
