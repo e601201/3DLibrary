@@ -37,7 +37,7 @@ go build -o bin/3dlibrary ./cmd/3dlibrary
 
 ## Windows 向けビルド(WSL でビルド → Windows で実行)
 
-Blender を Windows 側で使う環境では、WSL 上の Linux バイナリではなく **Windows ネイティブの `.exe`** として動かすと、WSL↔Windows のパス変換が不要になる。SQLite ドライバは pure-Go(CGO 不要)のため、WSL からそのままクロスコンパイルできる。
+Blender を Windows 側で使う環境では、WSL 上の Linux バイナリではなく **Windows ネイティブの `.exe`** として動かすと、WSL↔Windows のパス変換が不要になる。CGO 不要のため、WSL からそのままクロスコンパイルできる。
 
 ```sh
 scripts/build.sh windows                  # 既定の出力先は下記

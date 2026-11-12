@@ -6,7 +6,7 @@
 # go build だけ実行すると、ビルドは成功するのに UI が空のバイナリができる
 # (internal/web/static/.gitkeep があるため埋め込みが空にならず、失敗しない)。
 #
-# CGO 不要 (pure-Go の glebarez/sqlite) なので、どの OS からでも
+# CGO 不要なので、どの OS からでも
 # クロスコンパイルできる。
 set -euo pipefail
 

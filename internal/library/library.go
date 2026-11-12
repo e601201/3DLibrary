@@ -14,9 +14,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/e601201/3DLibrary/internal/index"
 )
+
+// legacyDBFileName は旧版がライブラリ直下に作っていた SQLite インデックス。
+// 現在は作らないが、旧版で使っていたディレクトリには残っていることがある。
+const legacyDBFileName = "database.db"
 
 // アプリ同梱のテンプレート。ライブラリ初期化時に templates/ へ配置される。
 // Blender 5.2 LTS で作成(requirements.md §9 の規定どおり)。
@@ -77,9 +79,9 @@ func isEmptyDir(dir string) (bool, error) {
 		return false, err
 	}
 	for _, e := range entries {
-		// インデックスはアプリ生成の派生物なので空判定では無視する
-		// (起動時スキャンが初期化より先に DB を作ることがある)
-		if e.Name() == index.DBFileName {
+		// 旧版が作っていたインデックス DB はアプリ生成の派生物なので
+		// 空判定では無視する
+		if e.Name() == legacyDBFileName {
 			continue
 		}
 		// OS が勝手に作る不可視ファイルも「中身」とはみなさない。

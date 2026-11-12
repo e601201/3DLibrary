@@ -3,107 +3,61 @@ package index
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
-
-	"github.com/glebarez/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	"sync"
+	"time"
 )
 
-// DBFileName はライブラリ直下に置くインデックスファイル名。
-const DBFileName = "database.db"
-
-// Index は 1 つのライブラリの SQLite インデックス(database.db)。
+// Index は 1 つのライブラリのインメモリ・インデックス。
+// 中身はスキャン結果の写しで、プロセス終了とともに消える(起動時スキャンで
+// 作り直される)。複数のリクエストから並行に使われるため排他を取る。
 type Index struct {
-	db *gorm.DB
+	mu     sync.RWMutex
+	assets []Asset
 }
 
-// Open は path の SQLite を開き、スキーマを最新化する。
-func Open(path string) (*Index, error) {
-	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if err := db.AutoMigrate(&Asset{}, &Tag{}); err != nil {
-		return nil, err
-	}
-	return &Index{db: db}, nil
-}
-
-func (i *Index) Close() error {
-	sqlDB, err := i.db.DB()
-	if err != nil {
-		return err
-	}
-	return sqlDB.Close()
+// New は空のインデックスを返す。
+func New() *Index {
+	return &Index{}
 }
 
 // ReplaceAll はインデックスの全行をスキャン結果で置き換える。
 // 消えたアセットの行はこれにより削除される。ID はスキャンごとに変わりうる。
 //
-// インデックスへの書き込みはスキャン経由のこの全置換のみ。後続チケットで
-// キャッシュ由来の値(thumbnailPath / polygonCount 等)を持たせる場合も、
-// 別経路で行を UPDATE するのではなくスキャンの取り込みに載せること
+// インデックスへの書き込みはスキャン経由のこの全置換のみ。キャッシュ由来の
+// 値(thumbnailPath / polygonCount 等)を持たせる場合も、別経路で行を
+// 書き換えるのではなくスキャンの取り込みに載せること
 // (でなければ次の再スキャンで消える)。
 func (i *Index) ReplaceAll(assets []Asset) error {
-	return i.db.Transaction(func(tx *gorm.DB) error {
-		// GORM は条件なしの全件 DELETE を拒否するため、常に真の条件を付ける
-		if err := tx.Exec("DELETE FROM asset_tags").Error; err != nil {
-			return err
+	now := time.Now()
+	next := make([]Asset, len(assets))
+	for n, a := range assets {
+		a.ID = uint(n + 1)
+		if a.CreatedAt.IsZero() {
+			a.CreatedAt = now
 		}
-		if err := tx.Where("1 = 1").Delete(&Tag{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("1 = 1").Delete(&Asset{}).Error; err != nil {
-			return err
-		}
-		if len(assets) == 0 {
-			return nil
-		}
-		// SQLite のバインド変数上限(999)を超えないようバッチ挿入する
-		// (5,000 アセット規模の全置換で上限に当たる)。タグは重複を
-		// 自前で正規化するため関連ごと挿入せず、後から張り直す
-		if err := tx.Omit("Tags").CreateInBatches(assets, 50).Error; err != nil {
-			return err
-		}
-		return insertTags(tx, assets)
-	})
+		a.Tags = dedupTags(a.Tags)
+		next[n] = a
+	}
+	i.mu.Lock()
+	i.assets = next
+	i.mu.Unlock()
+	return nil
 }
 
-// insertTags は tags / asset_tags を assets の Tags から再構築する。
-func insertTags(tx *gorm.DB, assets []Asset) error {
-	tagID := map[string]uint{}
-	var tags []Tag
-	for _, a := range assets {
-		for _, t := range a.Tags {
-			if _, ok := tagID[t.Name]; !ok {
-				tagID[t.Name] = 0
-				tags = append(tags, Tag{Name: t.Name})
-			}
-		}
-	}
-	if len(tags) == 0 {
-		return nil
-	}
-	if err := tx.CreateInBatches(tags, 100).Error; err != nil {
-		return err
-	}
+// dedupTags は同名タグを 1 つにまとめた新しいスライスを返す(順序は保つ)。
+func dedupTags(tags []Tag) []Tag {
+	out := make([]Tag, 0, len(tags))
+	seen := map[string]bool{}
 	for _, t := range tags {
-		tagID[t.Name] = t.ID
-	}
-	type assetTag struct {
-		AssetID uint
-		TagID   uint
-	}
-	var joins []assetTag
-	for _, a := range assets {
-		for _, t := range a.Tags {
-			joins = append(joins, assetTag{AssetID: a.ID, TagID: tagID[t.Name]})
+		if seen[t.Name] {
+			continue
 		}
+		seen[t.Name] = true
+		out = append(out, t)
 	}
-	return tx.Table("asset_tags").CreateInBatches(joins, 100).Error
+	return out
 }
 
 // Sort は一覧の並び順。
@@ -121,7 +75,7 @@ const (
 // ListOptions は一覧の絞り込み・並び順(requirements.md §7 検索)。
 type ListOptions struct {
 	// Query はタイトルまたはタグ名の部分一致。ASCII は大文字小文字を
-	// 区別しない(SQLite LIKE の仕様。非 ASCII は区別される)。空なら全件。
+	// 区別しない(非 ASCII は区別する)。空なら全件。
 	Query string
 	// Category はカテゴリの完全一致。空なら全カテゴリ。
 	Category string
@@ -132,48 +86,95 @@ type ListOptions struct {
 	PublicOnly bool
 }
 
-// List は条件に合うアセットを返す。
+// List は条件に合うアセットを返す。返り値は呼び出し側が自由に変更してよい。
 func (i *Index) List(opts ListOptions) ([]Asset, error) {
-	q := i.db.Model(&Asset{}).Preload("Tags")
-	if opts.Query != "" {
-		like := "%" + escapeLike(opts.Query) + "%"
-		q = q.Where(
-			`title LIKE ? ESCAPE '\' OR EXISTS (
-				SELECT 1 FROM asset_tags
-				JOIN tags ON tags.id = asset_tags.tag_id
-				WHERE asset_tags.asset_id = assets.id AND tags.name LIKE ? ESCAPE '\'
-			)`, like, like)
+	query := asciiLower(opts.Query)
+	i.mu.RLock()
+	out := []Asset{}
+	for _, a := range i.assets {
+		if opts.Category != "" && a.Category != opts.Category {
+			continue
+		}
+		if opts.PublicOnly && a.IsPrivate {
+			continue
+		}
+		if opts.Tag != "" && !hasTag(a, opts.Tag) {
+			continue
+		}
+		if query != "" && !matchesQuery(a, query) {
+			continue
+		}
+		out = append(out, cloneAsset(a))
 	}
-	if opts.Category != "" {
-		q = q.Where("category = ?", opts.Category)
-	}
-	if opts.Tag != "" {
-		q = q.Where(`EXISTS (
-			SELECT 1 FROM asset_tags
-			JOIN tags ON tags.id = asset_tags.tag_id
-			WHERE asset_tags.asset_id = assets.id AND tags.name = ?
-		)`, opts.Tag)
-	}
-	if opts.PublicOnly {
-		q = q.Where("is_private = ?", false)
+	i.mu.RUnlock()
+
+	byTitle := func(a, b Asset) int {
+		if c := strings.Compare(a.Category, b.Category); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Title, b.Title)
 	}
 	switch opts.Sort {
 	case SortUpdatedDesc:
-		q = q.Order("updated_at DESC, category, title")
+		slices.SortStableFunc(out, func(a, b Asset) int {
+			if c := b.UpdatedAt.Compare(a.UpdatedAt); c != 0 {
+				return c
+			}
+			return byTitle(a, b)
+		})
 	case SortUpdatedAsc:
-		q = q.Order("updated_at ASC, category, title")
+		slices.SortStableFunc(out, func(a, b Asset) int {
+			if c := a.UpdatedAt.Compare(b.UpdatedAt); c != 0 {
+				return c
+			}
+			return byTitle(a, b)
+		})
 	default:
-		q = q.Order("category, title")
+		slices.SortStableFunc(out, byTitle)
 	}
-	assets := []Asset{}
-	err := q.Find(&assets).Error
-	return assets, err
+	return out, nil
 }
 
-// escapeLike は LIKE パターンのメタ文字をリテラル扱いにする。
-func escapeLike(s string) string {
-	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
-	return r.Replace(s)
+func hasTag(a Asset, name string) bool {
+	for _, t := range a.Tags {
+		if t.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesQuery はタイトルかタグ名に lowerQuery(asciiLower 済み)を含むか。
+func matchesQuery(a Asset, lowerQuery string) bool {
+	if strings.Contains(asciiLower(a.Title), lowerQuery) {
+		return true
+	}
+	for _, t := range a.Tags {
+		if strings.Contains(asciiLower(t.Name), lowerQuery) {
+			return true
+		}
+	}
+	return false
+}
+
+// asciiLower は ASCII の英大文字だけを小文字にする(非 ASCII は区別したまま)。
+func asciiLower(s string) string {
+	b := []byte(s)
+	for n, c := range b {
+		if 'A' <= c && c <= 'Z' {
+			b[n] = c + ('a' - 'A')
+		}
+	}
+	return string(b)
+}
+
+// cloneAsset は呼び出し側の変更がインデックスに波及しないよう写しを作る。
+func cloneAsset(a Asset) Asset {
+	a.Tags = slices.Clone(a.Tags)
+	if a.Tags == nil {
+		a.Tags = []Tag{}
+	}
+	return a
 }
 
 // ErrNotFound は Find で該当アセットが無い場合のエラー。
@@ -181,12 +182,14 @@ var ErrNotFound = errors.New("asset not found")
 
 // Find はカテゴリとタイトルでアセットを 1 件引く。
 func (i *Index) Find(category, title string) (Asset, error) {
-	var asset Asset
-	err := i.db.Where("category = ? AND title = ?", category, title).First(&asset).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return Asset{}, fmt.Errorf("%w: %s/%s", ErrNotFound, category, title)
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	for _, a := range i.assets {
+		if a.Category == category && a.Title == title {
+			return cloneAsset(a), nil
+		}
 	}
-	return asset, err
+	return Asset{}, fmt.Errorf("%w: %s/%s", ErrNotFound, category, title)
 }
 
 // CategoryCount はカテゴリ名とそのアセット件数。
@@ -205,31 +208,41 @@ type TagCount struct {
 // アセットを数えず、非公開にしか付いていないタグは名前ごと消える
 // (タグ名自体が情報漏れになるため。CONTEXT.md「非公開」)。
 func (i *Index) TagCounts(publicOnly bool) ([]TagCount, error) {
-	counts := []TagCount{}
-	q := i.db.Table("tags").
-		Select("tags.name AS name, COUNT(asset_tags.asset_id) AS count").
-		Joins("JOIN asset_tags ON asset_tags.tag_id = tags.id")
-	if publicOnly {
-		q = q.Joins("JOIN assets ON assets.id = asset_tags.asset_id").
-			Where("assets.is_private = ?", false)
+	counts := map[string]int{}
+	i.mu.RLock()
+	for _, a := range i.assets {
+		if publicOnly && a.IsPrivate {
+			continue
+		}
+		for _, t := range a.Tags {
+			counts[t.Name]++
+		}
 	}
-	err := q.Group("tags.name").
-		Order("tags.name").
-		Find(&counts).Error
-	return counts, err
+	i.mu.RUnlock()
+	out := []TagCount{}
+	for name, n := range counts {
+		out = append(out, TagCount{Name: name, Count: n})
+	}
+	slices.SortFunc(out, func(a, b TagCount) int { return strings.Compare(a.Name, b.Name) })
+	return out, nil
 }
 
 // Categories はカテゴリ一覧(名前順)を件数付きで返す。publicOnly なら
 // 非公開アセットを数えず、非公開しか居ないカテゴリは名前ごと消える。
 func (i *Index) Categories(publicOnly bool) ([]CategoryCount, error) {
-	categories := []CategoryCount{}
-	q := i.db.Model(&Asset{})
-	if publicOnly {
-		q = q.Where("is_private = ?", false)
+	counts := map[string]int{}
+	i.mu.RLock()
+	for _, a := range i.assets {
+		if publicOnly && a.IsPrivate {
+			continue
+		}
+		counts[a.Category]++
 	}
-	err := q.Select("category AS name, COUNT(*) AS count").
-		Group("category").
-		Order("category").
-		Find(&categories).Error
-	return categories, err
+	i.mu.RUnlock()
+	out := []CategoryCount{}
+	for name, n := range counts {
+		out = append(out, CategoryCount{Name: name, Count: n})
+	}
+	slices.SortFunc(out, func(a, b CategoryCount) int { return strings.Compare(a.Name, b.Name) })
+	return out, nil
 }

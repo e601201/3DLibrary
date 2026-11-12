@@ -33,7 +33,7 @@ React + Vite
       ▼
 Go Backend
       │
-      ├── SQLite
+      ├── インメモリ・インデックス
       ├── Blender CLI
       └── File System
 ```
@@ -48,8 +48,7 @@ Go Backend
 |UI|Tailwind CSS|
 |3D表示|Three.js|
 |Backend|Go|
-|Database|SQLite|
-|ORM|GORM|
+|インデックス|インメモリ(DB なし。ADR-0007)|
 |3D変換|Blender CLI|
 |画像生成|Blender Python Script|
 
@@ -81,8 +80,6 @@ Go Backend
 │
 ├── templates/
 │   └── empty.blend        ← 初期化時にアプリが配置
-│
-└── database.db
 ```
 
 ### ディレクトリ役割
@@ -92,7 +89,6 @@ Go Backend
 |source|唯一の正。.blendファイルとアセットメタ(meta.json)|
 |cache|GLB・サムネイル・抽出メタデータ・スプライトなど再生成可能なデータ|
 |templates|新規作成用テンプレート(.blendを置くだけで追加できる)|
-|database.db|検索用インデックス(SQLite)。いつでも再構築可能|
 
 ### ライブラリ初期化
 
@@ -413,11 +409,11 @@ cache/
 |インターネット接続|不要|
 |オフライン動作|必須|
 |ネットワーク|127.0.0.1 のみバインド。LANに露出しない(ネットワーク越しに見せる場合も、外部の代理が loopback の閲覧専用ポートへ転送する)|
-|DB|SQLite|
+|DB|使わない(インデックスはインメモリ)|
 |キャッシュ|再生成可能|
 |レスポンス|**5,000アセット規模**で一覧・検索1秒以内|
 |バックアップ|sourceディレクトリのみで復元可能(タグを含む)|
-|データ保全|sourceを唯一の正しいデータとし、cacheとDBは再構築可能とする|
+|データ保全|sourceを唯一の正しいデータとし、cacheとインデックスは再構築可能とする|
 
 ### Blender バージョンの注意
 
@@ -432,7 +428,7 @@ cache/
 - **source** が唯一の正しいデータ(Source of Truth)。タグを含むユーザーデータもここ(meta.json)に置く
 - アプリが source に書き込む経路は**新規作成とタグ編集の2つだけ**。スキャンは読み取り専用
 - **cache** はいつでも削除・再生成可能
-- **SQLite** は検索・高速表示のためのインデックス。ユーザーデータは持たず、いつでも再構築可能
+- **インデックス** は検索・高速表示のためにメモリ上に持つ。ユーザーデータは持たず、起動時スキャンで毎回作り直す
 - **GLB** はThree.js表示用のキャッシュデータ
 - **Blender** は編集専用
 - **Three.js** は閲覧専用
