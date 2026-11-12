@@ -73,7 +73,7 @@ func (s *Server) StartupScan() (int, error) {
 	return n, err
 }
 
-// CloseLibrary はジョブキューを止め、インデックス DB を閉じる
+// CloseLibrary はジョブキューを止め、インデックスを捨てる
 // (終了時・テスト用)。
 func (s *Server) CloseLibrary() {
 	s.queue.Stop()

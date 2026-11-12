@@ -345,3 +345,19 @@ func TestAssetsAndScanWrongMethodReturns405(t *testing.T) {
 		}
 	}
 }
+
+// インデックスはメモリ上にしか無いため、ライブラリを初めて開いた時点で
+// スキャン済みでなければならない(明示の再スキャン前でも一覧が空にならない)。
+func TestListWithoutExplicitScanShowsAssets(t *testing.T) {
+	srv, libDir := newLibraryServer(t)
+	addAsset(t, libDir, "Props", "Chair", true)
+
+	assets := listAssets(t, srv)
+	if len(assets) != 1 || assets[0].Title != "Chair" {
+		t.Fatalf("assets = %+v, want Chair", assets)
+	}
+	// 2 回目のスキャンも件数を正しく返す
+	if n := rescan(t, srv); n != 1 {
+		t.Fatalf("rescan count = %d, want 1", n)
+	}
+}

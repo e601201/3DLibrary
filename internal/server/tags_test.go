@@ -50,11 +50,8 @@ func TestTagsSurviveIndexRebuild(t *testing.T) {
 	rescan(t, srv)
 	doRequest(t, srv, http.MethodPut, "/api/assets/Props/Chair/tags", `{"tags":["wood"]}`)
 
-	// インデックスを消して再スキャン → meta.json から復元される
+	// インデックスを捨てて再スキャン → meta.json から復元される
 	srv.CloseLibrary()
-	if err := os.Remove(filepath.Join(libDir, "database.db")); err != nil {
-		t.Fatal(err)
-	}
 	rescan(t, srv)
 	assets := listAssets(t, srv)
 	if len(assets) != 1 || len(assets[0].Tags) != 1 || assets[0].Tags[0].Name != "wood" {

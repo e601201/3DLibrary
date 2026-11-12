@@ -16,7 +16,6 @@ Go の HTTP サーバーに React の画面を埋め込んだ単一バイナリ�
 
 | 領域 | ライブラリ |
 |------|-----------|
-| バックエンド | GORM 1 / glebarez/sqlite 1(pure-Go の SQLite。CGO 不要) |
 | フロントエンド | React 19 / three.js 0.186 / Tailwind CSS 4 |
 | ビルド | Vite 8 / TypeScript 7 |
 

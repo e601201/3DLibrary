@@ -2,19 +2,13 @@ package index
 
 import (
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 )
 
 func openTest(t *testing.T) *Index {
 	t.Helper()
-	idx, err := Open(filepath.Join(t.TempDir(), "database.db"))
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { idx.Close() })
-	return idx
+	return New()
 }
 
 func TestReplaceAllAndList(t *testing.T) {
