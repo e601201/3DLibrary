@@ -55,6 +55,7 @@ func New(static fs.FS, store *config.Store) *Server {
 	mux.HandleFunc("/api/thumbnails/", cacheFileHandler(lib, "/api/thumbnails/", "thumbnails"))
 	mux.HandleFunc("/api/glb/", cacheFileHandler(lib, "/api/glb/", "glb"))
 	mux.HandleFunc("/api/sprites/", cacheFileHandler(lib, "/api/sprites/", "sprites"))
+	mux.HandleFunc("/api/usdz/", cacheFileHandler(lib, "/api/usdz/", "usdz"))
 	mux.HandleFunc("/api/extracted-metadata/", cacheFileHandler(lib, "/api/extracted-metadata/", "metadata"))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not_found", "no such API endpoint")

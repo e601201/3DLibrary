@@ -21,12 +21,12 @@ import (
 //     に一本化している(キャッシュの掃除が同じ規則で生死を判定できるように)
 //   - アセットより深い階層はアセットの私有物で関知しない
 //   - model.blend を持たないアセットは不完全アセットとして返す
-//   - キャッシュ(GLB・サムネイル・スプライト・抽出メタデータの
+//   - キャッシュ(GLB・サムネイル・スプライト・USDZ・抽出メタデータの
 //     ポリゴン数)があれば表示用として取り込む(requirements.md §7 スキャン)
 //   - meta.json のタグをインデックスへ射影する
 //   - 陳腐化判定: model.blend の mtime > キャッシュの mtime、
 //     サムネイルの実サイズが thumbnailSize と不一致、または
-//     生成済みアセットのスプライトが欠落していれば IsStale
+//     生成済みアセットのスプライトか USDZ が欠落していれば IsStale
 //
 // thumbnailSize は設定値(0 ならサイズ照合をしない)。
 func Scan(libDir string, thumbnailSize int) ([]index.Asset, error) {
@@ -127,6 +127,13 @@ func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 	// ないので対象外にする。
 	if takeCache(paths.Sprite) {
 		asset.SpritePath = &paths.Sprite
+	} else if generated {
+		asset.IsStale = true
+	}
+	// USDZ もスプライトと同じ理由で欠落を要更新とする(ADR-0008)。
+	// 導入前に生成したアセットは、一括生成(不足分のみ)で埋まる。
+	if takeCache(paths.Usdz) {
+		asset.UsdzPath = &paths.Usdz
 	} else if generated {
 		asset.IsStale = true
 	}

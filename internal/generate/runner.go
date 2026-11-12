@@ -25,7 +25,7 @@ const jobTimeout = 10 * time.Minute
 var generateScript []byte
 
 // Runner は Blender CLI を 1 回起動して GLB・サムネイル・抽出メタデータ・
-// スプライトの 4 点を書き出す(ADR-0003)。設定(Blender パス・サムネイル
+// スプライト・USDZ の 5 点を書き出す(ADR-0003・ADR-0008)。設定(Blender パス・サムネイル
 // サイズ)は実行時に読む。
 type Runner struct {
 	store *config.Store
@@ -35,8 +35,8 @@ func NewRunner(store *config.Store) *Runner {
 	return &Runner{store: store}
 }
 
-// Run は job のキャッシュ 4 点を生成する。source には一切書き込まない。
-// 4 点が揃わなければ失敗(全か無か。ADR-0003)。
+// Run は job のキャッシュ 5 点を生成する。source には一切書き込まない。
+// 5 点が揃わなければ失敗(全か無か。ADR-0003)。
 func (r *Runner) Run(job Job) error {
 	cfg, err := r.store.Load()
 	if err != nil {
@@ -70,6 +70,7 @@ func (r *Runner) Run(job Job) error {
 		"--thumb", paths.Thumbnail,
 		"--meta", paths.Metadata,
 		"--sprite", paths.Sprite,
+		"--usdz", paths.Usdz,
 		"--size", strconv.Itoa(cfg.ThumbnailSize),
 	)
 	out, err := cmd.CombinedOutput()

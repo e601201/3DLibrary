@@ -154,6 +154,9 @@ func TestScanPicksUpCache(t *testing.T) {
 	if err := os.WriteFile(paths.Sprite, []byte("webp"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(paths.Usdz, []byte("usdz"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	assets, err := Scan(lib, 0)
 	if err != nil {
@@ -171,11 +174,14 @@ func TestScanPicksUpCache(t *testing.T) {
 			if a.SpritePath == nil || *a.SpritePath != paths.Sprite {
 				t.Errorf("SpritePath = %v", a.SpritePath)
 			}
+			if a.UsdzPath == nil || *a.UsdzPath != paths.Usdz {
+				t.Errorf("UsdzPath = %v", a.UsdzPath)
+			}
 			if a.PolygonCount == nil || *a.PolygonCount != 1234 {
 				t.Errorf("PolygonCount = %v", a.PolygonCount)
 			}
 		case "Hero":
-			if a.ThumbnailPath != nil || a.GlbPath != nil || a.SpritePath != nil || a.PolygonCount != nil {
+			if a.ThumbnailPath != nil || a.GlbPath != nil || a.SpritePath != nil || a.UsdzPath != nil || a.PolygonCount != nil {
 				t.Errorf("Hero should have no cache: %+v", a)
 			}
 		}
@@ -208,6 +214,38 @@ func TestScanTreatsMissingSpriteAsStale(t *testing.T) {
 			}
 		case "Hero":
 			// 一度も生成していないアセットは「未生成」であって陳腐化ではない
+			if a.IsStale {
+				t.Error("never-generated asset must not be stale")
+			}
+		}
+	}
+}
+
+// TestScanTreatsMissingUsdzAsStale は USDZ 導入前に生成したアセット
+// (他の 4 点だけが揃っている)が要更新として見えることを確かめる(ADR-0008)。
+func TestScanTreatsMissingUsdzAsStale(t *testing.T) {
+	lib := buildSource(t)
+	blend := filepath.Join(lib, "source", "Props", "Wooden Chair", "model.blend")
+	blendInfo, _ := os.Stat(blend)
+	paths := writeCache(t, lib, blendInfo.ModTime().Add(time.Hour))
+	if err := os.Remove(paths.Usdz); err != nil {
+		t.Fatal(err)
+	}
+
+	assets, err := Scan(lib, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range assets {
+		switch a.Title {
+		case "Wooden Chair":
+			if a.UsdzPath != nil {
+				t.Errorf("UsdzPath = %v, want nil", a.UsdzPath)
+			}
+			if !a.IsStale {
+				t.Error("missing USDZ should be stale")
+			}
+		case "Hero":
 			if a.IsStale {
 				t.Error("never-generated asset must not be stale")
 			}

@@ -61,6 +61,7 @@ type listedAsset struct {
 	HasThumbnail bool        `json:"hasThumbnail"`
 	HasGlb       bool        `json:"hasGlb"`
 	HasSprite    bool        `json:"hasSprite"`
+	HasUsdz      bool        `json:"hasUsdz"`
 }
 
 func listAssets(t *testing.T, srv http.Handler) []listedAsset {
@@ -169,7 +170,7 @@ func TestRescanReflectsFilesystemChanges(t *testing.T) {
 	}
 }
 
-// seedCache はアセットのキャッシュ 4 点を作る。
+// seedCache はアセットのキャッシュ 5 点を作る。
 func seedCache(t *testing.T, libDir, category, title string) library.CacheSet {
 	t.Helper()
 	paths := library.CachePaths(libDir, category, title)
@@ -204,7 +205,7 @@ func TestRescanRemovesOrphanCache(t *testing.T) {
 	rescan(t, srv)
 
 	// 消えたカテゴリはキャッシュもディレクトリごと消える
-	for _, sub := range []string{"glb", "thumbnails", "metadata", "sprites"} {
+	for _, sub := range []string{"glb", "thumbnails", "metadata", "sprites", "usdz"} {
 		if _, err := os.Stat(filepath.Join(libDir, "cache", sub, "Characters")); !os.IsNotExist(err) {
 			t.Errorf("cache/%s/Characters should be removed: %v", sub, err)
 		}

@@ -11,15 +11,16 @@ import (
 	"github.com/e601201/3DLibrary/internal/library"
 )
 
-// fakeBlender は generate.py と同じ引数規約で 4 点を書き出すダミー実行ファイル。
+// fakeBlender は generate.py と同じ引数規約で 5 点を書き出すダミー実行ファイル。
 const fakeBlender = `#!/bin/sh
-# 引数から --glb/--thumb/--meta/--sprite を拾って書き出す
+# 引数から --glb/--thumb/--meta/--sprite/--usdz を拾って書き出す
 while [ $# -gt 0 ]; do
   case "$1" in
     --glb) GLB="$2"; shift 2 ;;
     --thumb) THUMB="$2"; shift 2 ;;
     --meta) META="$2"; shift 2 ;;
     --sprite) SPRITE="$2"; shift 2 ;;
+    --usdz) USDZ="$2"; shift 2 ;;
     --size) SIZE="$2"; shift 2 ;;
     *) shift ;;
   esac
@@ -27,10 +28,11 @@ done
 echo "glb" > "$GLB"
 echo "png" > "$THUMB"
 echo "webp" > "$SPRITE"
+echo "usdz" > "$USDZ"
 echo '{"objectCount":1,"collectionCount":1,"materialCount":0,"polygonCount":6,"textureCount":0,"hasAnimation":false}' > "$META"
 `
 
-// noSpriteBlender は 4 点のうちスプライトだけ書き出さない(全か無かの検証用)。
+// noSpriteBlender は 5 点のうちスプライトと USDZ を書き出さない(全か無かの検証用)。
 const noSpriteBlender = `#!/bin/sh
 while [ $# -gt 0 ]; do
   case "$1" in

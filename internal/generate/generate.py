@@ -1,9 +1,9 @@
 # 3DLibrary 生成スクリプト。
-# 1 回の Blender 起動で GLB・サムネイル・抽出メタデータ・スプライトの
-# 4 点を書き出す(requirements.md §7 生成、ADR-0003)。呼び出し:
+# 1 回の Blender 起動で GLB・サムネイル・抽出メタデータ・スプライト・USDZ の
+# 5 点を書き出す(requirements.md §7 生成、ADR-0003・ADR-0008)。呼び出し:
 #   blender -b <model.blend> --factory-startup --python generate.py -- \
 #     --glb <out.glb> --thumb <out.png> --meta <out.json> \
-#     --sprite <out.webp> --size <px>
+#     --sprite <out.webp> --usdz <out.usdz> --size <px>
 import json
 import math
 import os
@@ -15,6 +15,7 @@ import tempfile
 import bpy
 import mathutils
 import numpy
+from pxr import Gf, Usd, UsdGeom
 
 # Blender の Material Preview が既定で使うスタジオライト。同じ HDRI を
 # world に組むことでビューポートの見た目をヘッドレスで再現する
@@ -425,6 +426,80 @@ def render_sprite(path, cam, center, radius):
     save_webp(sheet, path)
 
 
+# AR 表示用 USDZ のテクスチャ上限。AR Quick Look は端末のメモリで
+# 読めるテクスチャの総量に限りがあるため、大きすぎるものは縮める。
+USDZ_TEXTURE_SIZE = "2048"
+
+
+class GroundOnExport(bpy.types.USDHook):
+    """書き出した USD ステージ全体を、最も低い点が Y=0(上方向の 0)に
+    接するよう平行移動する(CONTEXT.md「AR 表示」)。AR Quick Look は
+    原点を置いた面に合わせるため、原点が腰にあるアセットでも床に
+    埋まらないようにする。大きさは変えない(実寸)。測るのは書き出し後の
+    ステージなので、軸変換・モディファイアー適用の結果そのものに効く。"""
+
+    bl_idname = "threedlibrary_ground"
+    bl_label = "3DLibrary ground"
+
+    @staticmethod
+    def on_export(export_context):
+        stage = export_context.get_stage()
+        root = stage.GetDefaultPrim()
+        if not root or not root.IsA(UsdGeom.Xformable):
+            print("3dlibrary: usdz: no xformable default prim, not grounded")
+            return True
+        cache = UsdGeom.BBoxCache(
+            Usd.TimeCode.Default(), [UsdGeom.Tokens.default_, UsdGeom.Tokens.render]
+        )
+        box = cache.ComputeWorldBound(root).ComputeAlignedRange()
+        if box.IsEmpty():
+            return True
+        axis = 1 if UsdGeom.GetStageUpAxis(stage) == UsdGeom.Tokens.y else 2
+        lowest = box.GetMin()[axis]
+        if lowest == 0:
+            return True
+        offset = [0.0, 0.0, 0.0]
+        offset[axis] = -lowest
+        # 既存の変換(軸変換の回転など)より外側に置き、ワールドで動かす
+        xform = UsdGeom.Xformable(root)
+        existing = xform.GetOrderedXformOps()
+        ground = xform.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble, "ground")
+        ground.Set(Gf.Vec3d(*offset))
+        xform.SetXformOpOrder([ground] + existing)
+        return True
+
+
+def export_usdz(path):
+    """AR 表示用の USDZ を書き出す(ADR-0008)。静止ポーズ(現在のフレームの
+    評価結果)で、骨・シェイプキー・クリップは書き出さず形に焼き込む。
+    1 単位 = 1m(実寸)、Y-up に変換し、最も低い点を接地させる。
+    GLB と同じく、レンダー無効のオブジェクトは外れる。"""
+    bpy.utils.register_class(GroundOnExport)
+    try:
+        bpy.ops.wm.usd_export(
+            filepath=path,
+            check_existing=False,
+            evaluation_mode="RENDER",
+            export_animation=False,
+            export_armatures=False,
+            export_shapekeys=False,
+            export_lights=False,
+            export_cameras=False,
+            export_hair=False,
+            export_volumes=False,
+            export_subdivision="TESSELLATE",
+            convert_world_material=False,
+            generate_preview_surface=True,
+            convert_orientation=True,
+            export_global_forward_selection="NEGATIVE_Z",
+            export_global_up_selection="Y",
+            convert_scene_units="METERS",
+            usdz_downscale_size=USDZ_TEXTURE_SIZE,
+        )
+    finally:
+        bpy.utils.unregister_class(GroundOnExport)
+
+
 def main():
     args = parse_args()
     meta = extract_metadata()
@@ -454,6 +529,8 @@ def main():
     # オブジェクト数・ポリゴン数・シェイプキー数は書き出した GLB から数える
     # (モディファイアー適用後の実体。ADR-0006)
     meta.update(glb_counts(args["glb"]))
+    # USDZ は GLB と同じ評価結果から、撮影用のカメラ等を足す前に書き出す
+    export_usdz(args["usdz"])
 
     cam = frame_camera(scene, center, radius)
     meta["thumbnailShading"] = render_thumbnail(args["thumb"], int(args["size"]), not missing)
