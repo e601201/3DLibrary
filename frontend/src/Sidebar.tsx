@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import {
   Armchair,
-  Box,
   Car,
   Folder,
   LayoutGrid,
@@ -140,9 +139,7 @@ export default function Sidebar({
   return (
     <aside className="flex w-64 shrink-0 flex-col gap-5 border-r border-border bg-surface px-4 py-5">
       <div className="flex items-center gap-2.5 px-1">
-        <div className="flex size-7 shrink-0 items-center justify-center bg-accent">
-          <Box size={16} className="text-white" />
-        </div>
+        <img src="/favicon.svg" alt="" className="size-7 shrink-0" />
         <div className="flex min-w-0 flex-col gap-0.5">
           <p className="font-heading text-[15px] leading-none font-bold tracking-[0.5px] text-ink">
             3D LIBRARY
