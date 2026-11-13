@@ -91,6 +91,9 @@ func attachCache(asset *index.Asset, libDir string, thumbnailSize int) {
 		if info.ModTime().Before(asset.UpdatedAt) {
 			asset.IsStale = true
 		}
+		if v := info.ModTime().UnixMilli(); v > asset.CacheVersion {
+			asset.CacheVersion = v
+		}
 		return true
 	}
 

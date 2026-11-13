@@ -142,7 +142,7 @@ export default function AssetDetail({
   // ファイルビューアはスマホ対応の対象外なので、狭い画面では常にビューワを出す
   const view: View = narrow ? 'preview' : selectedView;
 
-  // asset.id は再スキャンごとに変わるので、生成完了後に自動で取り直される
+  // cacheVersion は再生成で変わるので、生成完了後に自動で取り直される
   useEffect(() => {
     let cancelled = false;
     setLoadError(null);
@@ -164,7 +164,7 @@ export default function AssetDetail({
     return () => {
       cancelled = true;
     };
-  }, [asset.id, asset.category, asset.title]);
+  }, [asset.id, asset.cacheVersion, asset.category, asset.title]);
 
   const handleOpenBlender = async () => {
     setActionError(null);

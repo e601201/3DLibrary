@@ -439,3 +439,42 @@ func snapshot(t *testing.T, root string) map[string]time.Time {
 	}
 	return files
 }
+
+// 再生成でキャッシュが書き直されると CacheVersion が変わる(詳細画面と
+// 一覧は配信 URL の ?v= にこれを使い、古い GLB・サムネイルを避ける)
+func TestScanCacheVersionChangesOnRegeneration(t *testing.T) {
+	lib := buildSource(t)
+	blend := filepath.Join(lib, "source", "Props", "Wooden Chair", "model.blend")
+	blendInfo, _ := os.Stat(blend)
+
+	versionOf := func(title string) int64 {
+		t.Helper()
+		assets, err := Scan(lib, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, a := range assets {
+			if a.Title == title {
+				return a.CacheVersion
+			}
+		}
+		t.Fatalf("asset %q not found", title)
+		return 0
+	}
+
+	if v := versionOf("Hero"); v != 0 {
+		t.Errorf("never-generated asset CacheVersion = %d, want 0", v)
+	}
+
+	first := blendInfo.ModTime().Add(time.Hour)
+	writeCache(t, lib, first)
+	if v := versionOf("Wooden Chair"); v != first.UnixMilli() {
+		t.Errorf("CacheVersion = %d, want %d", v, first.UnixMilli())
+	}
+
+	second := first.Add(time.Minute)
+	writeCache(t, lib, second)
+	if v := versionOf("Wooden Chair"); v != second.UnixMilli() {
+		t.Errorf("after regeneration CacheVersion = %d, want %d", v, second.UnixMilli())
+	}
+}
