@@ -61,6 +61,9 @@ export interface Asset {
   hasSprite: boolean;
   // AR 表示用の USDZ(ADR-0008)
   hasUsdz: boolean;
+  // キャッシュ成果物の最新 mtime(未生成なら 0)。再生成で必ず変わるので
+  // 配信 URL の ?v= に使う(id は一覧内の位置で、再生成では変わらない)
+  cacheVersion: number;
   polygonCount: number | null;
   size: number;
   isIncomplete: boolean;
@@ -134,30 +137,30 @@ export function postJob(ref: JobRef): Promise<JobStatus> {
   });
 }
 
-// サムネイルの配信 URL。?v= は再スキャンごとに変わる id で、
+// サムネイルの配信 URL。?v= は再生成で変わる cacheVersion で、
 // 再生成後にブラウザキャッシュへ残った古い画像を避けるため
 export function thumbnailUrl(asset: Asset): string | null {
   if (!asset.hasThumbnail) return null;
-  return `/api/thumbnails/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.png?v=${asset.id}`;
+  return `/api/thumbnails/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.png?v=${asset.cacheVersion}`;
 }
 
 // スプライト(全周レンダリングのシート)の配信 URL(未生成なら null)。
 // 一覧のホバースクラブが使う。?v= の意図はサムネイルと同じ
 export function spriteUrl(asset: Asset): string | null {
   if (!asset.hasSprite) return null;
-  return `/api/sprites/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.webp?v=${asset.id}`;
+  return `/api/sprites/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.webp?v=${asset.cacheVersion}`;
 }
 
 // GLB キャッシュの配信 URL(未生成なら null)
 export function glbUrl(asset: Asset): string | null {
   if (!asset.hasGlb) return null;
-  return `/api/glb/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.glb?v=${asset.id}`;
+  return `/api/glb/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.glb?v=${asset.cacheVersion}`;
 }
 
 // AR 表示用 USDZ の配信 URL(未生成なら null)。?v= の意図はサムネイルと同じ
 export function usdzUrl(asset: Asset): string | null {
   if (!asset.hasUsdz) return null;
-  return `/api/usdz/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.usdz?v=${asset.id}`;
+  return `/api/usdz/${encodeURIComponent(asset.category)}/${encodeURIComponent(asset.title)}.usdz?v=${asset.cacheVersion}`;
 }
 
 // この端末で AR Quick Look が使えるか(iPhone・iPad の Safari など)。
@@ -207,10 +210,10 @@ export function hasGlbCounts(metadata: ExtractedMetadata | null): boolean {
 // (古い JSON にはフレームレートもシェイプキー数も無く、モーション
 // プレビューが旧キャッシュ扱いに落ちてしまう)
 export async function getExtractedMetadata(asset: Asset): Promise<ExtractedMetadata | null> {
-  const { category, title, id } = asset;
+  const { category, title, cacheVersion } = asset;
   try {
     return await request(
-      `/api/extracted-metadata/${encodeURIComponent(category)}/${encodeURIComponent(title)}.json?v=${id}`,
+      `/api/extracted-metadata/${encodeURIComponent(category)}/${encodeURIComponent(title)}.json?v=${cacheVersion}`,
     );
   } catch (err) {
     if (err instanceof ApiError && err.code === 'not_found') return null;

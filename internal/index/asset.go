@@ -35,8 +35,12 @@ type Asset struct {
 	// SpritePath は全周スプライト(ADR-0003)。未生成なら nil。
 	SpritePath *string `json:"spritePath"`
 	// UsdzPath は AR 表示用の USDZ(ADR-0008)。未生成なら nil。
-	UsdzPath     *string `json:"usdzPath"`
-	PolygonCount *int    `json:"polygonCount"`
+	UsdzPath *string `json:"usdzPath"`
+	// CacheVersion はキャッシュ成果物のうち最も新しい mtime(Unix ミリ秒)。
+	// 未生成なら 0。再生成で必ず変わるので、配信 URL のキャッシュ破り
+	// (?v=)に使う。ID は位置で振られ再生成では変わらないため使えない。
+	CacheVersion int64 `json:"cacheVersion"`
+	PolygonCount *int  `json:"polygonCount"`
 	// Size は model.blend のバイト数。不完全アセットでは 0。
 	Size         int64 `json:"size"`
 	IsIncomplete bool  `json:"isIncomplete"`

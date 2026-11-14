@@ -68,6 +68,8 @@ type assetResponse struct {
 	HasGlb       bool `json:"hasGlb"`
 	HasSprite    bool `json:"hasSprite"`
 	HasUsdz      bool `json:"hasUsdz"`
+	// CacheVersion はキャッシュ配信 URL の ?v=(index.Asset.CacheVersion)
+	CacheVersion int64 `json:"cacheVersion"`
 }
 
 func newAssetResponse(a index.Asset) assetResponse {
@@ -87,6 +89,7 @@ func newAssetResponse(a index.Asset) assetResponse {
 		HasGlb:       a.GlbPath != nil,
 		HasSprite:    a.SpritePath != nil,
 		HasUsdz:      a.UsdzPath != nil,
+		CacheVersion: a.CacheVersion,
 	}
 }
 
